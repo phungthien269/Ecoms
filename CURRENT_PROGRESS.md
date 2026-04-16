@@ -12,9 +12,9 @@ Extend the verified foundation into real Phase 1 domain modules and keep the rem
 Project requirements remain stable.
 Initial implementation has started.
 The repository now has a runnable monorepo foundation with verified `build`, `lint`, and `typecheck`.
-The baseline now includes auth/RBAC, Prisma migration + seed, public/admin category APIs, public/admin brand APIs, seller/admin shop APIs, product CRUD, product variants, publish-status guardrails, storefront catalog/search UX, cart backend, and a first checkout/order foundation with tests.
+The baseline now includes auth/RBAC, Prisma migration + seed, public/admin category APIs, public/admin brand APIs, seller/admin shop APIs, product CRUD, product variants, publish-status guardrails, storefront catalog/search UX, cart backend, checkout/order foundation, and mock payment/order actions with tests.
 The repository has been pushed to GitHub and is ready for continued incremental delivery.
-The immediate next step is to extend payment/order lifecycle flows on top of the new checkout slice, while seller-facing web management remains queued behind core commerce completion.
+The immediate next step is to build web checkout and order-history surfaces on top of the now-runnable backend commerce APIs.
 
 ## 4. Completed Items
 - Read required skill pack from `.claude/skills/everything-claude-code`
@@ -145,17 +145,24 @@ The immediate next step is to extend payment/order lifecycle flows on top of the
   - local PostgreSQL `ecoms` database was created, migrations applied, and demo seed/product data inserted
 - Extended API test coverage again:
   - `CheckoutService` tests for preview totals, empty-cart rejection, and COD order placement
+- Added payment/order lifecycle follow-up APIs:
+  - mock payment confirmation endpoint for pending online/bank-transfer payments
+  - customer cancel endpoint for pre-shipping orders
+  - customer complete endpoint for delivered orders
+- Extended API test coverage further:
+  - `PaymentsService` tests for online confirmation and COD rejection
+  - `OrdersService` tests for cancel and complete transitions
 
 ## 5. In Progress Items
 - No half-finished code pending in the current slice
-- Next implementation target is payment flow completion and order lifecycle follow-up APIs
+- Next implementation target is web checkout and order history UI
 
 ## 6. Next Exact Tasks
-1. Add payment callback / mock payment confirmation flows for pending online orders
-2. Add richer order status transition APIs for buyer and seller actions
-3. Extend backend test coverage to categories, shops, and order/payment flows
-4. Add web checkout and order history UI on top of the new APIs
-5. Add seller-facing web management UI after core commerce backend is in place
+1. Add web checkout page that calls preview/place-order flows
+2. Add basic order history/detail pages on the customer side
+3. Add cart UI that connects to the new cart APIs
+4. Extend seller/admin order status transition APIs
+5. Add seller-facing web management UI after core commerce frontend is in place
 6. Restore Docker Desktop daemon access and run live DB validation later
 
 ## 7. Blockers / Open Questions
@@ -243,6 +250,10 @@ The immediate next step is to extend payment/order lifecycle flows on top of the
 - Created local PostgreSQL database `ecoms`
 - Applied Prisma migrations locally with `npx prisma migrate deploy --schema prisma\\schema.prisma`
 - Seeded local demo users/shops/categories/brands and inserted a demo product/variant dataset
+- Added payment/order action APIs and tests
+- Re-ran `npm run test --workspace @ecoms/api` after payment/order action tests
+- Re-ran `npm run typecheck` after payment/order action implementation
+- Re-ran `npm run build` after payment/order action implementation
 
 ## 10. Tests Run + Result
 - `npm run prisma:generate` ✅
@@ -260,6 +271,8 @@ The immediate next step is to extend payment/order lifecycle flows on top of the
 - `CartService` unit tests added and passing ✅
 - Checkout/order backend slice compile verification completed ✅
 - `CheckoutService` unit tests added and passing ✅
+- Payment confirmation and customer order-action slice compile verification completed ✅
+- `PaymentsService` and `OrdersService` unit tests added and passing ✅
 - Local runtime verification completed against a live PostgreSQL instance without Docker ✅
 - Broader integration/runtime business-flow tests are still pending
 
@@ -272,6 +285,7 @@ The immediate next step is to extend payment/order lifecycle flows on top of the
 - Storefront pages currently render soft-empty states if the API is unreachable; this is intentional to keep frontend progress unblocked before runtime wiring is restored
 - Jest currently uses a local test-only mapper for `@ecoms/contracts` inside `apps/api` specs to avoid ESM alias friction in the current monorepo setup; this should be revisited when shared package test tooling is standardized
 - Checkout currently supports COD, bank transfer, and online gateway as payment method values, but only COD is treated as immediately paid while non-COD flows remain mock-pending
+- Payment confirmation is still a mock customer-triggered endpoint, not a real gateway callback yet
 - Docker Desktop remains unavailable in this session, but local PostgreSQL service was sufficient for live verification so containerized runtime parity is still pending
 
 ## 12. Assumptions Made This Session
@@ -294,7 +308,8 @@ The immediate next step is to extend payment/order lifecycle flows on top of the
 - API unit tests use direct service instantiation with mocked Prisma/JWT dependencies instead of Nest testing modules to keep the first test slice fast and focused on business rules
 - Cart is modeled as direct user-owned `CartItem` rows instead of a separate `Cart` aggregate table to keep phase-1 checkout flows simple while preserving multi-shop grouping in service logic
 - Checkout snapshots shipping address directly onto each order and splits a multi-shop cart into one order per shop to match marketplace behavior with minimal phase-1 complexity
+- Non-COD payments remain pending until a mock confirmation endpoint is called, which is sufficient for phase-1 integration scaffolding before real gateway callbacks
 
 ## 13. Handoff Note for Next Session
 The repo is already pushed to GitHub and the current API slice compiles cleanly.
-Resume from payment confirmation and order lifecycle APIs, not from scaffolding, auth basics, storefront filters, or existing cart/checkout/order groundwork.
+Resume from web checkout/order/cart UI on top of the current backend commerce APIs, not from scaffolding, auth basics, or backend cart/checkout/order/payment groundwork.

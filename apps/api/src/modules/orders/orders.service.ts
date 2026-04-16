@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { OrderStatus } from "@ecoms/contracts";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
@@ -125,6 +126,64 @@ export class OrdersService {
         paidAt: payment.paidAt?.toISOString() ?? null,
         metadata: payment.metadata
       }))
+    };
+  }
+
+  async cancel(userId: string, orderId: string) {
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        userId
+      }
+    });
+
+    if (!order) {
+      throw new NotFoundException("Order not found");
+    }
+
+    if ([OrderStatus.SHIPPING, OrderStatus.DELIVERED, OrderStatus.COMPLETED].includes(order.status as OrderStatus)) {
+      throw new ConflictException("Orders can only be cancelled before shipping starts");
+    }
+
+    const updated = await this.prisma.order.update({
+      where: { id: order.id },
+      data: {
+        status: OrderStatus.CANCELLED
+      }
+    });
+
+    return {
+      id: updated.id,
+      status: updated.status
+    };
+  }
+
+  async complete(userId: string, orderId: string) {
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        userId
+      }
+    });
+
+    if (!order) {
+      throw new NotFoundException("Order not found");
+    }
+
+    if (order.status !== OrderStatus.DELIVERED) {
+      throw new ConflictException("Only delivered orders can be marked complete");
+    }
+
+    const updated = await this.prisma.order.update({
+      where: { id: order.id },
+      data: {
+        status: OrderStatus.COMPLETED
+      }
+    });
+
+    return {
+      id: updated.id,
+      status: updated.status
     };
   }
 }
