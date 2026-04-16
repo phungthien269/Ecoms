@@ -1,5 +1,10 @@
-import { HeroShell } from "@/components/layout/heroShell";
+import { StorefrontShell } from "@/components/layout/storefrontShell";
+import { getCategoryTree, getProducts } from "@/lib/storefrontApi";
 
-export default function HomePage() {
-  return <HeroShell />;
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  const [categories, products] = await Promise.all([getCategoryTree(), getProducts()]);
+
+  return <StorefrontShell categories={categories} products={products.items} />;
 }

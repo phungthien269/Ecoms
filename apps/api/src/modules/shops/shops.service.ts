@@ -14,6 +14,70 @@ import { UpdateShopStatusDto } from "./dto/update-shop-status.dto";
 export class ShopsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async getPublicShop(shopIdOrSlug: string) {
+    const shop = await this.prisma.shop.findFirst({
+      where: {
+        deletedAt: null,
+        status: ShopStatus.ACTIVE,
+        OR: [{ id: shopIdOrSlug }, { slug: shopIdOrSlug }]
+      },
+      include: {
+        owner: {
+          select: {
+            id: true,
+            fullName: true
+          }
+        },
+        products: {
+          where: {
+            deletedAt: null
+          },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            salePrice: true,
+            originalPrice: true,
+            status: true,
+            soldCount: true,
+            ratingAverage: true,
+            images: {
+              orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+              take: 1
+            }
+          },
+          orderBy: [{ createdAt: "desc" }],
+          take: 24
+        }
+      }
+    });
+
+    if (!shop) {
+      throw new NotFoundException("Shop not found");
+    }
+
+    return {
+      id: shop.id,
+      name: shop.name,
+      slug: shop.slug,
+      description: shop.description,
+      logoUrl: shop.logoUrl,
+      bannerUrl: shop.bannerUrl,
+      owner: shop.owner,
+      products: shop.products.map((product) => ({
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+        salePrice: product.salePrice.toString(),
+        originalPrice: product.originalPrice.toString(),
+        status: product.status,
+        soldCount: product.soldCount,
+        ratingAverage: product.ratingAverage.toString(),
+        imageUrl: product.images[0]?.url ?? null
+      }))
+    };
+  }
+
   async listAdmin() {
     return this.prisma.shop.findMany({
       include: {

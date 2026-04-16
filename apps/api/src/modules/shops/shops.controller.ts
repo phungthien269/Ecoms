@@ -46,4 +46,9 @@ export class ShopsController {
   updateStatus(@Param("shopId") shopId: string, @Body() payload: UpdateShopStatusDto) {
     return this.shopsService.updateStatus(shopId, payload);
   }
+
+  @Get(":shopIdOrSlug")
+  getPublicShop(@Param("shopIdOrSlug") shopIdOrSlug: string) {
+    return this.shopsService.getPublicShop(shopIdOrSlug);
+  }
 }

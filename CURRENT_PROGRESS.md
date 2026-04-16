@@ -12,9 +12,9 @@ Extend the verified foundation into real Phase 1 domain modules and keep the rem
 Project requirements remain stable.
 Initial implementation has started.
 The repository now has a runnable monorepo foundation with verified `build`, `lint`, and `typecheck`.
-The baseline now includes auth/RBAC, Prisma migration + seed, public/admin category APIs, public/admin brand APIs, seller/admin shop APIs, product CRUD, product variants, and publish-status guardrails.
+The baseline now includes auth/RBAC, Prisma migration + seed, public/admin category APIs, public/admin brand APIs, seller/admin shop APIs, product CRUD, product variants, publish-status guardrails, and the first storefront pages on Next.js.
 The repository has been pushed to GitHub and is ready for continued incremental delivery.
-The immediate next step is to restore Docker daemon access for live DB verification, then move into integration tests and storefront-facing product/category/shop pages.
+The immediate next step is to add tests and richer storefront/search UX while Docker/runtime validation remains deferred.
 
 ## 4. Completed Items
 - Read required skill pack from `.claude/skills/everything-claude-code`
@@ -108,17 +108,24 @@ The immediate next step is to restore Docker daemon access for live DB verificat
 - Added publish guardrail:
   - only shops with `ACTIVE` status can create or update products into `ACTIVE`
 - Added follow-up migration SQL for `ProductVariant`
+- Added public shop detail endpoint for storefront consumption
+- Implemented storefront web slice:
+  - homepage with category rail and featured product grid
+  - `/products` catalog page
+  - `/products/[slug]` product detail page
+  - `/shops/[slug]` shop page
+  - resilient server-side API client that fails soft when backend is unavailable
 
 ## 5. In Progress Items
 - No half-finished code pending in the current slice
-- Next implementation target is live DB/runtime verification and test coverage for existing commerce foundation
+- Next implementation target is test coverage and richer storefront/search UX
 
 ## 6. Next Exact Tasks
-1. Restore Docker Desktop daemon access and start PostgreSQL/Redis via `docker compose up -d`
-2. Run migration/seed against a live database and validate API runtime
-3. Add integration tests for auth/category/brand/shop/product endpoints
-4. Expand storefront web app from placeholder shell toward category/shop/product pages
-5. Implement product variants UI handling and seller management flows on the web side
+1. Add integration tests for auth/category/brand/shop/product endpoints
+2. Expand storefront with search/filter UI and category-driven discovery
+3. Add seller-facing product management UI on the web side
+4. Add product variant editing UX for sellers
+5. Restore Docker Desktop daemon access and run live DB validation later
 6. Update this file after each meaningful step
 
 ## 7. Blockers / Open Questions
@@ -141,6 +148,9 @@ The immediate next step is to restore Docker daemon access for live DB verificat
 - `prisma/migrations/20260417004500_add_product_variants/migration.sql`
 - `prisma/seed.js`
 - `apps/api/src/modules/products/*`
+- `apps/web/app/*`
+- `apps/web/components/*`
+- `apps/web/lib/*`
 - `CURRENT_PROGRESS.md`
 
 ## 9. Commands Run
@@ -177,6 +187,9 @@ The immediate next step is to restore Docker daemon access for live DB verificat
 - Re-ran `npm run typecheck`
 - Re-ran `npm run lint`
 - Re-ran `npm run build`
+- Re-ran `npm run typecheck` after storefront implementation
+- Re-ran `npm run lint` after storefront implementation
+- Re-ran `npm run build` after storefront implementation
 
 ## 10. Tests Run + Result
 - `npm run prisma:generate` ✅
@@ -186,6 +199,7 @@ The immediate next step is to restore Docker daemon access for live DB verificat
 - Catalog/seller foundation compile verification completed after module additions ✅
 - Product baseline compile verification completed after module additions ✅
 - Product variant and publish-guardrail compile verification completed ✅
+- Storefront web slice compile verification completed ✅
 - No Jest test suite exists yet, so runtime business-flow tests are still pending
 
 ## 11. Bugs / Known Issues
@@ -194,6 +208,7 @@ The immediate next step is to restore Docker daemon access for live DB verificat
 - No database container has been started yet in this session, so auth/category/brand/shop/product endpoints were compile-verified but not exercised against a live PostgreSQL instance
 - `docker compose up -d` currently fails because Docker Desktop Linux engine pipe is unavailable on this machine/session
 - `npm audit` currently reports 20 transitive vulnerabilities from freshly installed dependency trees; triage is pending after core foundations stabilize
+- Storefront pages currently render soft-empty states if the API is unreachable; this is intentional to keep frontend progress unblocked before runtime wiring is restored
 
 ## 12. Assumptions Made This Session
 - Use shadcn/ui + Tailwind as the primary shared UI system
@@ -210,7 +225,8 @@ The immediate next step is to restore Docker daemon access for live DB verificat
 - Product creation currently allows sellers to save `DRAFT` or `ACTIVE` items regardless of shop approval state; approval gating will be tightened in a follow-up slice once seller onboarding rules are encoded explicitly
 - Product publishing is now blocked for non-`ACTIVE` shops, but `DRAFT` saving remains allowed to keep seller onboarding practical before final approval
 - Variant attributes are stored as JSON key-value pairs to keep the first implementation flexible before richer option/value normalization
+- Storefront pages use server-side fetches with short revalidation rather than client-side state libraries for the first slice to keep SEO and implementation velocity high
 
 ## 13. Handoff Note for Next Session
 The repo is already pushed to GitHub and the current API slice compiles cleanly.
-Resume from Docker/runtime recovery and integration tests, not from scaffolding, auth basics, or product CRUD/variant API work.
+Resume from tests and richer storefront/seller UX, not from scaffolding, auth basics, or existing catalog/product API work.
