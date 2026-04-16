@@ -226,6 +226,61 @@ export interface SellerReviewItem {
   };
 }
 
+export interface NotificationsResponse {
+  items: Array<{
+    id: string;
+    category: string;
+    title: string;
+    body: string;
+    linkUrl: string | null;
+    isRead: boolean;
+    readAt: string | null;
+    createdAt: string;
+  }>;
+  unreadCount: number;
+}
+
+export interface ChatConversationItem {
+  id: string;
+  buyer: {
+    id: string;
+    fullName: string;
+    email: string;
+  };
+  shop: {
+    id: string;
+    name: string;
+    slug: string;
+    ownerId: string;
+  };
+  product: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
+  lastMessagePreview: string | null;
+  lastMessageAt: string | null;
+  unreadCount: number;
+}
+
+export interface ChatMessageItem {
+  id: string;
+  conversationId: string;
+  sender: {
+    id: string;
+    fullName: string;
+    role: string;
+  };
+  content: string;
+  imageUrl: string | null;
+  product: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
+  createdAt: string;
+}
+
 export interface AdminDashboardData {
   stats: {
     totalUsers: number;
@@ -573,4 +628,25 @@ export async function getCheckoutPlatformVouchers() {
 
 export async function getCheckoutFreeshipVouchers() {
   return (await requestAuthedJson<VoucherSummary[]>("/vouchers/checkout/freeship")) ?? [];
+}
+
+export async function getNotifications() {
+  return (
+    (await requestAuthedJson<NotificationsResponse>("/notifications")) ?? {
+      items: [],
+      unreadCount: 0
+    }
+  );
+}
+
+export async function getChatConversations() {
+  return (await requestAuthedJson<ChatConversationItem[]>("/chat/conversations")) ?? [];
+}
+
+export async function getChatMessages(conversationId: string) {
+  return (
+    (await requestAuthedJson<ChatMessageItem[]>(
+      `/chat/conversations/${conversationId}/messages`
+    )) ?? []
+  );
 }

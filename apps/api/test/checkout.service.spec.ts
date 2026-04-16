@@ -79,8 +79,15 @@ describe("CheckoutService", () => {
     findActiveVoucherByCode: jest.fn(),
     assertVoucherUsageAllowed: jest.fn()
   };
+  const notificationsService = {
+    create: jest.fn()
+  };
 
-  const service = new CheckoutService(prisma as never, vouchersService as never);
+  const service = new CheckoutService(
+    prisma as never,
+    vouchersService as never,
+    notificationsService as never
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -175,6 +182,7 @@ describe("CheckoutService", () => {
     expect(prisma.cartItem.deleteMany).toHaveBeenCalledWith({
       where: { userId: "user-1" }
     });
+    expect(notificationsService.create).toHaveBeenCalled();
     expect(result.orders[0]?.status).toBe("CONFIRMED");
   });
 

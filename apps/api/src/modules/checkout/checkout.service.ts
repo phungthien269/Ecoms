@@ -4,6 +4,7 @@ import {
   Injectable
 } from "@nestjs/common";
 import {
+  NotificationCategory,
   OrderStatus,
   PaymentMethod,
   PaymentStatus,
@@ -16,6 +17,7 @@ import {
   type CheckoutVoucherSelection
 } from "@ecoms/contracts";
 import { Prisma } from "@prisma/client";
+import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { VouchersService } from "../vouchers/vouchers.service";
 import { CheckoutPreviewDto } from "./dto/checkout-preview.dto";
@@ -28,6 +30,7 @@ const checkoutCartInclude = {
           id: true,
           name: true,
           slug: true,
+          ownerId: true,
           status: true,
           deletedAt: true
         }
@@ -57,7 +60,8 @@ type VoucherAllocation = {
 export class CheckoutService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly vouchersService: VouchersService
+    private readonly vouchersService: VouchersService,
+    private readonly notificationsService: NotificationsService
   ) {}
 
   async preview(userId: string, payload: CheckoutPreviewDto): Promise<CheckoutPreview> {
@@ -222,6 +226,38 @@ export class CheckoutService {
 
       return createdOrders;
     });
+
+    await this.notificationsService.create({
+      userId,
+      category: NotificationCategory.ORDER_STATUS,
+      title: "Order placed successfully",
+      body: `Created ${result.length} order(s) from your cart.`,
+      linkUrl: result[0] ? `/orders/${result[0].id}` : "/orders"
+    });
+
+    const sellerNotifications = new Map<string, { shopName: string; orderId: string }>();
+    for (const order of result) {
+      const shopOwnerId = cartItems.find((item) => item.product.shopId === order.shopId)?.product.shop.ownerId;
+      const shopName = cartItems.find((item) => item.product.shopId === order.shopId)?.product.shop.name;
+      if (shopOwnerId && shopName) {
+        sellerNotifications.set(shopOwnerId, {
+          shopName,
+          orderId: order.id
+        });
+      }
+    }
+
+    await Promise.all(
+      Array.from(sellerNotifications.entries()).map(([sellerUserId, data]) =>
+        this.notificationsService.create({
+          userId: sellerUserId,
+          category: NotificationCategory.ORDER_STATUS,
+          title: `New order for ${data.shopName}`,
+          body: "A buyer has placed a new order and it is ready for review.",
+          linkUrl: `/seller/orders`
+        })
+      )
+    );
 
     return {
       orders: result.map((order) => ({

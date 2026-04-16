@@ -1,10 +1,19 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { OrderStatus, PaymentMethod, PaymentStatus } from "@ecoms/contracts";
+import {
+  NotificationCategory,
+  OrderStatus,
+  PaymentMethod,
+  PaymentStatus
+} from "@ecoms/contracts";
+import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService
+  ) {}
 
   async listOwn(userId: string) {
     const orders = await this.prisma.order.findMany({
@@ -216,6 +225,14 @@ export class OrdersService {
       }
     });
 
+    await this.notificationsService.create({
+      userId: order.shopId ? (await this.prisma.shop.findUnique({ where: { id: order.shopId }, select: { ownerId: true } }))?.ownerId ?? userId : userId,
+      category: NotificationCategory.ORDER_STATUS,
+      title: "Order cancelled by buyer",
+      body: `${order.orderNumber} was cancelled before shipping.`,
+      linkUrl: "/seller/orders"
+    });
+
     return {
       id: updated.id,
       status: updated.status
@@ -244,6 +261,21 @@ export class OrdersService {
         status: OrderStatus.COMPLETED
       }
     });
+
+    const seller = await this.prisma.shop.findUnique({
+      where: { id: order.shopId },
+      select: { ownerId: true }
+    });
+
+    if (seller) {
+      await this.notificationsService.create({
+        userId: seller.ownerId,
+        category: NotificationCategory.ORDER_STATUS,
+        title: "Order marked completed",
+        body: `${order.orderNumber} has been completed by the buyer.`,
+        linkUrl: "/seller/orders"
+      });
+    }
 
     return {
       id: updated.id,
@@ -449,6 +481,14 @@ export class OrdersService {
       }
     });
 
+    await this.notificationsService.create({
+      userId: order.userId,
+      category: NotificationCategory.ORDER_STATUS,
+      title: "Order status updated",
+      body: `${order.orderNumber} is now ${nextStatus.replaceAll("_", " ").toLowerCase()}.`,
+      linkUrl: `/orders/${order.id}`
+    });
+
     return {
       id: updated.id,
       status: updated.status
@@ -480,6 +520,14 @@ export class OrdersService {
       data: {
         status: nextStatus
       }
+    });
+
+    await this.notificationsService.create({
+      userId: order.userId,
+      category: NotificationCategory.ORDER_STATUS,
+      title: "Admin updated your order",
+      body: `${order.orderNumber} is now ${nextStatus.replaceAll("_", " ").toLowerCase()}.`,
+      linkUrl: `/orders/${order.id}`
     });
 
     return {

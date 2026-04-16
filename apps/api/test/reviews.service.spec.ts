@@ -5,6 +5,7 @@ describe("ReviewsService", () => {
   const prisma = {
     product: {
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
       update: jest.fn()
     },
     orderItem: {
@@ -19,8 +20,11 @@ describe("ReviewsService", () => {
       aggregate: jest.fn()
     }
   };
+  const notificationsService = {
+    create: jest.fn()
+  };
 
-  const service = new ReviewsService(prisma as never);
+  const service = new ReviewsService(prisma as never, notificationsService as never);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -51,6 +55,14 @@ describe("ReviewsService", () => {
       }
     });
     prisma.review.findMany.mockResolvedValue([]);
+    prisma.product.findUnique.mockResolvedValue({
+      id: "product-1",
+      name: "Gaming Mouse Pro",
+      shop: {
+        ownerId: "seller-1",
+        name: "Demo Seller Shop"
+      }
+    });
   });
 
   it("creates a review for an eligible completed order item", async () => {
@@ -99,6 +111,27 @@ describe("ReviewsService", () => {
       sellerReply: "Thanks",
       sellerReplyAt: new Date("2026-04-17T12:00:00.000Z")
     });
+    prisma.review.findFirst
+      .mockResolvedValueOnce({
+        id: "review-1",
+        reviewerId: "user-1",
+        product: {
+          name: "Gaming Mouse Pro",
+          shop: {
+            ownerId: "seller-1"
+          }
+        }
+      })
+      .mockResolvedValueOnce({
+        id: "review-1",
+        reviewerId: "user-1",
+        product: {
+          name: "Gaming Mouse Pro",
+          shop: {
+            ownerId: "seller-1"
+          }
+        }
+      });
 
     const result = await service.reply("seller-1", "review-1", "Thanks");
     expect(result.sellerReply).toBe("Thanks");

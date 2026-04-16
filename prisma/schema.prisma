@@ -66,6 +66,14 @@ enum VoucherDiscountType {
   PERCENTAGE
 }
 
+enum NotificationCategory {
+  ORDER_STATUS
+  CHAT
+  PROMOTION
+  REVIEW
+  SYSTEM
+}
+
 model User {
   id                 String              @id @default(cuid())
   email              String              @unique
@@ -85,6 +93,9 @@ model User {
   reviews            Review[]
   createdVouchers    Voucher[]
   voucherRedemptions VoucherRedemption[]
+  buyerConversations ChatConversation[] @relation("BuyerConversations")
+  chatMessages       ChatMessage[]
+  notifications      Notification[]
 }
 
 model Shop {
@@ -103,6 +114,7 @@ model Shop {
   products    Product[]
   orders      Order[]
   vouchers    Voucher[]
+  chatConversations ChatConversation[]
 }
 
 model Category {
@@ -164,6 +176,8 @@ model Product {
   orderItems    OrderItem[]
   wishlistItems WishlistItem[]
   reviews       Review[]
+  chatConversations ChatConversation[]
+  chatMessages   ChatMessage[]
 }
 
 model ProductImage {
@@ -243,6 +257,43 @@ model Order {
   @@index([shopId, createdAt])
 }
 
+model ChatConversation {
+  id                 String      @id @default(cuid())
+  buyerId            String
+  shopId             String
+  productId          String?
+  lastMessagePreview String?
+  lastMessageAt      DateTime?
+  buyerLastReadAt    DateTime?
+  sellerLastReadAt   DateTime?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  buyer              User        @relation("BuyerConversations", fields: [buyerId], references: [id], onDelete: Cascade)
+  shop               Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  product            Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
+  messages           ChatMessage[]
+
+  @@unique([buyerId, shopId])
+  @@index([shopId, updatedAt])
+  @@index([buyerId, updatedAt])
+}
+
+model ChatMessage {
+  id             String           @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String
+  imageUrl       String?
+  productId      String?
+  createdAt      DateTime         @default(now())
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User             @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  product        Product?         @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, createdAt])
+  @@index([senderId, createdAt])
+}
+
 model Voucher {
   id                 String              @id @default(cuid())
   code               String              @unique
@@ -289,6 +340,24 @@ model VoucherRedemption {
   @@index([voucherId, createdAt])
   @@index([userId, createdAt])
   @@unique([voucherId, checkoutReference])
+}
+
+model Notification {
+  id         String               @id @default(cuid())
+  userId     String
+  category   NotificationCategory
+  title      String
+  body       String
+  linkUrl    String?
+  metadata   Json?
+  isRead     Boolean              @default(false)
+  readAt     DateTime?
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+  user       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, isRead, createdAt])
 }
 
 model OrderItem {

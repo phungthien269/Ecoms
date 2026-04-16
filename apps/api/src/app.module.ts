@@ -7,8 +7,10 @@ import { AuthModule } from "./modules/auth/auth.module";
 import { BrandsModule } from "./modules/brands/brands.module";
 import { CartModule } from "./modules/cart/cart.module";
 import { CategoriesModule } from "./modules/categories/categories.module";
+import { ChatModule } from "./modules/chat/chat.module";
 import { CheckoutModule } from "./modules/checkout/checkout.module";
 import { HealthModule } from "./modules/health/health.module";
+import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { OrdersModule } from "./modules/orders/orders.module";
 import { PaymentsModule } from "./modules/payments/payments.module";
 import { PrismaModule } from "./modules/prisma/prisma.module";
@@ -34,9 +36,11 @@ import { WishlistModule } from "./modules/wishlist/wishlist.module";
     UsersModule,
     RbacModule,
     CartModule,
+    ChatModule,
     CheckoutModule,
     CategoriesModule,
     BrandsModule,
+    NotificationsModule,
     OrdersModule,
     PaymentsModule,
     ShopsModule,

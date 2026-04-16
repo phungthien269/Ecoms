@@ -1,6 +1,10 @@
 import type { Route } from "next";
 import Link from "next/link";
-import { addToCartAction, addToWishlistAction } from "@/app/actions/commerce";
+import {
+  addToCartAction,
+  addToWishlistAction,
+  startChatConversationAction
+} from "@/app/actions/commerce";
 import { formatPrice } from "@/components/commerce/price";
 import { EmptyState } from "@/components/storefront/emptyState";
 import { getProduct, getProductReviews } from "@/lib/storefrontApi";
@@ -154,6 +158,32 @@ export default async function ProductDetailPage({
                   className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
                 >
                   Save to wishlist
+                </button>
+              </div>
+            </form>
+
+            <form action={startChatConversationAction} className="rounded-[1.5rem] border border-slate-200 p-5">
+              <input type="hidden" name="shopId" value={product.shopId} />
+              <input type="hidden" name="productId" value={product.id} />
+              <input
+                type="hidden"
+                name="initialMessage"
+                value={`Hi, I'd like to ask about ${product.name}.`}
+              />
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    Buyer-seller chat
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Open a direct thread with the shop and reference this product in the conversation.
+                  </p>
+                </div>
+                <button
+                  type="submit"
+                  className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+                >
+                  Chat with seller
                 </button>
               </div>
             </form>

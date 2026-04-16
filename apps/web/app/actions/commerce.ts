@@ -1,5 +1,6 @@
 "use server";
 
+import type { Route } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -186,4 +187,59 @@ export async function createReviewAction(formData: FormData) {
   });
 
   redirect(`/orders/${orderId}?review=created`);
+}
+
+export async function startChatConversationAction(formData: FormData) {
+  const shopId = String(formData.get("shopId") ?? "");
+  const productId = String(formData.get("productId") ?? "") || undefined;
+  const initialMessage =
+    String(formData.get("initialMessage") ?? "") || "Hi, I'd like to ask about this product.";
+
+  const response = (await authedMutation("/chat/conversations", {
+    method: "POST",
+    body: JSON.stringify({
+      shopId,
+      productId,
+      initialMessage
+    })
+  })) as {
+    data: {
+      id: string;
+    };
+  };
+
+  redirect(`/chat/${response.data.id}` as Route);
+}
+
+export async function sendChatMessageAction(formData: FormData) {
+  const conversationId = String(formData.get("conversationId") ?? "");
+  const content = String(formData.get("content") ?? "");
+
+  await authedMutation(`/chat/conversations/${conversationId}/messages`, {
+    method: "POST",
+    body: JSON.stringify({
+      content
+    })
+  });
+
+  redirect(`/chat/${conversationId}` as Route);
+}
+
+export async function markNotificationReadAction(formData: FormData) {
+  const notificationId = String(formData.get("notificationId") ?? "");
+  const redirectTo = String(formData.get("redirectTo") ?? "/notifications");
+
+  await authedMutation(`/notifications/${notificationId}/read`, {
+    method: "PATCH"
+  });
+
+  redirect(redirectTo as Route);
+}
+
+export async function markAllNotificationsReadAction() {
+  await authedMutation("/notifications/read-all", {
+    method: "PATCH"
+  });
+
+  redirect("/notifications" as Route);
 }

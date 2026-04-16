@@ -8,13 +8,19 @@ describe("PaymentsService", () => {
       findFirst: jest.fn(),
       update: jest.fn()
     },
+    shop: {
+      findUnique: jest.fn()
+    },
     order: {
       update: jest.fn()
     },
     $transaction: jest.fn()
   };
+  const notificationsService = {
+    create: jest.fn()
+  };
 
-  const service = new PaymentsService(prisma as never);
+  const service = new PaymentsService(prisma as never, notificationsService as never);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -32,13 +38,20 @@ describe("PaymentsService", () => {
       metadata: {},
       order: {
         id: "order-1",
-        status: OrderStatus.PENDING
+        status: OrderStatus.PENDING,
+        shopId: "shop-1",
+        orderNumber: "ORD-1"
       }
+    });
+    prisma.shop.findUnique.mockResolvedValue({
+      ownerId: "seller-1",
+      name: "Demo Seller Shop"
     });
 
     const result = await service.confirm("user-1", "payment-1");
 
     expect(prisma.$transaction).toHaveBeenCalled();
+    expect(notificationsService.create).toHaveBeenCalledTimes(2);
     expect(result).toEqual({
       paymentId: "payment-1",
       orderId: "order-1",
@@ -55,7 +68,9 @@ describe("PaymentsService", () => {
       status: PaymentStatus.PAID,
       order: {
         id: "order-1",
-        status: OrderStatus.CONFIRMED
+        status: OrderStatus.CONFIRMED,
+        shopId: "shop-1",
+        orderNumber: "ORD-1"
       }
     });
 

@@ -7,11 +7,18 @@ describe("OrdersService", () => {
     order: {
       findFirst: jest.fn(),
       update: jest.fn(),
-      findMany: jest.fn()
+      findMany: jest.fn(),
+      findUnique: jest.fn()
+    },
+    shop: {
+      findUnique: jest.fn()
     }
   };
+  const notificationsService = {
+    create: jest.fn()
+  };
 
-  const service = new OrdersService(prisma as never);
+  const service = new OrdersService(prisma as never, notificationsService as never);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -21,15 +28,21 @@ describe("OrdersService", () => {
     prisma.order.findFirst.mockResolvedValue({
       id: "order-1",
       userId: "user-1",
+      shopId: "shop-1",
+      orderNumber: "ORD-1",
       status: OrderStatus.PENDING
     });
     prisma.order.update.mockResolvedValue({
       id: "order-1",
       status: OrderStatus.CANCELLED
     });
+    prisma.shop.findUnique.mockResolvedValue({
+      ownerId: "seller-1"
+    });
 
     const result = await service.cancel("user-1", "order-1");
     expect(result.status).toBe(OrderStatus.CANCELLED);
+    expect(notificationsService.create).toHaveBeenCalled();
   });
 
   it("blocks cancelling shipped orders", async () => {
@@ -48,11 +61,16 @@ describe("OrdersService", () => {
     prisma.order.findFirst.mockResolvedValue({
       id: "order-1",
       userId: "user-1",
+      shopId: "shop-1",
+      orderNumber: "ORD-1",
       status: OrderStatus.DELIVERED
     });
     prisma.order.update.mockResolvedValue({
       id: "order-1",
       status: OrderStatus.COMPLETED
+    });
+    prisma.shop.findUnique.mockResolvedValue({
+      ownerId: "seller-1"
     });
 
     const result = await service.complete("user-1", "order-1");
@@ -62,7 +80,9 @@ describe("OrdersService", () => {
   it("allows seller confirmation for COD orders", async () => {
     prisma.order.findFirst.mockResolvedValue({
       id: "order-1",
+      userId: "user-1",
       shopId: "shop-1",
+      orderNumber: "ORD-1",
       status: OrderStatus.PENDING,
       paymentMethod: "COD",
       payments: [{ status: "PENDING" }]
@@ -80,6 +100,8 @@ describe("OrdersService", () => {
     prisma.order.findFirst.mockResolvedValue({
       id: "order-1",
       shopId: "shop-1",
+      userId: "user-1",
+      orderNumber: "ORD-1",
       status: OrderStatus.PENDING,
       paymentMethod: "ONLINE_GATEWAY",
       payments: [{ status: "PENDING" }]
@@ -94,6 +116,8 @@ describe("OrdersService", () => {
     prisma.order.findFirst.mockResolvedValue({
       id: "order-1",
       shopId: "shop-1",
+      userId: "user-1",
+      orderNumber: "ORD-1",
       status: OrderStatus.PENDING,
       paymentMethod: "COD",
       payments: [{ status: "PENDING" }]
@@ -107,6 +131,8 @@ describe("OrdersService", () => {
   it("allows admin to set terminal moderation statuses", async () => {
     prisma.order.findUnique = jest.fn().mockResolvedValue({
       id: "order-1",
+      userId: "user-1",
+      orderNumber: "ORD-1",
       status: OrderStatus.SHIPPING
     });
     prisma.order.update.mockResolvedValue({

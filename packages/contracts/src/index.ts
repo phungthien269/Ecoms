@@ -58,6 +58,14 @@ export enum VoucherDiscountType {
   PERCENTAGE = "PERCENTAGE"
 }
 
+export enum NotificationCategory {
+  ORDER_STATUS = "ORDER_STATUS",
+  CHAT = "CHAT",
+  PROMOTION = "PROMOTION",
+  REVIEW = "REVIEW",
+  SYSTEM = "SYSTEM"
+}
+
 export interface ProductReviewSummary {
   id: string;
   reviewer: {
@@ -230,6 +238,58 @@ export interface VoucherSummary {
     slug: string;
   } | null;
   category: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
+  createdAt: string;
+}
+
+export interface NotificationSummary {
+  id: string;
+  category: NotificationCategory;
+  title: string;
+  body: string;
+  linkUrl: string | null;
+  isRead: boolean;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface ChatConversationSummary {
+  id: string;
+  buyer: {
+    id: string;
+    fullName: string;
+    email: string;
+  };
+  shop: {
+    id: string;
+    name: string;
+    slug: string;
+    ownerId: string;
+  };
+  product: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
+  lastMessagePreview: string | null;
+  lastMessageAt: string | null;
+  unreadCount: number;
+}
+
+export interface ChatMessageSummary {
+  id: string;
+  conversationId: string;
+  sender: {
+    id: string;
+    fullName: string;
+    role: UserRole;
+  };
+  content: string;
+  imageUrl: string | null;
+  product: {
     id: string;
     name: string;
     slug: string;

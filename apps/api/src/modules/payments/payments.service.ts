@@ -1,10 +1,19 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { OrderStatus, PaymentMethod, PaymentStatus } from "@ecoms/contracts";
+import {
+  NotificationCategory,
+  OrderStatus,
+  PaymentMethod,
+  PaymentStatus
+} from "@ecoms/contracts";
+import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
 export class PaymentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService
+  ) {}
 
   async confirm(userId: string, paymentId: string) {
     const payment = await this.prisma.payment.findFirst({
@@ -64,6 +73,29 @@ export class PaymentsService {
         }
       })
     ]);
+
+    const seller = await this.prisma.shop.findUnique({
+      where: { id: payment.order.shopId },
+      select: { ownerId: true, name: true }
+    });
+
+    await this.notificationsService.create({
+      userId,
+      category: NotificationCategory.ORDER_STATUS,
+      title: "Payment confirmed",
+      body: `${payment.order.orderNumber} is now ready for seller processing.`,
+      linkUrl: `/orders/${payment.orderId}`
+    });
+
+    if (seller) {
+      await this.notificationsService.create({
+        userId: seller.ownerId,
+        category: NotificationCategory.ORDER_STATUS,
+        title: `Payment received for ${seller.name}`,
+        body: `${payment.order.orderNumber} has been paid and can be confirmed.`,
+        linkUrl: "/seller/orders"
+      });
+    }
 
     return {
       paymentId: payment.id,

@@ -1,17 +1,23 @@
 import type { Route } from "next";
 import Link from "next/link";
 import { loginAdminDemo, loginBuyerDemo, loginSellerDemo, logoutDemo } from "@/app/actions/auth";
+import { RealtimeBridge } from "@/components/layout/realtimeBridge";
 import type { DemoSession } from "@/lib/session";
 
 export function AppShell({
   children,
-  session
+  session,
+  unreadNotificationsCount,
+  unreadChatCount
 }: {
   children: React.ReactNode;
   session: DemoSession | null;
+  unreadNotificationsCount: number;
+  unreadChatCount: number;
 }) {
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#fff7f3_0%,#ffffff_28%,#fffaf5_100%)]">
+      {session ? <RealtimeBridge token={session.accessToken} /> : null}
       <header className="sticky top-0 z-20 border-b border-orange-100/80 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-6">
@@ -33,6 +39,12 @@ export function AppShell({
               </Link>
               <Link href={"/orders" as Route} className="transition hover:text-orange-600">
                 Orders
+              </Link>
+              <Link href={"/chat" as Route} className="transition hover:text-orange-600">
+                Chat{unreadChatCount > 0 ? ` (${unreadChatCount})` : ""}
+              </Link>
+              <Link href={"/notifications" as Route} className="transition hover:text-orange-600">
+                Notifications{unreadNotificationsCount > 0 ? ` (${unreadNotificationsCount})` : ""}
               </Link>
               {session?.role === "SELLER" ? (
                 <Link href={"/seller" as Route} className="transition hover:text-orange-600">

@@ -1,11 +1,21 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { OrderStatus, ProductStatus, ShopStatus, type ProductReviewSummary } from "@ecoms/contracts";
+import {
+  NotificationCategory,
+  OrderStatus,
+  ProductStatus,
+  ShopStatus,
+  type ProductReviewSummary
+} from "@ecoms/contracts";
+import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateReviewDto } from "./dto/create-review.dto";
 
 @Injectable()
 export class ReviewsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService
+  ) {}
 
   async listForProduct(productIdOrSlug: string): Promise<ProductReviewSummary[]> {
     const product = await this.prisma.product.findFirst({
@@ -218,6 +228,28 @@ export class ReviewsService {
 
     await this.refreshProductRating(orderItem.product.id);
 
+    const productShop = await this.prisma.product.findUnique({
+      where: { id: orderItem.productId },
+      include: {
+        shop: {
+          select: {
+            ownerId: true,
+            name: true
+          }
+        }
+      }
+    });
+
+    if (productShop) {
+      await this.notificationsService.create({
+        userId: productShop.shop.ownerId,
+        category: NotificationCategory.REVIEW,
+        title: "New buyer review",
+        body: `A new review was submitted for ${productShop.name}.`,
+        linkUrl: "/seller/reviews"
+      });
+    }
+
     return {
       id: review.id,
       reviewer: review.reviewer,
@@ -262,6 +294,14 @@ export class ReviewsService {
         sellerReply: reply.trim(),
         sellerReplyAt: new Date()
       }
+    });
+
+    await this.notificationsService.create({
+      userId: review.reviewerId,
+      category: NotificationCategory.REVIEW,
+      title: "Seller replied to your review",
+      body: `The seller responded to your review for ${review.product.name}.`,
+      linkUrl: "/orders"
     });
 
     return {

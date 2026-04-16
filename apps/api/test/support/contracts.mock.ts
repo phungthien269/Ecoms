@@ -57,3 +57,11 @@ export enum VoucherDiscountType {
   FIXED = "FIXED",
   PERCENTAGE = "PERCENTAGE"
 }
+
+export enum NotificationCategory {
+  ORDER_STATUS = "ORDER_STATUS",
+  CHAT = "CHAT",
+  PROMOTION = "PROMOTION",
+  REVIEW = "REVIEW",
+  SYSTEM = "SYSTEM"
+}

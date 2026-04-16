@@ -10,9 +10,9 @@
   "scripts": {
     "dev": "turbo run dev --parallel",
     "build": "turbo run build",
-    "lint": "turbo run lint",
+    "lint": "npm run build --workspace @ecoms/contracts && turbo run lint",
     "test": "turbo run test",
-    "typecheck": "turbo run typecheck",
+    "typecheck": "npm run build --workspace @ecoms/contracts && turbo run typecheck",
     "format": "turbo run format",
     "prisma:generate": "npm run prisma:generate --workspace @ecoms/api",
     "prisma:migrate:dev": "npm run prisma:migrate:dev --workspace @ecoms/api",
