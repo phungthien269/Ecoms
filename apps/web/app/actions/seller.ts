@@ -129,3 +129,31 @@ export async function replySellerReviewAction(formData: FormData) {
 
   redirect("/seller/reviews?reply=success");
 }
+
+export async function updateSellerShopAction(formData: FormData) {
+  const token = await getToken();
+  if (!token) {
+    redirect("/seller");
+  }
+
+  const response = await fetch(`${API_URL}/shops/me`, {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      name: String(formData.get("name") ?? "") || undefined,
+      description: String(formData.get("description") ?? "") || undefined,
+      logoUrl: String(formData.get("logoUrl") ?? "") || undefined,
+      bannerUrl: String(formData.get("bannerUrl") ?? "") || undefined
+    }),
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    redirect("/seller?shop=failed");
+  }
+
+  redirect("/seller?shop=updated");
+}

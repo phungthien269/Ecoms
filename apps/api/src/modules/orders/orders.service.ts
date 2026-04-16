@@ -451,6 +451,39 @@ export class OrdersService {
     };
   }
 
+  async updateAdminStatus(orderId: string, nextStatus: OrderStatus) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId }
+    });
+
+    if (!order) {
+      throw new NotFoundException("Order not found");
+    }
+
+    const allowedStatuses = new Set<OrderStatus>([
+      OrderStatus.CANCELLED,
+      OrderStatus.DELIVERY_FAILED,
+      OrderStatus.REFUNDED,
+      OrderStatus.COMPLETED
+    ]);
+
+    if (!allowedStatuses.has(nextStatus)) {
+      throw new ConflictException("Admin can only set terminal moderation statuses");
+    }
+
+    const updated = await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status: nextStatus
+      }
+    });
+
+    return {
+      id: updated.id,
+      status: updated.status
+    };
+  }
+
   private assertSellerTransitionAllowed(currentStatus: OrderStatus, nextStatus: OrderStatus) {
     const allowedTransitions: Partial<Record<OrderStatus, OrderStatus[]>> = {
       [OrderStatus.PENDING]: [OrderStatus.CONFIRMED],

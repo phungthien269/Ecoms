@@ -103,4 +103,18 @@ describe("OrdersService", () => {
       service.updateSellerStatus("seller-1", "order-1", OrderStatus.SHIPPING)
     ).rejects.toBeInstanceOf(ConflictException);
   });
+
+  it("allows admin to set terminal moderation statuses", async () => {
+    prisma.order.findUnique = jest.fn().mockResolvedValue({
+      id: "order-1",
+      status: OrderStatus.SHIPPING
+    });
+    prisma.order.update.mockResolvedValue({
+      id: "order-1",
+      status: OrderStatus.REFUNDED
+    });
+
+    const result = await service.updateAdminStatus("order-1", OrderStatus.REFUNDED);
+    expect(result.status).toBe(OrderStatus.REFUNDED);
+  });
 });

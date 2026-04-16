@@ -115,3 +115,29 @@ export async function createAdminBrandAction(formData: FormData) {
 
   redirect("/admin?brands=created");
 }
+
+export async function updateAdminOrderStatusAction(formData: FormData) {
+  const token = await getToken();
+  if (!token) {
+    redirect("/admin");
+  }
+
+  const orderId = String(formData.get("orderId") ?? "");
+  const status = String(formData.get("status") ?? "");
+
+  const response = await fetch(`${API_URL}/orders/admin/${orderId}/status`, {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({ status }),
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    redirect("/admin?orders=failed");
+  }
+
+  redirect("/admin?orders=updated");
+}

@@ -1,6 +1,6 @@
 import type { Route } from "next";
 import Link from "next/link";
-import { createSellerProductAction } from "@/app/actions/seller";
+import { createSellerProductAction, updateSellerShopAction } from "@/app/actions/seller";
 import { formatPrice } from "@/components/commerce/price";
 import { EmptyState } from "@/components/storefront/emptyState";
 import { getBrands, getCategoryTree } from "@/lib/storefrontApi";
@@ -131,6 +131,43 @@ export default async function SellerPage() {
           </div>
 
           <aside className="space-y-6">
+            {shop ? (
+              <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 className="text-xl font-bold text-slate-950">Shop profile</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Update the public shop identity used across the storefront and admin review flows.
+                </p>
+                <form action={updateSellerShopAction} className="mt-5 space-y-4">
+                  <input name="name" defaultValue={shop.name} placeholder="Shop name" className={inputClass} />
+                  <textarea
+                    name="description"
+                    defaultValue={shop.description ?? ""}
+                    rows={4}
+                    placeholder="Shop description"
+                    className={`${inputClass} min-h-28 rounded-[1.5rem]`}
+                  />
+                  <input
+                    name="logoUrl"
+                    defaultValue={shop.logoUrl ?? ""}
+                    placeholder="Logo URL"
+                    className={inputClass}
+                  />
+                  <input
+                    name="bannerUrl"
+                    defaultValue={shop.bannerUrl ?? ""}
+                    placeholder="Banner URL"
+                    className={inputClass}
+                  />
+                  <button
+                    type="submit"
+                    className="w-full rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+                  >
+                    Save shop profile
+                  </button>
+                </form>
+              </section>
+            ) : null}
+
             <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
               <h2 className="text-xl font-bold text-slate-950">Create product</h2>
               <p className="mt-1 text-sm text-slate-500">

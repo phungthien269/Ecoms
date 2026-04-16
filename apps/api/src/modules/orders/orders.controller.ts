@@ -4,6 +4,7 @@ import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { Roles } from "../rbac/decorators/roles.decorator";
 import { RolesGuard } from "../rbac/guards/roles.guard";
+import { UpdateAdminOrderStatusDto } from "./dto/update-admin-order-status.dto";
 import { UpdateSellerOrderStatusDto } from "./dto/update-seller-order-status.dto";
 import { OrdersService } from "./orders.service";
 
@@ -22,6 +23,13 @@ export class OrdersController {
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   listAdmin() {
     return this.ordersService.listAdmin();
+  }
+
+  @Patch("admin/:orderId/status")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  updateAdminStatus(@Param("orderId") orderId: string, @Body() payload: UpdateAdminOrderStatusDto) {
+    return this.ordersService.updateAdminStatus(orderId, payload.status);
   }
 
   @Get("seller/me")

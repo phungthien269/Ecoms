@@ -1,6 +1,7 @@
 import {
   createAdminBrandAction,
   createAdminCategoryAction,
+  updateAdminOrderStatusAction,
   updateAdminProductStatusAction,
   updateAdminShopStatusAction
 } from "@/app/actions/admin";
@@ -328,6 +329,20 @@ export default async function AdminPage() {
                     <div className="text-sm font-semibold text-orange-600">{order.paymentMethod}</div>
                     <div className="mt-1 text-sm text-slate-500">{formatPrice(order.grandTotal)}</div>
                   </div>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {["CANCELLED", "DELIVERY_FAILED", "REFUNDED"].map((status) => (
+                    <form key={status} action={updateAdminOrderStatusAction}>
+                      <input type="hidden" name="orderId" value={order.id} />
+                      <input type="hidden" name="status" value={status} />
+                      <button
+                        type="submit"
+                        className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+                      >
+                        Set {status.toLowerCase().replaceAll("_", " ")}
+                      </button>
+                    </form>
+                  ))}
                 </div>
               </div>
             ))}
