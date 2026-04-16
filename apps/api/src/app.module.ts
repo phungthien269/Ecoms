@@ -6,6 +6,7 @@ import { BrandsModule } from "./modules/brands/brands.module";
 import { CategoriesModule } from "./modules/categories/categories.module";
 import { HealthModule } from "./modules/health/health.module";
 import { PrismaModule } from "./modules/prisma/prisma.module";
+import { ProductsModule } from "./modules/products/products.module";
 import { RbacModule } from "./modules/rbac/rbac.module";
 import { ShopsModule } from "./modules/shops/shops.module";
 import { UsersModule } from "./modules/users/users.module";
@@ -23,7 +24,8 @@ import { UsersModule } from "./modules/users/users.module";
     RbacModule,
     CategoriesModule,
     BrandsModule,
-    ShopsModule
+    ShopsModule,
+    ProductsModule
   ]
 })
 export class AppModule {}

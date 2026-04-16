@@ -1,7 +1,7 @@
 # CURRENT_PROGRESS.md
 
 ## 1. Session
-- Session date: 2026-04-16
+- Session date: 2026-04-17
 - Current phase: Phase 1 foundation implementation
 - Session type: Implementation
 
@@ -12,9 +12,9 @@ Extend the verified foundation into real Phase 1 domain modules and keep the rem
 Project requirements remain stable.
 Initial implementation has started.
 The repository now has a runnable monorepo foundation with verified `build`, `lint`, and `typecheck`.
-The baseline now includes auth/RBAC, Prisma migration + seed, public/admin category APIs, public/admin brand APIs, and seller/admin shop APIs.
+The baseline now includes auth/RBAC, Prisma migration + seed, public/admin category APIs, public/admin brand APIs, seller/admin shop APIs, and the first product CRUD slice.
 The repository has been pushed to GitHub and is ready for continued incremental delivery.
-The immediate next step is to wire live database execution locally, then implement product CRUD and product media/variant foundations.
+The immediate next step is to wire live database execution locally, then implement product variants and storefront-facing product/search improvements.
 
 ## 4. Completed Items
 - Read required skill pack from `.claude/skills/everything-claude-code`
@@ -92,22 +92,25 @@ The immediate next step is to wire live database execution locally, then impleme
   - seller get/update own shop
   - admin list shops
   - admin update shop status
+- Implemented product module baseline:
+  - public product list with pagination/filter hooks
+  - public product detail by id or slug
+  - seller own product list
+  - seller create/update/delete product
+  - admin list all products
+  - admin update product status
+  - image records embedded in product create/update payloads
 
 ## 5. In Progress Items
 - No half-finished code pending in the current slice
-- Next implementation target is product CRUD plus media/variant groundwork
+- Next implementation target is product variant groundwork and live DB/runtime verification
 
 ## 6. Next Exact Tasks
 1. Start local PostgreSQL/Redis via Docker Compose and validate API against a real database
-2. Implement product module baseline:
-   - product CRUD
-   - status handling
-   - category/brand/shop relations
-   - image records
-   - seller ownership enforcement
-3. Implement product variant foundation
-4. Add integration tests for auth/category/brand/shop endpoints
-5. Add seller onboarding guardrails and approval-dependent product creation rules
+2. Implement product variant foundation
+3. Add seller onboarding guardrails and approval-dependent product creation rules
+4. Add integration tests for auth/category/brand/shop/product endpoints
+5. Expand storefront web app from placeholder shell toward category/shop/product pages
 6. Update this file after each meaningful step
 
 ## 7. Blockers / Open Questions
@@ -128,6 +131,7 @@ The immediate next step is to wire live database execution locally, then impleme
 - `prisma/schema.prisma`
 - `prisma/migrations/20260416120000_init_foundation/migration.sql`
 - `prisma/seed.js`
+- `apps/api/src/modules/products/*`
 - `CURRENT_PROGRESS.md`
 
 ## 9. Commands Run
@@ -155,6 +159,10 @@ The immediate next step is to wire live database execution locally, then impleme
 - `npm run typecheck`
 - `npm run lint`
 - `npm run build`
+- Re-ran `npm run prisma:generate`
+- Re-ran `npm run typecheck`
+- Re-ran `npm run lint`
+- Re-ran `npm run build`
 
 ## 10. Tests Run + Result
 - `npm run prisma:generate` ✅
@@ -162,11 +170,13 @@ The immediate next step is to wire live database execution locally, then impleme
 - `npm run lint` ✅
 - `npm run build` ✅
 - Catalog/seller foundation compile verification completed after module additions ✅
+- Product baseline compile verification completed after module additions ✅
 - No Jest test suite exists yet, so runtime business-flow tests are still pending
 
 ## 11. Bugs / Known Issues
 - `rg` executable in this environment is not callable due to local access restrictions, so PowerShell file discovery is used instead
 - No database container has been started yet in this session, so auth/category/brand/shop endpoints were compile-verified but not exercised against a live PostgreSQL instance
+- No database container has been started yet in this session, so auth/category/brand/shop/product endpoints were compile-verified but not exercised against a live PostgreSQL instance
 - `npm audit` currently reports 20 transitive vulnerabilities from freshly installed dependency trees; triage is pending after core foundations stabilize
 
 ## 12. Assumptions Made This Session
@@ -181,7 +191,8 @@ The immediate next step is to wire live database execution locally, then impleme
 - Creating a shop upgrades the owner to `SELLER` if they were not already in that role
 - Category deletion is blocked when child categories or products still exist
 - Seeded default users share a known development-only bcrypt hash for local bootstrap convenience
+- Product creation currently allows sellers to save `DRAFT` or `ACTIVE` items regardless of shop approval state; approval gating will be tightened in a follow-up slice once seller onboarding rules are encoded explicitly
 
 ## 13. Handoff Note for Next Session
 The repo is already pushed to GitHub and the current API slice compiles cleanly.
-Resume from live DB verification and product module implementation, not from scaffolding or auth basics.
+Resume from live DB verification and product variant implementation, not from scaffolding, auth basics, or core product CRUD.
