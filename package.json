@@ -1,0 +1,24 @@
+{
+  "name": "ecoms-marketplace",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "npm@10.9.2",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "format": "turbo run format",
+    "prisma:generate": "npm run prisma:generate --workspace @ecoms/api",
+    "prisma:migrate:dev": "npm run prisma:migrate:dev --workspace @ecoms/api",
+    "db:seed": "npm run db:seed --workspace @ecoms/api"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.14"
+  }
+}

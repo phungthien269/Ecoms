@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "name": "everything-claude-code",
+  "owner": "affaan-m",
+  "repo": "everything-claude-code",
+  "path": ".agents/skills/everything-claude-code",
+  "branch": "main",
+  "sha": "ebf87afb2b3ed29b4f3274d4ce33bc35c98bee0c",
+  "source": "manual"
+}
