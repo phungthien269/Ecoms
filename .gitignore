@@ -1,5 +1,6 @@
 node_modules
 .turbo
+.turbo/
 .next
 dist
 coverage
@@ -9,6 +10,7 @@ coverage
 .env.test.local
 .env.production.local
 apps/*/.next
+apps/*/.turbo
 apps/*/dist
 packages/*/dist
 prisma/dev.db

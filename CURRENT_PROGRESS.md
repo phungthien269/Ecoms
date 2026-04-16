@@ -2,19 +2,19 @@
 
 ## 1. Session
 - Session date: 2026-04-16
-- Current phase: Phase 1 foundation bootstrap
+- Current phase: Phase 1 foundation implementation
 - Session type: Implementation
 
 ## 2. Current Objective
-Bootstrap the monorepo foundation so feature work can start on a runnable Next.js + NestJS + Prisma baseline.
+Extend the verified foundation into real Phase 1 domain modules and keep the remote repository updated incrementally.
 
 ## 3. Overall Status Summary
 Project requirements remain stable.
 Initial implementation has started.
 The repository now has a runnable monorepo foundation with verified `build`, `lint`, and `typecheck`.
-The baseline includes shared contracts, a Next.js storefront shell, a NestJS API shell, Docker infra, Prisma schema, and the first auth/RBAC slice.
-The codebase is now also initialized as a local git repository with two commits ready to publish.
-The immediate next step is to create or connect a GitHub remote, push `main`, then continue with database migrations and the next Phase 1 domain modules.
+The baseline now includes auth/RBAC, Prisma migration + seed, public/admin category APIs, public/admin brand APIs, and seller/admin shop APIs.
+The repository has been pushed to GitHub and is ready for continued incremental delivery.
+The immediate next step is to wire live database execution locally, then implement product CRUD and product media/variant foundations.
 
 ## 4. Completed Items
 - Read required skill pack from `.claude/skills/everything-claude-code`
@@ -71,28 +71,44 @@ The immediate next step is to create or connect a GitHub remote, push `main`, th
 - Created initial local commits:
   - `feat: bootstrap ecoms marketplace foundation`
   - `chore: ignore TypeScript build artifacts`
+- Connected remote GitHub repository and pushed `main`
+- Expanded Prisma schema with:
+  - category descriptions
+  - brand descriptions/logos
+  - shop logo/banner
+  - richer product fields (sku, video, dimensions, tags)
+  - `ProductImage` model
+- Added initial migration SQL at:
+  - `prisma/migrations/20260416120000_init_foundation/migration.sql`
+- Added seed script with default admin/seller/customer + sample category/brand/shop
+- Implemented category module:
+  - public category tree endpoint
+  - admin flat list/create/update/delete
+- Implemented brand module:
+  - public list endpoint
+  - admin create/update/delete
+- Implemented shop module:
+  - create shop
+  - seller get/update own shop
+  - admin list shops
+  - admin update shop status
 
 ## 5. In Progress Items
-- No partially implemented code slice currently open
-- Next implementation target is catalog and seller foundation on top of the verified auth baseline
+- No half-finished code pending in the current slice
+- Next implementation target is product CRUD plus media/variant groundwork
 
 ## 6. Next Exact Tasks
-1. Create GitHub remote repository and push local `main`
-2. Add Prisma migration flow and initial seed placeholders
-3. Start local PostgreSQL/Redis via Docker Compose and validate API against a real database
-4. Implement category and brand modules:
-   - entities
-   - CRUD DTOs
-   - admin APIs
-5. Implement shop foundation:
-   - seller shop profile
-   - admin approval flow baseline
-6. Implement product module baseline:
+1. Start local PostgreSQL/Redis via Docker Compose and validate API against a real database
+2. Implement product module baseline:
    - product CRUD
    - status handling
    - category/brand/shop relations
-7. Add integration tests for auth endpoints
-8. Update this file after each meaningful step
+   - image records
+   - seller ownership enforcement
+3. Implement product variant foundation
+4. Add integration tests for auth/category/brand/shop endpoints
+5. Add seller onboarding guardrails and approval-dependent product creation rules
+6. Update this file after each meaningful step
 
 ## 7. Blockers / Open Questions
 - No hard blocker currently
@@ -100,23 +116,18 @@ The immediate next step is to create or connect a GitHub remote, push `main`, th
   - exact Google OAuth package choice
   - exact media provider (Cloudinary vs S3-compatible)
   - exact shared UI package scope beyond the current web shell
-- Operational blocker for publishing:
-  - local machine is not authenticated to GitHub in browser or CLI, and the available GitHub connector does not expose repository-creation APIs
+- Live runtime verification against local PostgreSQL/Redis is still pending because containers have not been started in this session
 
 ## 8. Recently Changed Files
 - `.gitignore`
 - `package.json`
+- `package-lock.json`
 - `turbo.json`
-- `tsconfig.base.json`
-- `.env.example`
-- `docker-compose.yml`
-- `README.md`
-- `apps/web/*`
 - `apps/api/*`
 - `packages/contracts/*`
-- `packages/tsconfig/*`
 - `prisma/schema.prisma`
-- `package-lock.json`
+- `prisma/migrations/20260416120000_init_foundation/migration.sql`
+- `prisma/seed.js`
 - `CURRENT_PROGRESS.md`
 
 ## 9. Commands Run
@@ -137,19 +148,26 @@ The immediate next step is to create or connect a GitHub remote, push `main`, th
 - `git commit -m "feat: bootstrap ecoms marketplace foundation"`
 - `git rm --cached apps/web/tsconfig.tsbuildinfo`
 - `git commit -m "chore: ignore TypeScript build artifacts"`
+- `git remote add origin https://github.com/phungthien269/Ecoms.git`
+- `git push -u origin main`
+- `npx prisma migrate diff --from-empty --to-schema-datamodel prisma\\schema.prisma --script`
+- `npm run prisma:generate`
+- `npm run typecheck`
+- `npm run lint`
+- `npm run build`
 
 ## 10. Tests Run + Result
 - `npm run prisma:generate` ✅
 - `npm run typecheck` ✅
 - `npm run lint` ✅
 - `npm run build` ✅
+- Catalog/seller foundation compile verification completed after module additions ✅
 - No Jest test suite exists yet, so runtime business-flow tests are still pending
 
 ## 11. Bugs / Known Issues
 - `rg` executable in this environment is not callable due to local access restrictions, so PowerShell file discovery is used instead
-- No database container has been started yet in this session, so auth endpoints were compile-verified but not exercised against a live PostgreSQL instance
+- No database container has been started yet in this session, so auth/category/brand/shop endpoints were compile-verified but not exercised against a live PostgreSQL instance
 - `npm audit` currently reports 20 transitive vulnerabilities from freshly installed dependency trees; triage is pending after core foundations stabilize
-- GitHub publishing is blocked until a remote repository exists and this machine/session has push-capable authentication
 
 ## 12. Assumptions Made This Session
 - Use shadcn/ui + Tailwind as the primary shared UI system
@@ -160,7 +178,10 @@ The immediate next step is to create or connect a GitHub remote, push `main`, th
 - Start with a minimal but future-safe Prisma schema covering foundation entities only
 - Self-service registration creates `CUSTOMER` users only; seller onboarding remains an admin-approved later slice
 - JWT access token only is enough for the first auth foundation slice; refresh-token flow can be added once session management requirements are implemented
+- Creating a shop upgrades the owner to `SELLER` if they were not already in that role
+- Category deletion is blocked when child categories or products still exist
+- Seeded default users share a known development-only bcrypt hash for local bootstrap convenience
 
 ## 13. Handoff Note for Next Session
-The repo is bootstrapped, verified, and already committed locally.
-If GitHub authentication becomes available, create/connect the remote first and push `main`, then resume with real database wiring and Phase 1 catalog/seller modules.
+The repo is already pushed to GitHub and the current API slice compiles cleanly.
+Resume from live DB verification and product module implementation, not from scaffolding or auth basics.

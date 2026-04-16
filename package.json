@@ -16,7 +16,7 @@
     "format": "turbo run format",
     "prisma:generate": "npm run prisma:generate --workspace @ecoms/api",
     "prisma:migrate:dev": "npm run prisma:migrate:dev --workspace @ecoms/api",
-    "db:seed": "npm run db:seed --workspace @ecoms/api"
+    "db:seed": "node prisma/seed.js"
   },
   "devDependencies": {
     "turbo": "^2.0.14"

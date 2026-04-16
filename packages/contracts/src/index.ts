@@ -6,6 +6,19 @@ export enum UserRole {
   SUPER_ADMIN = "SUPER_ADMIN"
 }
 
+export enum ShopStatus {
+  PENDING_APPROVAL = "PENDING_APPROVAL",
+  ACTIVE = "ACTIVE",
+  SUSPENDED = "SUSPENDED"
+}
+
+export enum ProductStatus {
+  DRAFT = "DRAFT",
+  ACTIVE = "ACTIVE",
+  INACTIVE = "INACTIVE",
+  BANNED = "BANNED"
+}
+
 export interface ApiSuccessResponse<T> {
   success: true;
   data: T;

@@ -2,9 +2,12 @@ import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { validateEnv } from "./config/env";
 import { AuthModule } from "./modules/auth/auth.module";
+import { BrandsModule } from "./modules/brands/brands.module";
+import { CategoriesModule } from "./modules/categories/categories.module";
 import { HealthModule } from "./modules/health/health.module";
 import { PrismaModule } from "./modules/prisma/prisma.module";
 import { RbacModule } from "./modules/rbac/rbac.module";
+import { ShopsModule } from "./modules/shops/shops.module";
 import { UsersModule } from "./modules/users/users.module";
 
 @Module({
@@ -17,7 +20,10 @@ import { UsersModule } from "./modules/users/users.module";
     HealthModule,
     AuthModule,
     UsersModule,
-    RbacModule
+    RbacModule,
+    CategoriesModule,
+    BrandsModule,
+    ShopsModule
   ]
 })
 export class AppModule {}
