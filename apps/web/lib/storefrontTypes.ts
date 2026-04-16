@@ -13,6 +13,14 @@ export interface CategoryNode {
   children: CategoryNode[];
 }
 
+export interface BrandSummary {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  logoUrl: string | null;
+}
+
 export interface ProductCard {
   id: string;
   shopId: string;

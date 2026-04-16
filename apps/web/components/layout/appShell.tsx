@@ -1,6 +1,6 @@
 import type { Route } from "next";
 import Link from "next/link";
-import { loginBuyerDemo, logoutDemo } from "@/app/actions/auth";
+import { loginBuyerDemo, loginSellerDemo, logoutDemo } from "@/app/actions/auth";
 import type { DemoSession } from "@/lib/session";
 
 export function AppShell({
@@ -31,6 +31,11 @@ export function AppShell({
               <Link href={"/orders" as Route} className="transition hover:text-orange-600">
                 Orders
               </Link>
+              {session?.role === "SELLER" ? (
+                <Link href={"/seller" as Route} className="transition hover:text-orange-600">
+                  Seller Center
+                </Link>
+              ) : null}
             </nav>
           </div>
 
@@ -50,14 +55,24 @@ export function AppShell({
                 </form>
               </>
             ) : (
-              <form action={loginBuyerDemo}>
-                <button
-                  type="submit"
-                  className="rounded-full bg-orange-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-600"
-                >
-                  Login as buyer demo
-                </button>
-              </form>
+              <div className="flex items-center gap-2">
+                <form action={loginBuyerDemo}>
+                  <button
+                    type="submit"
+                    className="rounded-full bg-orange-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-600"
+                  >
+                    Buyer demo
+                  </button>
+                </form>
+                <form action={loginSellerDemo}>
+                  <button
+                    type="submit"
+                    className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+                  >
+                    Seller demo
+                  </button>
+                </form>
+              </div>
             )}
           </div>
         </div>

@@ -1,5 +1,6 @@
 import type {
   ApiEnvelope,
+  BrandSummary,
   CategoryNode,
   ProductCard,
   ProductListResponse,
@@ -29,6 +30,10 @@ async function requestJson<T>(path: string): Promise<T | null> {
 
 export async function getCategoryTree(): Promise<CategoryNode[]> {
   return (await requestJson<CategoryNode[]>("/categories")) ?? [];
+}
+
+export async function getBrands(): Promise<BrandSummary[]> {
+  return (await requestJson<BrandSummary[]>("/brands")) ?? [];
 }
 
 export async function getProducts(query?: Record<string, string | number | undefined>) {

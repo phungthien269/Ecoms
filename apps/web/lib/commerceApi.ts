@@ -188,3 +188,39 @@ export async function getCheckoutPreview(previewPayload: Record<string, unknown>
     body: JSON.stringify(previewPayload)
   });
 }
+
+export async function getSellerShop() {
+  return requestAuthedJson<{
+    id: string;
+    name: string;
+    slug: string;
+    description: string | null;
+    logoUrl: string | null;
+    bannerUrl: string | null;
+    status: string;
+    owner: {
+      id: string;
+      email: string;
+      fullName: string;
+      role: string;
+    };
+  }>("/shops/me");
+}
+
+export async function getSellerProducts() {
+  return (
+    (await requestAuthedJson<
+      Array<{
+        id: string;
+        name: string;
+        slug: string;
+        sku: string;
+        status: string;
+        salePrice: string;
+        stock: number;
+        images: Array<{ id: string; url: string }>;
+        variants: Array<{ id: string; name: string; stock: number }>;
+      }>
+    >("/products/me")) ?? []
+  );
+}
