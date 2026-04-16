@@ -23,6 +23,13 @@ export class ReviewsController {
     return this.reviewsService.listEligible(userId);
   }
 
+  @Get("seller/me")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SELLER, UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  listSeller(@CurrentUser("sub") userId: string) {
+    return this.reviewsService.listSeller(userId);
+  }
+
   @Get("admin")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)

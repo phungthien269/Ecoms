@@ -56,6 +56,12 @@ export default async function SellerPage() {
                 Manage orders
               </Link>
               <Link
+                href={"/seller/reviews" as Route}
+                className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+              >
+                Reviews
+              </Link>
+              <Link
                 href={`/shops/${shop.slug}` as Route}
                 className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
               >

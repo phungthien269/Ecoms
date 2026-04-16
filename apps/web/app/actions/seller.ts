@@ -99,3 +99,33 @@ export async function updateSellerOrderStatusAction(formData: FormData) {
 
   redirect("/seller/orders?status=success");
 }
+
+export async function replySellerReviewAction(formData: FormData) {
+  const token = await getToken();
+  if (!token) {
+    redirect("/seller/reviews");
+  }
+
+  const reviewId = String(formData.get("reviewId") ?? "");
+  const reply = String(formData.get("reply") ?? "");
+
+  if (!reviewId || !reply.trim()) {
+    redirect("/seller/reviews?reply=failed");
+  }
+
+  const response = await fetch(`${API_URL}/reviews/${reviewId}/reply`, {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({ reply }),
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    redirect("/seller/reviews?reply=failed");
+  }
+
+  redirect("/seller/reviews?reply=success");
+}

@@ -50,6 +50,7 @@ describe("ReviewsService", () => {
         rating: 4.5
       }
     });
+    prisma.review.findMany.mockResolvedValue([]);
   });
 
   it("creates a review for an eligible completed order item", async () => {
@@ -105,5 +106,33 @@ describe("ReviewsService", () => {
     await expect(service.reply("seller-2", "review-1", "Thanks")).rejects.toBeInstanceOf(
       NotFoundException
     );
+  });
+
+  it("lists reviews for the seller's own shop products", async () => {
+    prisma.review.findMany.mockResolvedValue([
+      {
+        id: "review-1",
+        rating: 5,
+        comment: "Great",
+        imageUrls: [],
+        sellerReply: null,
+        sellerReplyAt: null,
+        createdAt: new Date("2026-04-17T12:00:00.000Z"),
+        reviewer: {
+          id: "user-1",
+          fullName: "Demo Buyer",
+          email: "buyer@ecoms.local"
+        },
+        product: {
+          id: "product-1",
+          name: "Gaming Mouse Pro",
+          slug: "gaming-mouse-pro"
+        }
+      }
+    ]);
+
+    const result = await service.listSeller("seller-1");
+    expect(result).toHaveLength(1);
+    expect(result[0]?.product.slug).toBe("gaming-mouse-pro");
   });
 });

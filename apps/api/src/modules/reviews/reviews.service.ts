@@ -88,6 +88,47 @@ export class ReviewsService {
     }));
   }
 
+  async listSeller(userId: string) {
+    const reviews = await this.prisma.review.findMany({
+      where: {
+        product: {
+          shop: {
+            ownerId: userId
+          }
+        }
+      },
+      include: {
+        reviewer: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true
+          }
+        },
+        product: {
+          select: {
+            id: true,
+            name: true,
+            slug: true
+          }
+        }
+      },
+      orderBy: [{ createdAt: "desc" }]
+    });
+
+    return reviews.map((review) => ({
+      id: review.id,
+      rating: review.rating,
+      comment: review.comment,
+      imageUrls: review.imageUrls,
+      sellerReply: review.sellerReply,
+      sellerReplyAt: review.sellerReplyAt?.toISOString() ?? null,
+      createdAt: review.createdAt.toISOString(),
+      reviewer: review.reviewer,
+      product: review.product
+    }));
+  }
+
   async listAdmin() {
     const reviews = await this.prisma.review.findMany({
       include: {

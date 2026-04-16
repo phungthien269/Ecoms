@@ -194,6 +194,26 @@ export interface WishlistItem {
   };
 }
 
+export interface SellerReviewItem {
+  id: string;
+  rating: number;
+  comment: string;
+  imageUrls: string[];
+  sellerReply: string | null;
+  sellerReplyAt: string | null;
+  createdAt: string;
+  reviewer: {
+    id: string;
+    fullName: string;
+    email: string;
+  };
+  product: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+}
+
 export interface AdminDashboardData {
   stats: {
     totalUsers: number;
@@ -406,6 +426,10 @@ export async function getSellerOrder(orderId: string) {
 
 export async function getWishlist() {
   return (await requestAuthedJson<WishlistItem[]>("/wishlist")) ?? [];
+}
+
+export async function getSellerReviews() {
+  return (await requestAuthedJson<SellerReviewItem[]>("/reviews/seller/me")) ?? [];
 }
 
 export async function getAdminDashboard() {
