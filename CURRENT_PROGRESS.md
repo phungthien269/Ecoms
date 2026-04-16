@@ -12,9 +12,9 @@ Extend the verified foundation into real Phase 1 domain modules and keep the rem
 Project requirements remain stable.
 Initial implementation has started.
 The repository now has a runnable monorepo foundation with verified `build`, `lint`, and `typecheck`.
-The baseline now includes auth/RBAC, Prisma migration + seed, public/admin category APIs, public/admin brand APIs, seller/admin shop APIs, product CRUD, product variants, publish-status guardrails, and a richer storefront with catalog filters, sorting, pagination, and category landing pages on Next.js.
+The baseline now includes auth/RBAC, Prisma migration + seed, public/admin category APIs, public/admin brand APIs, seller/admin shop APIs, product CRUD, product variants, publish-status guardrails, a richer storefront with catalog filters/sorting/pagination, and the first cart backend slice with tests.
 The repository has been pushed to GitHub and is ready for continued incremental delivery.
-The immediate next step is to move into seller-facing web management UX while extending backend test coverage incrementally and keeping Docker/runtime validation deferred.
+The immediate next step is to build checkout-adjacent commerce flows on top of the new cart slice, while seller-facing web management remains queued behind core transaction flows.
 
 ## 4. Completed Items
 - Read required skill pack from `.claude/skills/everything-claude-code`
@@ -125,18 +125,26 @@ The immediate next step is to move into seller-facing web management UX while ex
   - Jest + ts-jest config for `apps/api`
   - `AuthService` tests for register conflict handling and invalid login rejection
   - `ProductsService` tests for tag normalization, default variant inference, duplicate variant SKU rejection, and inactive-shop publish guardrail
+- Added cart foundation:
+  - `CartItem` Prisma model + SQL migration
+  - authenticated `GET /api/cart`, `POST /api/cart/items`, `PATCH /api/cart/items/:id`, `DELETE /api/cart/items/:id`, `DELETE /api/cart`
+  - cart service groups items by shop and returns cart totals
+  - add-to-cart validates active product/shop state, variant ownership, and stock limits
+  - duplicate cart lines merge quantity when product + variant match
+- Extended API test coverage:
+  - `CartService` tests for add-item totals, line merging, and inactive-product rejection
 
 ## 5. In Progress Items
 - No half-finished code pending in the current slice
-- Next implementation target is seller-facing product management UX and broader backend/API test coverage
+- Next implementation target is checkout/order foundation on top of the new cart module
 
 ## 6. Next Exact Tasks
-1. Add seller-facing product management UI on the web side
-2. Add product variant editing UX for sellers
-3. Add shop onboarding/status UX for sellers and admins
-4. Extend backend test coverage to categories, shops, and product query flows
-5. Restore Docker Desktop daemon access and run live DB validation later
-6. Update this file after each meaningful step
+1. Add checkout/order foundation that splits cart items by shop
+2. Add shipping fee calculation rules and checkout preview
+3. Add mock payment abstraction hooks for COD and pending online flows
+4. Extend backend test coverage to categories, shops, cart, and product query flows
+5. Add seller-facing web management UI after core commerce backend is in place
+6. Restore Docker Desktop daemon access and run live DB validation later
 
 ## 7. Blockers / Open Questions
 - No hard blocker currently
@@ -207,6 +215,12 @@ The immediate next step is to move into seller-facing web management UX while ex
 - `npm run test --workspace @ecoms/api`
 - Re-ran `npm run typecheck` after API test baseline
 - Re-ran `npm run build` after API test baseline
+- Added cart schema/module/controller/service slice
+- `npm run prisma:generate`
+- Re-ran `npm run typecheck` after cart implementation
+- Re-ran `npm run build` after cart implementation
+- Re-ran `npm run test --workspace @ecoms/api` after cart tests
+- Re-ran `npm run lint` after cart tests
 
 ## 10. Tests Run + Result
 - `npm run prisma:generate` ✅
@@ -220,6 +234,8 @@ The immediate next step is to move into seller-facing web management UX while ex
 - Catalog filter/sort storefront slice compile verification completed ✅
 - `npm run test --workspace @ecoms/api` ✅
 - API service unit test baseline now exists for auth and product business rules ✅
+- Cart backend slice compile verification completed ✅
+- `CartService` unit tests added and passing ✅
 - Broader integration/runtime business-flow tests are still pending
 
 ## 11. Bugs / Known Issues
@@ -230,6 +246,7 @@ The immediate next step is to move into seller-facing web management UX while ex
 - `npm audit` currently reports 20 transitive vulnerabilities from freshly installed dependency trees; triage is pending after core foundations stabilize
 - Storefront pages currently render soft-empty states if the API is unreachable; this is intentional to keep frontend progress unblocked before runtime wiring is restored
 - Jest currently uses a local test-only mapper for `@ecoms/contracts` inside `apps/api` specs to avoid ESM alias friction in the current monorepo setup; this should be revisited when shared package test tooling is standardized
+- Cart persistence exists in schema and migration files, but no live database migration has been applied in this session because Docker/PostgreSQL runtime remains deferred
 
 ## 12. Assumptions Made This Session
 - Use shadcn/ui + Tailwind as the primary shared UI system
@@ -249,7 +266,8 @@ The immediate next step is to move into seller-facing web management UX while ex
 - Storefront pages use server-side fetches with short revalidation rather than client-side state libraries for the first slice to keep SEO and implementation velocity high
 - Category landing pages currently reuse the `/products` catalog implementation so storefront logic stays centralized while the route structure becomes more SEO-friendly
 - API unit tests use direct service instantiation with mocked Prisma/JWT dependencies instead of Nest testing modules to keep the first test slice fast and focused on business rules
+- Cart is modeled as direct user-owned `CartItem` rows instead of a separate `Cart` aggregate table to keep phase-1 checkout flows simple while preserving multi-shop grouping in service logic
 
 ## 13. Handoff Note for Next Session
 The repo is already pushed to GitHub and the current API slice compiles cleanly.
-Resume from seller-facing web management UX and broader backend test coverage, not from scaffolding, auth basics, catalog filters, or existing product API work.
+Resume from checkout/order foundation on top of the cart slice, not from scaffolding, auth basics, storefront filters, or existing catalog/product/cart groundwork.

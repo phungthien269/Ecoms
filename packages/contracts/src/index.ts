@@ -19,6 +19,48 @@ export enum ProductStatus {
   BANNED = "BANNED"
 }
 
+export interface CartItemSummary {
+  id: string;
+  productId: string;
+  productVariantId: string | null;
+  quantity: number;
+  unitPrice: string;
+  subtotal: string;
+  product: {
+    id: string;
+    name: string;
+    slug: string;
+    status: string;
+    imageUrl: string | null;
+    stock: number;
+  };
+  variant: {
+    id: string;
+    sku: string;
+    name: string;
+    attributes: Record<string, string>;
+    stock: number;
+  } | null;
+}
+
+export interface CartShopGroup {
+  shop: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+  items: CartItemSummary[];
+  subtotal: string;
+}
+
+export interface CartSummary {
+  shops: CartShopGroup[];
+  totals: {
+    itemCount: number;
+    subtotal: string;
+  };
+}
+
 export interface ApiSuccessResponse<T> {
   success: true;
   data: T;

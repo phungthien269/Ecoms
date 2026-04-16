@@ -3,6 +3,7 @@ import { ConfigModule } from "@nestjs/config";
 import { validateEnv } from "./config/env";
 import { AuthModule } from "./modules/auth/auth.module";
 import { BrandsModule } from "./modules/brands/brands.module";
+import { CartModule } from "./modules/cart/cart.module";
 import { CategoriesModule } from "./modules/categories/categories.module";
 import { HealthModule } from "./modules/health/health.module";
 import { PrismaModule } from "./modules/prisma/prisma.module";
@@ -22,6 +23,7 @@ import { UsersModule } from "./modules/users/users.module";
     AuthModule,
     UsersModule,
     RbacModule,
+    CartModule,
     CategoriesModule,
     BrandsModule,
     ShopsModule,
