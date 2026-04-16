@@ -176,3 +176,51 @@ export async function createAdminVoucherAction(formData: FormData) {
 
   redirect("/admin?vouchers=created");
 }
+
+export async function createAdminFlashSaleAction(formData: FormData) {
+  const token = await getToken();
+  if (!token) {
+    redirect("/admin");
+  }
+
+  const items = String(formData.get("items") ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line, index) => {
+      const [productId, flashPrice, stockLimit, sortOrder] = line
+        .split("|")
+        .map((value) => value.trim());
+
+      return {
+        productId,
+        flashPrice: Number(flashPrice),
+        stockLimit: Number(stockLimit),
+        sortOrder: sortOrder ? Number(sortOrder) : index
+      };
+    });
+
+  const response = await fetch(`${API_URL}/flash-sales/admin`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      name: String(formData.get("name") ?? ""),
+      description: String(formData.get("description") ?? "") || undefined,
+      bannerUrl: String(formData.get("bannerUrl") ?? "") || undefined,
+      startsAt: String(formData.get("startsAt") ?? ""),
+      endsAt: String(formData.get("endsAt") ?? ""),
+      status: String(formData.get("status") ?? "") || undefined,
+      items
+    }),
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    redirect("/admin?flashSale=failed");
+  }
+
+  redirect("/admin?flashSale=created");
+}

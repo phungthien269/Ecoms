@@ -45,6 +45,19 @@ export interface ProductCard {
   ratingAverage: string;
   createdAt: string;
   updatedAt: string;
+  flashSale: {
+    id: string;
+    flashSaleId: string;
+    flashSaleName: string;
+    flashPrice: string;
+    originalSalePrice: string;
+    stockLimit: number;
+    soldCount: number;
+    remainingStock: number;
+    startsAt: string;
+    endsAt: string;
+    status: string;
+  } | null;
   images: Array<{
     id: string;
     url: string;
@@ -124,6 +137,28 @@ export interface ShopPageData {
     status: string;
     soldCount: number;
     ratingAverage: string;
+    imageUrl: string | null;
+  }>;
+}
+
+export interface StorefrontFlashSale {
+  id: string;
+  name: string;
+  description: string | null;
+  bannerUrl: string | null;
+  startsAt: string;
+  endsAt: string;
+  status: string;
+  items: Array<{
+    id: string;
+    productId: string;
+    productName: string;
+    productSlug: string;
+    flashPrice: string;
+    originalSalePrice: string;
+    stockLimit: number;
+    soldCount: number;
+    remainingStock: number;
     imageUrl: string | null;
   }>;
 }

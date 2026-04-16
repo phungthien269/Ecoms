@@ -9,6 +9,7 @@ import { CartModule } from "./modules/cart/cart.module";
 import { CategoriesModule } from "./modules/categories/categories.module";
 import { ChatModule } from "./modules/chat/chat.module";
 import { CheckoutModule } from "./modules/checkout/checkout.module";
+import { FlashSalesModule } from "./modules/flashSales/flashSales.module";
 import { HealthModule } from "./modules/health/health.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { OrdersModule } from "./modules/orders/orders.module";
@@ -40,6 +41,7 @@ import { WishlistModule } from "./modules/wishlist/wishlist.module";
     CheckoutModule,
     CategoriesModule,
     BrandsModule,
+    FlashSalesModule,
     NotificationsModule,
     OrdersModule,
     PaymentsModule,

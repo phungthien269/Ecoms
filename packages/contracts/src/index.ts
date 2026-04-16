@@ -66,6 +66,14 @@ export enum NotificationCategory {
   SYSTEM = "SYSTEM"
 }
 
+export enum FlashSaleStatus {
+  DRAFT = "DRAFT",
+  SCHEDULED = "SCHEDULED",
+  ACTIVE = "ACTIVE",
+  ENDED = "ENDED",
+  CANCELLED = "CANCELLED"
+}
+
 export interface ProductReviewSummary {
   id: string;
   reviewer: {
@@ -243,6 +251,52 @@ export interface VoucherSummary {
     slug: string;
   } | null;
   createdAt: string;
+}
+
+export interface FlashSaleItemSummary {
+  flashPrice: string;
+  stockLimit: number;
+  soldCount: number;
+  remainingStock: number;
+  startsAt: string;
+  endsAt: string;
+  status: FlashSaleStatus;
+}
+
+export interface ProductFlashSaleSummary {
+  id: string;
+  flashSaleId: string;
+  flashSaleName: string;
+  flashPrice: string;
+  originalSalePrice: string;
+  stockLimit: number;
+  soldCount: number;
+  remainingStock: number;
+  startsAt: string;
+  endsAt: string;
+  status: FlashSaleStatus;
+}
+
+export interface FlashSaleSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  bannerUrl: string | null;
+  startsAt: string;
+  endsAt: string;
+  status: FlashSaleStatus;
+  items: Array<{
+    id: string;
+    productId: string;
+    productName: string;
+    productSlug: string;
+    flashPrice: string;
+    originalSalePrice: string;
+    stockLimit: number;
+    soldCount: number;
+    remainingStock: number;
+    imageUrl: string | null;
+  }>;
 }
 
 export interface NotificationSummary {

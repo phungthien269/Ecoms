@@ -31,6 +31,7 @@ export default async function ProductDetailPage({
   }
 
   const defaultVariant = product.variants.find((variant) => variant.isDefault) ?? product.variants[0];
+  const currentPrice = product.flashSale?.flashPrice ?? product.salePrice;
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -75,18 +76,32 @@ export default async function ProductDetailPage({
               <span className="inline-flex rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-orange-600">
                 {product.status}
               </span>
+              {product.flashSale ? (
+                <span className="ml-2 inline-flex rounded-full bg-red-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-red-600">
+                  Flash Sale Live
+                </span>
+              ) : null}
               <h1 className="text-3xl font-black text-slate-950">{product.name}</h1>
               <p className="text-sm text-slate-500">{product.soldCount} sold • {product.ratingAverage}/5 rating</p>
             </div>
 
             <div className="rounded-[1.5rem] bg-slate-950 p-5 text-white">
               <div className="flex items-end gap-3">
-                <span className="text-3xl font-black">{formatPrice(product.salePrice)}</span>
+                <span className="text-3xl font-black">{formatPrice(currentPrice)}</span>
                 <span className="text-sm text-slate-400 line-through">
                   {formatPrice(product.originalPrice)}
                 </span>
               </div>
               <p className="mt-3 text-sm text-slate-300">SKU: {product.sku}</p>
+              {product.flashSale ? (
+                <div className="mt-4 rounded-[1.25rem] bg-red-500/15 px-4 py-3 text-sm text-red-100">
+                  <div className="font-semibold text-white">{product.flashSale.flashSaleName}</div>
+                  <div className="mt-1">
+                    {product.flashSale.remainingStock} promotional units left until{" "}
+                    {new Date(product.flashSale.endsAt).toLocaleString("vi-VN")}
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             {defaultVariant ? (

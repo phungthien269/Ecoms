@@ -103,6 +103,148 @@ async function main() {
     where: { ownerId: seller.id }
   });
 
+  const brand = await prisma.brand.findUnique({
+    where: { slug: "demo-brand" }
+  });
+
+  if (shop && brand) {
+    const product = await prisma.product.upsert({
+      where: { slug: "demo-wireless-gaming-mouse" },
+      update: {
+        shopId: shop.id,
+        categoryId: electronics.id,
+        brandId: brand.id,
+        name: "Demo Wireless Gaming Mouse",
+        sku: "DEMO-MOUSE-001",
+        description: "Seeded flagship accessory for storefront, cart, voucher, and flash-sale testing.",
+        originalPrice: 499000,
+        salePrice: 399000,
+        status: "ACTIVE",
+        stock: 120,
+        weightGrams: 420,
+        lengthCm: 12,
+        widthCm: 7,
+        heightCm: 4,
+        tags: ["gaming", "wireless", "seeded"],
+        deletedAt: null
+      },
+      create: {
+        shopId: shop.id,
+        categoryId: electronics.id,
+        brandId: brand.id,
+        name: "Demo Wireless Gaming Mouse",
+        slug: "demo-wireless-gaming-mouse",
+        sku: "DEMO-MOUSE-001",
+        description: "Seeded flagship accessory for storefront, cart, voucher, and flash-sale testing.",
+        originalPrice: 499000,
+        salePrice: 399000,
+        status: "ACTIVE",
+        stock: 120,
+        weightGrams: 420,
+        lengthCm: 12,
+        widthCm: 7,
+        heightCm: 4,
+        tags: ["gaming", "wireless", "seeded"]
+      }
+    });
+
+    await prisma.productImage.deleteMany({
+      where: { productId: product.id }
+    });
+    await prisma.productImage.create({
+      data: {
+        productId: product.id,
+        url: "https://images.unsplash.com/photo-1527814050087-3793815479db?auto=format&fit=crop&w=900&q=80",
+        altText: "Demo Wireless Gaming Mouse",
+        sortOrder: 0
+      }
+    });
+
+    await prisma.productVariant.deleteMany({
+      where: { productId: product.id }
+    });
+    await prisma.productVariant.createMany({
+      data: [
+        {
+          productId: product.id,
+          sku: "DEMO-MOUSE-001-BLACK",
+          name: "Black",
+          attributes: { color: "Black" },
+          price: 399000,
+          stock: 80,
+          isDefault: true
+        },
+        {
+          productId: product.id,
+          sku: "DEMO-MOUSE-001-WHITE",
+          name: "White",
+          attributes: { color: "White" },
+          price: 419000,
+          stock: 40,
+          isDefault: false
+        }
+      ]
+    });
+
+    const existingFlashSale = await prisma.flashSale.findFirst({
+      where: { name: "Mega Tech Hour" }
+    });
+
+    const flashSaleUpdateData = {
+      description: "Seeded flash sale for homepage and product pricing demos",
+      startsAt: new Date("2026-04-17T09:00:00.000Z"),
+      endsAt: new Date("2099-04-18T09:00:00.000Z"),
+      status: "ACTIVE",
+      items: {
+        deleteMany: {},
+        create: [
+          {
+            productId: product.id,
+            flashPrice: 299000,
+            stockLimit: 50,
+            soldCount: 8,
+            sortOrder: 0
+          }
+        ]
+      }
+    };
+
+    const flashSaleCreateData = {
+      description: "Seeded flash sale for homepage and product pricing demos",
+      startsAt: new Date("2026-04-17T09:00:00.000Z"),
+      endsAt: new Date("2099-04-18T09:00:00.000Z"),
+      status: "ACTIVE",
+      items: {
+        create: [
+          {
+            productId: product.id,
+            flashPrice: 299000,
+            stockLimit: 50,
+            soldCount: 8,
+            sortOrder: 0
+          }
+        ]
+      }
+    };
+
+    if (existingFlashSale) {
+      await prisma.flashSale.update({
+        where: { id: existingFlashSale.id },
+        data: {
+          name: "Mega Tech Hour",
+          ...flashSaleUpdateData
+        }
+      });
+    } else {
+      await prisma.flashSale.create({
+        data: {
+          name: "Mega Tech Hour",
+          ...flashSaleCreateData
+        }
+      });
+    }
+  }
+
   await prisma.voucher.upsert({
     where: { code: "PLATFORM50K" },
     update: {

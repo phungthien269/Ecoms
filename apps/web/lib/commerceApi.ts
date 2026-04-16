@@ -291,6 +291,8 @@ export interface AdminDashboardData {
     bannedProducts: number;
     totalOrders: number;
     pendingPayments: number;
+    totalFlashSales: number;
+    activeFlashSales: number;
     totalReviews: number;
   };
   recentOrders: Array<{
@@ -479,6 +481,28 @@ export interface VoucherSummary {
   } | null;
 }
 
+export interface FlashSaleSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  bannerUrl: string | null;
+  startsAt: string;
+  endsAt: string;
+  status: string;
+  items: Array<{
+    id: string;
+    productId: string;
+    productName: string;
+    productSlug: string;
+    flashPrice: string;
+    originalSalePrice: string;
+    stockLimit: number;
+    soldCount: number;
+    remainingStock: number;
+    imageUrl: string | null;
+  }>;
+}
+
 export interface AppliedVoucherSummary {
   id: string;
   code: string;
@@ -616,6 +640,10 @@ export async function getAdminOrders() {
 
 export async function getAdminVouchers() {
   return (await requestAuthedJson<VoucherSummary[]>("/vouchers/admin")) ?? [];
+}
+
+export async function getAdminFlashSales() {
+  return (await requestAuthedJson<FlashSaleSummary[]>("/flash-sales/admin")) ?? [];
 }
 
 export async function getSellerVouchers() {

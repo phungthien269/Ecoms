@@ -1,4 +1,4 @@
-import type { ProductStatus } from "@ecoms/contracts";
+import type { ProductFlashSaleSummary, ProductStatus } from "@ecoms/contracts";
 
 export interface ProductImageResponseEntity {
   id: string;
@@ -44,4 +44,5 @@ export interface ProductResponseEntity {
   updatedAt: string;
   images: ProductImageResponseEntity[];
   variants: ProductVariantResponseEntity[];
+  flashSale: ProductFlashSaleSummary | null;
 }

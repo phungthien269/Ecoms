@@ -1,4 +1,5 @@
 import {
+  createAdminFlashSaleAction,
   createAdminVoucherAction,
   createAdminBrandAction,
   createAdminCategoryAction,
@@ -12,11 +13,11 @@ import {
   getAdminBrands,
   getAdminCategories,
   getAdminDashboard,
+  getAdminFlashSales,
   getAdminOrders,
   getAdminProducts,
   getAdminReviews,
-  getAdminShops
-  ,
+  getAdminShops,
   getAdminVouchers
 } from "@/lib/commerceApi";
 import { getDemoSession } from "@/lib/session";
@@ -25,7 +26,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
   const session = await getDemoSession();
-  const [dashboard, shops, products, reviews, categories, brands, orders, vouchers] = await Promise.all([
+  const [dashboard, shops, products, reviews, categories, brands, orders, vouchers, flashSales] = await Promise.all([
     getAdminDashboard(),
     getAdminShops(),
     getAdminProducts(),
@@ -33,7 +34,8 @@ export default async function AdminPage() {
     getAdminCategories(),
     getAdminBrands(),
     getAdminOrders(),
-    getAdminVouchers()
+    getAdminVouchers(),
+    getAdminFlashSales()
   ]);
 
   if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.role)) {
@@ -81,6 +83,8 @@ export default async function AdminPage() {
             { label: "Pending Shops", value: dashboard.stats.pendingShops },
             { label: "Orders", value: dashboard.stats.totalOrders },
             { label: "Pending Payments", value: dashboard.stats.pendingPayments },
+            { label: "Flash Sales", value: dashboard.stats.totalFlashSales },
+            { label: "Live Flash Sales", value: dashboard.stats.activeFlashSales },
             { label: "Products", value: dashboard.stats.totalProducts },
             { label: "Active Products", value: dashboard.stats.activeProducts },
             { label: "Banned Products", value: dashboard.stats.bannedProducts },
@@ -377,6 +381,85 @@ export default async function AdminPage() {
                         ? formatPrice(voucher.discountValue)
                         : `${voucher.discountValue}%`}
                     </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        <div className="mt-8 grid gap-6 xl:grid-cols-[1fr_1fr]">
+          <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-xl font-bold text-slate-950">Flash sale operations</h2>
+              <div className="rounded-full bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
+                {flashSales.length} campaigns
+              </div>
+            </div>
+            <form action={createAdminFlashSaleAction} className="mt-4 grid gap-3 lg:grid-cols-2">
+              <input name="name" placeholder="Campaign name" className={inputClass} />
+              <select name="status" className={inputClass}>
+                <option value="">Auto status from time window</option>
+                <option value="DRAFT">Draft</option>
+                <option value="SCHEDULED">Scheduled</option>
+                <option value="ACTIVE">Active</option>
+              </select>
+              <input name="startsAt" type="datetime-local" className={inputClass} />
+              <input name="endsAt" type="datetime-local" className={inputClass} />
+              <input
+                name="bannerUrl"
+                placeholder="Banner URL (optional)"
+                className={`${inputClass} lg:col-span-2`}
+              />
+              <input
+                name="description"
+                placeholder="Description (optional)"
+                className={`${inputClass} lg:col-span-2`}
+              />
+              <textarea
+                name="items"
+                placeholder="One line per item: productId|flashPrice|stockLimit|sortOrder"
+                className="min-h-32 rounded-[1.5rem] border border-slate-200 px-4 py-3 text-sm text-slate-700 placeholder:text-slate-400 lg:col-span-2"
+              />
+              <button
+                type="submit"
+                className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white lg:col-span-2"
+              >
+                Create flash sale
+              </button>
+            </form>
+          </section>
+
+          <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-xl font-bold text-slate-950">Recent flash sales</h2>
+              <div className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
+                Live + scheduled
+              </div>
+            </div>
+            <div className="mt-4 space-y-3">
+              {flashSales.slice(0, 6).map((flashSale) => (
+                <div key={flashSale.id} className="rounded-[1.5rem] bg-slate-50 p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="font-semibold text-slate-950">{flashSale.name}</div>
+                      <div className="mt-1 text-sm text-slate-500">
+                        {flashSale.status} • {flashSale.items.length} SKU(s)
+                      </div>
+                    </div>
+                    <div className="text-right text-xs text-slate-500">
+                      Ends {new Date(flashSale.endsAt).toLocaleDateString("vi-VN")}
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {flashSale.items.slice(0, 3).map((item) => (
+                      <div
+                        key={item.id}
+                        className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-red-600"
+                      >
+                        {item.productName} • {formatPrice(item.flashPrice)}
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}

@@ -5,7 +5,8 @@ import type {
   ProductCard,
   ProductReview,
   ProductListResponse,
-  ShopPageData
+  ShopPageData,
+  StorefrontFlashSale
 } from "./storefrontTypes";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
@@ -71,6 +72,10 @@ export async function getProductReviews(productIdOrSlug: string): Promise<Produc
 
 export async function getShop(slug: string): Promise<ShopPageData | null> {
   return requestJson<ShopPageData>(`/shops/${slug}`);
+}
+
+export async function getActiveFlashSales(): Promise<StorefrontFlashSale[]> {
+  return (await requestJson<StorefrontFlashSale[]>("/flash-sales/active")) ?? [];
 }
 
 export function findCategoryBySlug(

@@ -3,14 +3,20 @@ import Link from "next/link";
 import { CategoryRail } from "@/components/storefront/categoryRail";
 import { EmptyState } from "@/components/storefront/emptyState";
 import { ProductCard } from "@/components/storefront/productCard";
-import type { CategoryNode, ProductCard as ProductCardType } from "@/lib/storefrontTypes";
+import type {
+  CategoryNode,
+  ProductCard as ProductCardType,
+  StorefrontFlashSale
+} from "@/lib/storefrontTypes";
 
 export function StorefrontShell({
   categories,
-  products
+  products,
+  flashSales
 }: {
   categories: CategoryNode[];
   products: ProductCardType[];
+  flashSales: StorefrontFlashSale[];
 }) {
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#fff7f3_0%,#ffffff_28%,#fffaf5_100%)]">
@@ -78,6 +84,63 @@ export function StorefrontShell({
           </div>
           <CategoryRail categories={categories} />
         </section>
+
+        {flashSales.length > 0 ? (
+          <section className="mt-10 space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium uppercase tracking-[0.3em] text-red-500">
+                  Flash Sale
+                </p>
+                <h2 className="mt-2 text-2xl font-bold text-slate-900">Timed deals running now</h2>
+              </div>
+            </div>
+
+            <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+              <div className="overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#ef4444_0%,#f97316_45%,#111827_100%)] p-6 text-white shadow-xl">
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-orange-100">
+                  {flashSales[0]?.name}
+                </p>
+                <h3 className="mt-3 text-3xl font-black">Drive urgency on high-intent products</h3>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-orange-50">
+                  {flashSales[0]?.description ??
+                    "An active promotional campaign is currently live across seeded inventory."}
+                </p>
+                <div className="mt-5 text-sm font-medium text-orange-100">
+                  Ends {new Date(flashSales[0]!.endsAt).toLocaleString("vi-VN")}
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {flashSales[0]?.items.slice(0, 4).map((item) => (
+                  <Link
+                    key={item.id}
+                    href={`/products/${item.productSlug}` as Route}
+                    className="rounded-[1.75rem] border border-red-100 bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+                  >
+                    <div className="text-sm font-semibold text-slate-950">{item.productName}</div>
+                    <div className="mt-3 text-lg font-black text-red-500">
+                      {new Intl.NumberFormat("vi-VN", {
+                        style: "currency",
+                        currency: "VND",
+                        maximumFractionDigits: 0
+                      }).format(Number(item.flashPrice))}
+                    </div>
+                    <div className="mt-1 text-xs text-slate-400 line-through">
+                      {new Intl.NumberFormat("vi-VN", {
+                        style: "currency",
+                        currency: "VND",
+                        maximumFractionDigits: 0
+                      }).format(Number(item.originalSalePrice))}
+                    </div>
+                    <div className="mt-3 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600">
+                      {item.remainingStock} left
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         <section className="mt-10 space-y-4">
           <div className="flex items-center justify-between gap-4">

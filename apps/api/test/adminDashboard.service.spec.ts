@@ -7,7 +7,8 @@ describe("AdminDashboardService", () => {
     product: { count: jest.fn(), findMany: jest.fn() },
     order: { count: jest.fn(), findMany: jest.fn() },
     payment: { count: jest.fn() },
-    review: { count: jest.fn() }
+    review: { count: jest.fn() },
+    flashSale: { count: jest.fn() }
   };
 
   const service = new AdminDashboardService(prisma as never);
@@ -22,6 +23,7 @@ describe("AdminDashboardService", () => {
       .mockResolvedValueOnce(1);
     prisma.order.count.mockResolvedValue(8);
     prisma.payment.count.mockResolvedValue(3);
+    prisma.flashSale.count.mockResolvedValueOnce(4).mockResolvedValueOnce(1);
     prisma.review.count.mockResolvedValue(6);
     prisma.order.findMany.mockResolvedValue([]);
     prisma.shop.findMany.mockResolvedValue([]);
@@ -34,6 +36,7 @@ describe("AdminDashboardService", () => {
     expect(summary.stats.totalUsers).toBe(12);
     expect(summary.stats.pendingShops).toBe(2);
     expect(summary.stats.pendingPayments).toBe(3);
+    expect(summary.stats.totalFlashSales).toBe(4);
     expect(summary.recentOrders).toEqual([]);
   });
 });

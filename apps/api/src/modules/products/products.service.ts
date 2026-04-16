@@ -3,10 +3,15 @@ import {
   Injectable,
   NotFoundException
 } from "@nestjs/common";
-import { ProductStatus, ShopStatus, UserRole } from "@ecoms/contracts";
+import {
+  ProductFlashSaleSummary,
+  ProductStatus,
+  ShopStatus
+} from "@ecoms/contracts";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { slugify } from "../../common/utils/slugify";
+import { FlashSalesService } from "../flashSales/flashSales.service";
 import { CreateProductDto } from "./dto/create-product.dto";
 import {
   ListProductsQueryDto,
@@ -31,7 +36,10 @@ type ProductDetailRecord = Prisma.ProductGetPayload<{
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly flashSalesService: FlashSalesService
+  ) {}
 
   async listPublic(query: ListProductsQueryDto) {
     const page = query.page ?? 1;
@@ -111,7 +119,7 @@ export class ProductsService {
     ]);
 
     return {
-      items: items.map((item) => this.toProductResponse(item)),
+      items: await this.attachFlashSales(items),
       pagination: {
         page,
         pageSize,
@@ -150,7 +158,8 @@ export class ProductsService {
       }
     });
 
-    return this.toProductResponse(product);
+    const [enrichedProduct] = await this.attachFlashSales([product]);
+    return enrichedProduct;
   }
 
   async listOwnProducts(ownerId: string) {
@@ -167,7 +176,7 @@ export class ProductsService {
       orderBy: [{ createdAt: "desc" }]
     });
 
-    return products.map((item) => this.toProductResponse(item));
+    return this.attachFlashSales(products);
   }
 
   async create(ownerId: string, payload: CreateProductDto) {
@@ -241,7 +250,8 @@ export class ProductsService {
       include: productDetailInclude
     });
 
-    return this.toProductResponse(product);
+    const [enrichedProduct] = await this.attachFlashSales([product]);
+    return enrichedProduct;
   }
 
   async update(ownerId: string, productId: string, payload: UpdateProductDto) {
@@ -335,7 +345,8 @@ export class ProductsService {
       include: productDetailInclude
     });
 
-    return this.toProductResponse(updated);
+    const [enrichedProduct] = await this.attachFlashSales([updated]);
+    return enrichedProduct;
   }
 
   async remove(ownerId: string, productId: string) {
@@ -382,11 +393,13 @@ export class ProductsService {
       orderBy: [{ createdAt: "desc" }]
     });
 
-    return products.map((item) => ({
-      ...this.toProductResponse(item),
-      shop: item.shop,
-      category: item.category,
-      brand: item.brand
+    const enrichedProducts = await this.attachFlashSales(products);
+
+    return enrichedProducts.map((item, index) => ({
+      ...item,
+      shop: products[index]!.shop,
+      category: products[index]!.category,
+      brand: products[index]!.brand
     }));
   }
 
@@ -420,7 +433,18 @@ export class ProductsService {
       }
     });
 
-    return this.toProductResponse(updated);
+    const [enrichedProduct] = await this.attachFlashSales([updated]);
+    return enrichedProduct;
+  }
+
+  private async attachFlashSales(products: ProductDetailRecord[]) {
+    const activeItems = await this.flashSalesService.getActiveItemMap(
+      products.map((item) => item.id)
+    );
+
+    return products.map((item) =>
+      this.toProductResponse(item, activeItems.get(item.id) ?? null)
+    );
   }
 
   private resolvePublicSort(sort: ProductSortOption): Prisma.ProductOrderByWithRelationInput[] {
@@ -580,7 +604,10 @@ export class ProductsService {
     return targetStatus;
   }
 
-  private toProductResponse(product: ProductDetailRecord): ProductResponseEntity {
+  private toProductResponse(
+    product: ProductDetailRecord,
+    flashSale: ProductFlashSaleSummary | null = null
+  ): ProductResponseEntity {
     return {
       id: product.id,
       shopId: product.shopId,
@@ -605,6 +632,7 @@ export class ProductsService {
       ratingAverage: product.ratingAverage.toString(),
       createdAt: product.createdAt.toISOString(),
       updatedAt: product.updatedAt.toISOString(),
+      flashSale,
       images: product.images.map((image) => ({
         id: image.id,
         url: image.url,

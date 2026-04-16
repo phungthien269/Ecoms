@@ -74,6 +74,14 @@ enum NotificationCategory {
   SYSTEM
 }
 
+enum FlashSaleStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  ENDED
+  CANCELLED
+}
+
 model User {
   id                 String              @id @default(cuid())
   email              String              @unique
@@ -178,6 +186,7 @@ model Product {
   reviews       Review[]
   chatConversations ChatConversation[]
   chatMessages   ChatMessage[]
+  flashSaleItems FlashSaleItem[]
 }
 
 model ProductImage {
@@ -358,6 +367,38 @@ model Notification {
 
   @@index([userId, createdAt])
   @@index([userId, isRead, createdAt])
+}
+
+model FlashSale {
+  id          String          @id @default(cuid())
+  name        String
+  description String?
+  bannerUrl   String?
+  startsAt    DateTime
+  endsAt      DateTime
+  status      FlashSaleStatus @default(DRAFT)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  items       FlashSaleItem[]
+
+  @@index([status, startsAt, endsAt])
+}
+
+model FlashSaleItem {
+  id               String    @id @default(cuid())
+  flashSaleId      String
+  productId        String
+  flashPrice       Decimal   @db.Decimal(12, 2)
+  stockLimit       Int
+  soldCount        Int       @default(0)
+  sortOrder        Int       @default(0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  flashSale        FlashSale @relation(fields: [flashSaleId], references: [id], onDelete: Cascade)
+  product          Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([flashSaleId, productId])
+  @@index([productId, flashSaleId])
 }
 
 model OrderItem {

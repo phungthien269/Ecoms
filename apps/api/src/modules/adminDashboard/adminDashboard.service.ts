@@ -16,6 +16,8 @@ export class AdminDashboardService {
       bannedProducts,
       totalOrders,
       pendingPayments,
+      totalFlashSales,
+      activeFlashSales,
       totalReviews,
       recentOrders,
       shopsNeedingReview,
@@ -29,6 +31,8 @@ export class AdminDashboardService {
       this.prisma.product.count({ where: { deletedAt: null, status: ProductStatus.BANNED } }),
       this.prisma.order.count(),
       this.prisma.payment.count({ where: { status: "PENDING" } }),
+      this.prisma.flashSale.count(),
+      this.prisma.flashSale.count({ where: { status: "ACTIVE" } }),
       this.prisma.review.count(),
       this.prisma.order.findMany({
         take: 5,
@@ -86,6 +90,8 @@ export class AdminDashboardService {
         bannedProducts,
         totalOrders,
         pendingPayments,
+        totalFlashSales,
+        activeFlashSales,
         totalReviews
       },
       recentOrders: recentOrders.map((order) => ({

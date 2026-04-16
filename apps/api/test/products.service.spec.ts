@@ -54,8 +54,11 @@ describe("ProductsService", () => {
       findUnique: jest.fn()
     }
   };
+  const flashSalesService = {
+    getActiveItemMap: jest.fn()
+  };
 
-  const service = new ProductsService(prisma as never);
+  const service = new ProductsService(prisma as never, flashSalesService as never);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -109,6 +112,7 @@ describe("ProductsService", () => {
         ]
       })
     );
+    flashSalesService.getActiveItemMap.mockResolvedValue(new Map());
   });
 
   it("creates a product with normalized tags and an inferred default variant", async () => {
