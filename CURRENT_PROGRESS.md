@@ -14,7 +14,7 @@ Initial implementation has started.
 The repository now has a runnable monorepo foundation with verified `build`, `lint`, and `typecheck`.
 The baseline now includes auth/RBAC, Prisma migration + seed, public/admin category APIs, public/admin brand APIs, seller/admin shop APIs, product CRUD, product variants, publish-status guardrails, storefront catalog/search UX, cart backend, checkout/order/payment backend flows, and a customer-side web commerce shell for cart/checkout/orders.
 The repository has been pushed to GitHub and is ready for continued incremental delivery.
-The immediate next step is to extend engagement features on top of the now-runnable backend APIs, starting with wishlist and verified reviews.
+The immediate next step is to open up admin moderation and dashboard visibility on top of the current commerce flows.
 
 ## 4. Completed Items
 - Read required skill pack from `.claude/skills/everything-claude-code`
@@ -182,14 +182,19 @@ The immediate next step is to extend engagement features on top of the now-runna
   - product detail page now shows reviews and save-to-wishlist actions
   - order detail page now supports posting reviews for completed order items
   - new `/wishlist` page wired to the live wishlist API
+- Added admin dashboard and moderation baseline:
+  - admin dashboard summary API with marketplace totals, recent orders, pending shops, and product moderation queues
+  - admin review list API for moderation visibility
+  - admin demo login and `/admin` web page
+  - admin web actions to approve/suspend shops and activate/ban products
 
 ## 5. In Progress Items
 - No half-finished code pending in the current slice
-- Next implementation target is admin moderation/dashboard work and richer seller/customer review management
+- Next implementation target is seller/admin review management polish and broader admin CRUD coverage
 
 ## 6. Next Exact Tasks
-1. Add admin-facing order moderation and dashboards
-2. Add richer seller review reply/history actions if needed after the current buyer review flow
+1. Add richer seller review reply/history actions after the current buyer review flow
+2. Expand admin CRUD coverage for categories, brands, and orders in the web surface
 3. Add wishlist polish such as remove states and product-heart indicators
 4. Restore Docker Desktop daemon access and run live DB validation later
 
@@ -289,6 +294,7 @@ The immediate next step is to extend engagement features on top of the now-runna
 - Added seller order APIs, tests, and Seller Center order page
 - Polished checkout preview and order lifecycle web UX
 - Added wishlist/review schema, APIs, tests, and buyer-facing web surfaces
+- Added admin dashboard summary APIs, tests, and web moderation surface
 
 ## 10. Tests Run + Result
 - `npm run prisma:generate` ✅
@@ -352,7 +358,8 @@ The immediate next step is to extend engagement features on top of the now-runna
 - Seller-side order management uses a narrow allowed transition map to keep first-pass fulfillment logic explicit and safe
 - Checkout preview state is still URL-driven and server-rendered rather than client-managed, to preserve SEO-safe simplicity in this phase
 - Reviews are limited to one review per completed order item, with image upload URLs stored as strings for now rather than a dedicated media relation
+- Admin moderation currently focuses on dashboard visibility plus existing shop/product status transitions rather than full CRUD pages for every admin-managed entity
 
 ## 13. Handoff Note for Next Session
 The repo is already pushed to GitHub and the current web/API slices compile cleanly.
-Resume from admin polish and review/wishlist refinement, not from scaffolding, auth basics, or backend cart/checkout/order/payment groundwork.
+Resume from seller/admin review management polish and expanded admin CRUD surfaces, not from scaffolding, auth basics, or backend cart/checkout/order/payment groundwork.

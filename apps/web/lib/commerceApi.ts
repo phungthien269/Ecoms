@@ -194,6 +194,125 @@ export interface WishlistItem {
   };
 }
 
+export interface AdminDashboardData {
+  stats: {
+    totalUsers: number;
+    totalShops: number;
+    pendingShops: number;
+    totalProducts: number;
+    activeProducts: number;
+    bannedProducts: number;
+    totalOrders: number;
+    pendingPayments: number;
+    totalReviews: number;
+  };
+  recentOrders: Array<{
+    id: string;
+    orderNumber: string;
+    status: string;
+    grandTotal: string;
+    createdAt: string;
+    user: {
+      id: string;
+      fullName: string;
+      email: string;
+    };
+    shop: {
+      id: string;
+      name: string;
+      slug: string;
+    };
+  }>;
+  shopsNeedingReview: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    status: string;
+    createdAt: string;
+    owner: {
+      id: string;
+      fullName: string;
+      email: string;
+    };
+  }>;
+  productsNeedingReview: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    sku: string;
+    status: string;
+    salePrice: string;
+    createdAt: string;
+    shop: {
+      id: string;
+      name: string;
+      slug: string;
+    };
+  }>;
+}
+
+export interface AdminReviewItem {
+  id: string;
+  rating: number;
+  comment: string;
+  imageUrls: string[];
+  sellerReply: string | null;
+  sellerReplyAt: string | null;
+  createdAt: string;
+  reviewer: {
+    id: string;
+    fullName: string;
+    email: string;
+  };
+  product: {
+    id: string;
+    name: string;
+    slug: string;
+    shop: {
+      id: string;
+      name: string;
+      slug: string;
+    };
+  };
+}
+
+export interface AdminShopItem {
+  id: string;
+  name: string;
+  slug: string;
+  status: string;
+  createdAt: string;
+  owner: {
+    id: string;
+    email: string;
+    fullName: string;
+    role: string;
+  };
+}
+
+export interface AdminProductItem {
+  id: string;
+  name: string;
+  slug: string;
+  sku: string;
+  status: string;
+  salePrice: string;
+  stock: number;
+  shop: {
+    id: string;
+    name: string;
+    status: string;
+  };
+  category: {
+    id: string;
+    name: string;
+  };
+  brand: {
+    id: string;
+    name: string;
+  } | null;
+}
+
 async function requestAuthedJson<T>(path: string, init?: RequestInit): Promise<T | null> {
   const session = await getDemoSession();
   if (!session) {
@@ -287,4 +406,20 @@ export async function getSellerOrder(orderId: string) {
 
 export async function getWishlist() {
   return (await requestAuthedJson<WishlistItem[]>("/wishlist")) ?? [];
+}
+
+export async function getAdminDashboard() {
+  return requestAuthedJson<AdminDashboardData>("/admin/dashboard");
+}
+
+export async function getAdminReviews() {
+  return (await requestAuthedJson<AdminReviewItem[]>("/reviews/admin")) ?? [];
+}
+
+export async function getAdminShops() {
+  return (await requestAuthedJson<AdminShopItem[]>("/shops/admin")) ?? [];
+}
+
+export async function getAdminProducts() {
+  return (await requestAuthedJson<AdminProductItem[]>("/products/admin")) ?? [];
 }

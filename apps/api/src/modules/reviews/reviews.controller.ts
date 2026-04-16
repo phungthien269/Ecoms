@@ -23,6 +23,13 @@ export class ReviewsController {
     return this.reviewsService.listEligible(userId);
   }
 
+  @Get("admin")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  listAdmin() {
+    return this.reviewsService.listAdmin();
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard)
   create(@CurrentUser("sub") userId: string, @Body() payload: CreateReviewDto) {

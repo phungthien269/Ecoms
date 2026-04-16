@@ -61,6 +61,10 @@ export async function loginSellerDemo() {
   await loginWithCredentials("seller@ecoms.local", "Password123!", "/seller");
 }
 
+export async function loginAdminDemo() {
+  await loginWithCredentials("admin@ecoms.local", "Password123!", "/admin");
+}
+
 export async function logoutDemo() {
   const cookieStore = await cookies();
   cookieStore.delete("ecoms_access_token");

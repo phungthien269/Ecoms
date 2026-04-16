@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { resolve } from "node:path";
 import { validateEnv } from "./config/env";
+import { AdminDashboardModule } from "./modules/adminDashboard/adminDashboard.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { BrandsModule } from "./modules/brands/brands.module";
 import { CartModule } from "./modules/cart/cart.module";
@@ -26,6 +27,7 @@ import { WishlistModule } from "./modules/wishlist/wishlist.module";
       validate: validateEnv
     }),
     PrismaModule,
+    AdminDashboardModule,
     HealthModule,
     AuthModule,
     UsersModule,

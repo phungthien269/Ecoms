@@ -1,6 +1,6 @@
 import type { Route } from "next";
 import Link from "next/link";
-import { loginBuyerDemo, loginSellerDemo, logoutDemo } from "@/app/actions/auth";
+import { loginAdminDemo, loginBuyerDemo, loginSellerDemo, logoutDemo } from "@/app/actions/auth";
 import type { DemoSession } from "@/lib/session";
 
 export function AppShell({
@@ -39,6 +39,11 @@ export function AppShell({
                   Seller Center
                 </Link>
               ) : null}
+              {session?.role === "ADMIN" || session?.role === "SUPER_ADMIN" ? (
+                <Link href={"/admin" as Route} className="transition hover:text-orange-600">
+                  Admin
+                </Link>
+              ) : null}
             </nav>
           </div>
 
@@ -73,6 +78,14 @@ export function AppShell({
                     className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
                   >
                     Seller demo
+                  </button>
+                </form>
+                <form action={loginAdminDemo}>
+                  <button
+                    type="submit"
+                    className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+                  >
+                    Admin demo
                   </button>
                 </form>
               </div>
