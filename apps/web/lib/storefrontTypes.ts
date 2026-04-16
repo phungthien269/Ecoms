@@ -65,6 +65,23 @@ export interface ProductListResponse {
   };
 }
 
+export type ProductSortOption =
+  | "newest"
+  | "price_asc"
+  | "price_desc"
+  | "best_selling"
+  | "top_rated";
+
+export interface ProductCatalogSearchParams {
+  category?: string;
+  search?: string;
+  sort?: ProductSortOption;
+  minPrice?: string;
+  maxPrice?: string;
+  tag?: string;
+  page?: string;
+}
+
 export interface ShopPageData {
   id: string;
   name: string;

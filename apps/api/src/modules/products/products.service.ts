@@ -8,7 +8,10 @@ import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { slugify } from "../../common/utils/slugify";
 import { CreateProductDto } from "./dto/create-product.dto";
-import { ListProductsQueryDto } from "./dto/list-products-query.dto";
+import {
+  ListProductsQueryDto,
+  ProductSortOption
+} from "./dto/list-products-query.dto";
 import { UpdateProductStatusDto } from "./dto/update-product-status.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import type { ProductResponseEntity } from "./entities/product-response.entity";
@@ -33,6 +36,11 @@ export class ProductsService {
   async listPublic(query: ListProductsQueryDto) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 12;
+    const sort = query.sort ?? ProductSortOption.NEWEST;
+    const categoryIds = query.categoryIds
+      ?.split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
     const where: Prisma.ProductWhereInput = {
       deletedAt: null,
       status: ProductStatus.ACTIVE,
@@ -40,9 +48,32 @@ export class ProductsService {
         status: ShopStatus.ACTIVE,
         deletedAt: null
       },
-      ...(query.categoryId ? { categoryId: query.categoryId } : {}),
+      ...(categoryIds && categoryIds.length > 0
+        ? {
+            categoryId: {
+              in: categoryIds
+            }
+          }
+        : query.categoryId
+          ? { categoryId: query.categoryId }
+          : {}),
       ...(query.brandId ? { brandId: query.brandId } : {}),
       ...(query.shopId ? { shopId: query.shopId } : {}),
+      ...(query.minPrice !== undefined || query.maxPrice !== undefined
+        ? {
+            salePrice: {
+              ...(query.minPrice !== undefined ? { gte: query.minPrice } : {}),
+              ...(query.maxPrice !== undefined ? { lte: query.maxPrice } : {})
+            }
+          }
+        : {}),
+      ...(query.tag
+        ? {
+            tags: {
+              has: query.tag.trim().toLowerCase()
+            }
+          }
+        : {}),
       ...(query.search
         ? {
             OR: [
@@ -72,7 +103,7 @@ export class ProductsService {
       this.prisma.product.findMany({
         where,
         include: productDetailInclude,
-        orderBy: [{ createdAt: "desc" }],
+        orderBy: this.resolvePublicSort(sort),
         skip: (page - 1) * pageSize,
         take: pageSize
       }),
@@ -390,6 +421,22 @@ export class ProductsService {
     });
 
     return this.toProductResponse(updated);
+  }
+
+  private resolvePublicSort(sort: ProductSortOption): Prisma.ProductOrderByWithRelationInput[] {
+    switch (sort) {
+      case ProductSortOption.PRICE_ASC:
+        return [{ salePrice: "asc" }, { createdAt: "desc" }];
+      case ProductSortOption.PRICE_DESC:
+        return [{ salePrice: "desc" }, { createdAt: "desc" }];
+      case ProductSortOption.BEST_SELLING:
+        return [{ soldCount: "desc" }, { createdAt: "desc" }];
+      case ProductSortOption.TOP_RATED:
+        return [{ ratingAverage: "desc" }, { soldCount: "desc" }, { createdAt: "desc" }];
+      case ProductSortOption.NEWEST:
+      default:
+        return [{ createdAt: "desc" }];
+    }
   }
 
   private async ensureOwnedShop(ownerId: string) {

@@ -1,6 +1,12 @@
+import type { Route } from "next";
+import Link from "next/link";
+import { CatalogFilters } from "@/components/storefront/catalogFilters";
+import { CatalogPagination } from "@/components/storefront/catalogPagination";
+import { CatalogToolbar } from "@/components/storefront/catalogToolbar";
 import { EmptyState } from "@/components/storefront/emptyState";
 import { ProductCard } from "@/components/storefront/productCard";
 import { findCategoryBySlug, getCategoryTree, getProducts } from "@/lib/storefrontApi";
+import { collectCategoryIds, normalizeCatalogParams } from "@/lib/catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -10,15 +16,20 @@ export default async function ProductsPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const resolvedParams = searchParams ? await searchParams : {};
-  const categorySlug =
-    typeof resolvedParams.category === "string" ? resolvedParams.category : undefined;
-  const search = typeof resolvedParams.search === "string" ? resolvedParams.search : undefined;
+  const params = normalizeCatalogParams(resolvedParams);
+  const categorySlug = params.category;
 
   const categories = await getCategoryTree();
   const category = categorySlug ? findCategoryBySlug(categories, categorySlug) : null;
+  const categoryIds = category ? collectCategoryIds(category).join(",") : undefined;
   const products = await getProducts({
-    categoryId: category?.id,
-    search
+    categoryIds,
+    search: params.search,
+    sort: params.sort,
+    minPrice: params.minPrice,
+    maxPrice: params.maxPrice,
+    tag: params.tag,
+    page: params.page
   });
 
   return (
@@ -31,25 +42,59 @@ export default async function ProductsPage({
           <h1 className="text-3xl font-black text-slate-950">
             {category ? category.name : "All products"}
           </h1>
-          <p className="max-w-2xl text-sm text-slate-500">
+          <p className="max-w-3xl text-sm text-slate-500">
             {category?.description ??
-              "Browse the marketplace inventory with category-aware entry points and product detail pages."}
+              "Browse the marketplace inventory with category-aware entry points, URL-driven filters, and richer sort options for the storefront."}
           </p>
         </div>
 
-        <div className="mt-8">
-          {products.items.length > 0 ? (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {products.items.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              title="No products available yet"
-              description="Seed data or run the API against a live database to populate this catalog."
-            />
-          )}
+        <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-600">
+          <Link
+            href={"/" as Route}
+            className="font-medium text-orange-600 transition hover:text-orange-700"
+          >
+            Storefront
+          </Link>
+          <span>/</span>
+          <span>{category ? category.name : "Catalog"}</span>
+          {params.search ? (
+            <>
+              <span>/</span>
+              <span>Search: “{params.search}”</span>
+            </>
+          ) : null}
+        </div>
+
+        <div className="mt-8 grid gap-6 lg:grid-cols-[280px_1fr]">
+          <CatalogFilters
+            categories={categories}
+            currentCategorySlug={categorySlug}
+            currentParams={params}
+          />
+
+          <div className="space-y-6">
+            <CatalogToolbar total={products.pagination.total} currentParams={params} />
+
+            {products.items.length > 0 ? (
+              <>
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                  {products.items.map((product) => (
+                    <ProductCard key={product.id} product={product} />
+                  ))}
+                </div>
+                <CatalogPagination
+                  page={products.pagination.page}
+                  totalPages={products.pagination.totalPages}
+                  currentParams={params}
+                />
+              </>
+            ) : (
+              <EmptyState
+                title="No products match this catalog query"
+                description="Try broadening the price range, switching categories, or clearing the current search filters."
+              />
+            )}
+          </div>
         </div>
       </div>
     </main>

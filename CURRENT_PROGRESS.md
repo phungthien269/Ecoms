@@ -12,9 +12,9 @@ Extend the verified foundation into real Phase 1 domain modules and keep the rem
 Project requirements remain stable.
 Initial implementation has started.
 The repository now has a runnable monorepo foundation with verified `build`, `lint`, and `typecheck`.
-The baseline now includes auth/RBAC, Prisma migration + seed, public/admin category APIs, public/admin brand APIs, seller/admin shop APIs, product CRUD, product variants, publish-status guardrails, and the first storefront pages on Next.js.
+The baseline now includes auth/RBAC, Prisma migration + seed, public/admin category APIs, public/admin brand APIs, seller/admin shop APIs, product CRUD, product variants, publish-status guardrails, and a richer storefront with catalog filters, sorting, pagination, and category landing pages on Next.js.
 The repository has been pushed to GitHub and is ready for continued incremental delivery.
-The immediate next step is to add tests and richer storefront/search UX while Docker/runtime validation remains deferred.
+The immediate next step is to add test coverage and then move into seller-facing web management UX while Docker/runtime validation remains deferred.
 
 ## 4. Completed Items
 - Read required skill pack from `.claude/skills/everything-claude-code`
@@ -115,16 +115,22 @@ The immediate next step is to add tests and richer storefront/search UX while Do
   - `/products/[slug]` product detail page
   - `/shops/[slug]` shop page
   - resilient server-side API client that fails soft when backend is unavailable
+- Extended storefront catalog/search UX:
+  - public product API now supports sort, min/max price, tag filter, and multi-category filtering
+  - `/products` now supports URL-driven filters, sorting pills, and pagination
+  - `/categories/[slug]` category landing page now reuses catalog filtering
+  - category rail now deep-links into dedicated category pages
+  - added shared catalog helper utilities/components for filter state management
 
 ## 5. In Progress Items
 - No half-finished code pending in the current slice
-- Next implementation target is test coverage and richer storefront/search UX
+- Next implementation target is test coverage and seller-facing product management UX
 
 ## 6. Next Exact Tasks
 1. Add integration tests for auth/category/brand/shop/product endpoints
-2. Expand storefront with search/filter UI and category-driven discovery
-3. Add seller-facing product management UI on the web side
-4. Add product variant editing UX for sellers
+2. Add seller-facing product management UI on the web side
+3. Add product variant editing UX for sellers
+4. Add shop onboarding/status UX for sellers and admins
 5. Restore Docker Desktop daemon access and run live DB validation later
 6. Update this file after each meaningful step
 
@@ -190,6 +196,9 @@ The immediate next step is to add tests and richer storefront/search UX while Do
 - Re-ran `npm run typecheck` after storefront implementation
 - Re-ran `npm run lint` after storefront implementation
 - Re-ran `npm run build` after storefront implementation
+- Re-ran `npm run typecheck` after catalog filter/sort implementation
+- Re-ran `npm run lint` after catalog filter/sort implementation
+- Re-ran `npm run build` after catalog filter/sort implementation
 
 ## 10. Tests Run + Result
 - `npm run prisma:generate` ✅
@@ -200,6 +209,7 @@ The immediate next step is to add tests and richer storefront/search UX while Do
 - Product baseline compile verification completed after module additions ✅
 - Product variant and publish-guardrail compile verification completed ✅
 - Storefront web slice compile verification completed ✅
+- Catalog filter/sort storefront slice compile verification completed ✅
 - No Jest test suite exists yet, so runtime business-flow tests are still pending
 
 ## 11. Bugs / Known Issues
@@ -226,7 +236,8 @@ The immediate next step is to add tests and richer storefront/search UX while Do
 - Product publishing is now blocked for non-`ACTIVE` shops, but `DRAFT` saving remains allowed to keep seller onboarding practical before final approval
 - Variant attributes are stored as JSON key-value pairs to keep the first implementation flexible before richer option/value normalization
 - Storefront pages use server-side fetches with short revalidation rather than client-side state libraries for the first slice to keep SEO and implementation velocity high
+- Category landing pages currently reuse the `/products` catalog implementation so storefront logic stays centralized while the route structure becomes more SEO-friendly
 
 ## 13. Handoff Note for Next Session
 The repo is already pushed to GitHub and the current API slice compiles cleanly.
-Resume from tests and richer storefront/seller UX, not from scaffolding, auth basics, or existing catalog/product API work.
+Resume from tests and seller-facing web management UX, not from scaffolding, auth basics, catalog filters, or existing product API work.

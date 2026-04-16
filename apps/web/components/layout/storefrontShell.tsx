@@ -38,7 +38,7 @@ export function StorefrontShell({
                   Browse products
                 </Link>
                 <Link
-                  href={"/products?category=electronics" as Route}
+                  href={"/categories/electronics" as Route}
                   className="rounded-full border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:border-orange-400 hover:text-orange-200"
                 >
                   Explore electronics
