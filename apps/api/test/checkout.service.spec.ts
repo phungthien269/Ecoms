@@ -1,5 +1,12 @@
 import { BadRequestException } from "@nestjs/common";
-import { PaymentMethod, PaymentStatus, ProductStatus, ShopStatus } from "@ecoms/contracts";
+import {
+  PaymentMethod,
+  PaymentStatus,
+  ProductStatus,
+  ShopStatus,
+  VoucherDiscountType,
+  VoucherScope
+} from "@ecoms/contracts";
 import { Prisma } from "@prisma/client";
 import { CheckoutService } from "../src/modules/checkout/checkout.service";
 
@@ -60,10 +67,20 @@ describe("CheckoutService", () => {
     product: {
       update: jest.fn()
     },
+    voucher: {
+      update: jest.fn()
+    },
+    voucherRedemption: {
+      create: jest.fn()
+    },
     $transaction: jest.fn()
   };
+  const vouchersService = {
+    findActiveVoucherByCode: jest.fn(),
+    assertVoucherUsageAllowed: jest.fn()
+  };
 
-  const service = new CheckoutService(prisma as never);
+  const service = new CheckoutService(prisma as never, vouchersService as never);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -92,6 +109,7 @@ describe("CheckoutService", () => {
       grandTotal: "722000"
     });
     expect(preview.shops).toHaveLength(1);
+    expect(preview.appliedVouchers).toHaveLength(0);
   });
 
   it("rejects preview when cart is empty", async () => {
@@ -158,5 +176,109 @@ describe("CheckoutService", () => {
       where: { userId: "user-1" }
     });
     expect(result.orders[0]?.status).toBe("CONFIRMED");
+  });
+
+  it("applies stacked vouchers in preview and order placement", async () => {
+    const cartItems = [createCartItem()];
+    prisma.cartItem.findMany.mockResolvedValue(cartItems);
+    prisma.$transaction.mockImplementation(async (callback: (tx: typeof prisma) => unknown) =>
+      callback(prisma)
+    );
+    prisma.order.create.mockResolvedValue({
+      id: "order-1",
+      orderNumber: "ORD-SHOP-1",
+      shopId: "shop-1",
+      status: "PENDING",
+      paymentMethod: PaymentMethod.BANK_TRANSFER,
+      itemsSubtotal: new Prisma.Decimal(698000),
+      shippingFee: new Prisma.Decimal(0),
+      discountTotal: new Prisma.Decimal(143800),
+      grandTotal: new Prisma.Decimal(578200),
+      placedAt: new Date("2026-04-17T00:00:00.000Z")
+    });
+    prisma.payment.create.mockResolvedValue({
+      id: "payment-1",
+      status: PaymentStatus.PENDING
+    });
+    vouchersService.findActiveVoucherByCode.mockImplementation(async (code: string) => {
+      if (code === "PLATFORM50K") {
+        return {
+        id: "voucher-platform",
+        code: "PLATFORM50K",
+        name: "Platform 50k off",
+        scope: VoucherScope.PLATFORM,
+        categoryId: null,
+        discountType: VoucherDiscountType.FIXED,
+        discountValue: new Prisma.Decimal(50000),
+        maxDiscountAmount: null,
+        minOrderValue: new Prisma.Decimal(300000),
+          perUserUsageLimit: 3
+        };
+      }
+
+      if (code === "SHOP10OFF") {
+        return {
+        id: "voucher-shop",
+        code: "SHOP10OFF",
+        name: "Demo shop 10% off",
+        scope: VoucherScope.SHOP,
+        shopId: "shop-1",
+        categoryId: null,
+        discountType: VoucherDiscountType.PERCENTAGE,
+        discountValue: new Prisma.Decimal(10),
+        maxDiscountAmount: new Prisma.Decimal(80000),
+        minOrderValue: new Prisma.Decimal(250000),
+          perUserUsageLimit: 2
+        };
+      }
+
+      if (code === "FREESHIP30K") {
+        return {
+        id: "voucher-freeship",
+        code: "FREESHIP30K",
+        name: "Freeship 30k",
+        scope: VoucherScope.FREESHIP,
+        categoryId: null,
+        discountType: VoucherDiscountType.FIXED,
+        discountValue: new Prisma.Decimal(30000),
+        maxDiscountAmount: null,
+        minOrderValue: new Prisma.Decimal(200000),
+          perUserUsageLimit: 2
+        };
+      }
+
+      return undefined;
+    });
+
+    const payload = {
+      paymentMethod: PaymentMethod.BANK_TRANSFER,
+      shippingAddress: {
+        recipientName: "Demo Buyer",
+        phoneNumber: "0900000000",
+        addressLine1: "123 Demo Street",
+        district: "District 1",
+        province: "Ho Chi Minh City",
+        regionCode: "HCM"
+      },
+      vouchers: {
+        platformCode: "PLATFORM50K",
+        freeshipCode: "FREESHIP30K",
+        shopCodes: [{ shopId: "shop-1", code: "SHOP10OFF" }]
+      }
+    };
+
+    const preview = await service.preview("user-1", payload);
+    expect(preview.totals.discountTotal).toBe("143800");
+    expect(preview.totals.shippingFee).toBe("0");
+    expect(preview.appliedVouchers.map((voucher) => voucher.code)).toEqual([
+      "PLATFORM50K",
+      "SHOP10OFF",
+      "FREESHIP30K"
+    ]);
+
+    const result = await service.placeOrder("user-1", payload);
+    expect(prisma.voucher.update).toHaveBeenCalledTimes(3);
+    expect(prisma.voucherRedemption.create).toHaveBeenCalledTimes(3);
+    expect(result.orders[0]?.grandTotal).toBe("578200");
   });
 });

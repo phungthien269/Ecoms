@@ -141,3 +141,38 @@ export async function updateAdminOrderStatusAction(formData: FormData) {
 
   redirect("/admin?orders=updated");
 }
+
+export async function createAdminVoucherAction(formData: FormData) {
+  const token = await getToken();
+  if (!token) {
+    redirect("/admin");
+  }
+
+  const response = await fetch(`${API_URL}/vouchers/admin`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      code: String(formData.get("code") ?? ""),
+      name: String(formData.get("name") ?? ""),
+      description: String(formData.get("description") ?? "") || undefined,
+      scope: String(formData.get("scope") ?? "PLATFORM"),
+      discountType: String(formData.get("discountType") ?? "FIXED"),
+      discountValue: Number(formData.get("discountValue") ?? "0"),
+      maxDiscountAmount: Number(formData.get("maxDiscountAmount") ?? "0") || undefined,
+      minOrderValue: Number(formData.get("minOrderValue") ?? "0") || undefined,
+      totalQuantity: Number(formData.get("totalQuantity") ?? "0") || undefined,
+      perUserUsageLimit: Number(formData.get("perUserUsageLimit") ?? "1") || 1,
+      categoryId: String(formData.get("categoryId") ?? "") || undefined
+    }),
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    redirect("/admin?vouchers=failed");
+  }
+
+  redirect("/admin?vouchers=created");
+}

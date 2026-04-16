@@ -1,7 +1,12 @@
 import { placeOrderAction } from "@/app/actions/commerce";
 import { formatPrice } from "@/components/commerce/price";
 import { EmptyState } from "@/components/storefront/emptyState";
-import { getCart, getCheckoutPreview } from "@/lib/commerceApi";
+import {
+  getCart,
+  getCheckoutFreeshipVouchers,
+  getCheckoutPlatformVouchers,
+  getCheckoutPreview
+} from "@/lib/commerceApi";
 import { getDemoSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -42,8 +47,12 @@ export default async function CheckoutPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await getDemoSession();
-  const cart = await getCart();
   const resolvedSearchParams = (await searchParams) ?? {};
+  const [cart, platformVouchers, freeshipVouchers] = await Promise.all([
+    getCart(),
+    getCheckoutPlatformVouchers(),
+    getCheckoutFreeshipVouchers()
+  ]);
 
   const shippingAddress = {
     recipientName: getQueryValue(
@@ -78,9 +87,20 @@ export default async function CheckoutPage({
     defaultCheckoutPayload.paymentMethod
   );
   const note = getOptionalQueryValue(resolvedSearchParams.note) ?? "";
+  const platformCode = getOptionalQueryValue(resolvedSearchParams.platformCode) ?? "";
+  const freeshipCode = getOptionalQueryValue(resolvedSearchParams.freeshipCode) ?? "";
+  const shopVoucherMap = getShopVoucherMap(resolvedSearchParams.shopVoucher);
   const preview = await getCheckoutPreview({
     paymentMethod: selectedPaymentMethod,
-    shippingAddress
+    shippingAddress,
+    vouchers: {
+      platformCode: platformCode || undefined,
+      freeshipCode: freeshipCode || undefined,
+      shopCodes: Array.from(shopVoucherMap.entries()).map(([shopId, code]) => ({
+        shopId,
+        code
+      }))
+    }
   });
 
   if (!session) {
@@ -197,6 +217,80 @@ export default async function CheckoutPage({
               </div>
             </section>
 
+            <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="space-y-5">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-950">Voucher stack</h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    One platform voucher, one freeship voucher, and one shop voucher per cart shop.
+                  </p>
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="rounded-[1.5rem] bg-slate-50 p-4">
+                    <label className="text-sm font-semibold text-slate-950">Platform voucher</label>
+                    <input
+                      name="platformCode"
+                      defaultValue={platformCode}
+                      placeholder="PLATFORM50K"
+                      className={`${inputClass} mt-3`}
+                    />
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {platformVouchers.slice(0, 4).map((voucher) => (
+                        <div
+                          key={voucher.id}
+                          className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600"
+                        >
+                          {voucher.code}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-[1.5rem] bg-slate-50 p-4">
+                    <label className="text-sm font-semibold text-slate-950">Freeship voucher</label>
+                    <input
+                      name="freeshipCode"
+                      defaultValue={freeshipCode}
+                      placeholder="FREESHIP30K"
+                      className={`${inputClass} mt-3`}
+                    />
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {freeshipVouchers.slice(0, 4).map((voucher) => (
+                        <div
+                          key={voucher.id}
+                          className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600"
+                        >
+                          {voucher.code}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {cart.shops.map((shop) => (
+                    <div key={shop.shop.id} className="rounded-[1.5rem] border border-slate-100 p-4">
+                      <div className="text-sm font-semibold text-slate-950">{shop.shop.name}</div>
+                      <input
+                        name="shopVoucher"
+                        defaultValue={
+                          shopVoucherMap.get(shop.shop.id)
+                            ? `${shop.shop.id}::${shopVoucherMap.get(shop.shop.id)}`
+                            : ""
+                        }
+                        placeholder={`${shop.shop.id}::SHOP10OFF`}
+                        className={`${inputClass} mt-3`}
+                      />
+                      <p className="mt-2 text-xs text-slate-500">
+                        Format: <span className="font-semibold">{shop.shop.id}::CODE</span>
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
             <div className="flex flex-wrap gap-3">
               <button
                 type="submit"
@@ -231,11 +325,27 @@ export default async function CheckoutPage({
                         <span>Shipping</span>
                         <span>{formatPrice(shop.shippingFee)}</span>
                       </div>
+                      <div className="flex justify-between gap-4">
+                        <span>Discount</span>
+                        <span>-{formatPrice(shop.discountTotal)}</span>
+                      </div>
                       <div className="flex justify-between gap-4 font-semibold text-slate-950">
                         <span>Shop total</span>
                         <span>{formatPrice(shop.grandTotal)}</span>
                       </div>
                     </div>
+                    {shop.appliedVouchers.length > 0 ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {shop.appliedVouchers.map((voucher) => (
+                          <div
+                            key={`${shop.shop.id}-${voucher.id}`}
+                            className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-orange-600"
+                          >
+                            {voucher.code} (-{formatPrice(voucher.discountAmount)})
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -256,11 +366,27 @@ export default async function CheckoutPage({
                   <span>Shipping fee</span>
                   <span>{formatPrice(preview.totals.shippingFee)}</span>
                 </div>
+                <div className="flex justify-between gap-4 text-sm text-slate-600">
+                  <span>Voucher discounts</span>
+                  <span>-{formatPrice(preview.totals.discountTotal)}</span>
+                </div>
                 <div className="flex justify-between gap-4 text-lg font-black text-slate-950">
                   <span>Grand total</span>
                   <span>{formatPrice(preview.totals.grandTotal)}</span>
                 </div>
               </div>
+              {preview.appliedVouchers.length > 0 ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {preview.appliedVouchers.map((voucher) => (
+                    <div
+                      key={voucher.id}
+                      className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-orange-600"
+                    >
+                      {voucher.code}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </section>
           </aside>
         </div>
@@ -286,4 +412,18 @@ function getOptionalQueryValue(value: string | string[] | undefined) {
   }
 
   return value && value.length > 0 ? value : undefined;
+}
+
+function getShopVoucherMap(value: string | string[] | undefined) {
+  const entries = Array.isArray(value) ? value : value ? [value] : [];
+  const map = new Map<string, string>();
+
+  for (const entry of entries) {
+    const [shopId, code] = entry.split("::");
+    if (shopId && code) {
+      map.set(shopId, code);
+    }
+  }
+
+  return map;
 }

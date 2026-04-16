@@ -47,6 +47,17 @@ export enum PaymentStatus {
   CANCELLED = "CANCELLED"
 }
 
+export enum VoucherScope {
+  PLATFORM = "PLATFORM",
+  SHOP = "SHOP",
+  FREESHIP = "FREESHIP"
+}
+
+export enum VoucherDiscountType {
+  FIXED = "FIXED",
+  PERCENTAGE = "PERCENTAGE"
+}
+
 export interface ProductReviewSummary {
   id: string;
   reviewer: {
@@ -114,6 +125,25 @@ export interface CheckoutShippingAddress {
   regionCode: string;
 }
 
+export interface CheckoutShopVoucherInput {
+  shopId: string;
+  code: string;
+}
+
+export interface CheckoutVoucherSelection {
+  platformCode?: string | null;
+  freeshipCode?: string | null;
+  shopCodes?: CheckoutShopVoucherInput[];
+}
+
+export interface AppliedVoucherSummary {
+  id: string;
+  code: string;
+  name: string;
+  scope: VoucherScope;
+  discountAmount: string;
+}
+
 export interface CheckoutShopPreview {
   shop: {
     id: string;
@@ -124,12 +154,15 @@ export interface CheckoutShopPreview {
   shippingFee: string;
   discountTotal: string;
   grandTotal: string;
+  appliedVouchers: AppliedVoucherSummary[];
 }
 
 export interface CheckoutPreview {
   paymentMethod: PaymentMethod;
   shippingAddress: CheckoutShippingAddress;
+  vouchers: CheckoutVoucherSelection;
   shops: CheckoutShopPreview[];
+  appliedVouchers: AppliedVoucherSummary[];
   totals: {
     itemCount: number;
     itemsSubtotal: string;
@@ -173,4 +206,33 @@ export interface HealthStatus {
   status: "ok";
   timestamp: string;
   service: string;
+}
+
+export interface VoucherSummary {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  scope: VoucherScope;
+  discountType: VoucherDiscountType;
+  discountValue: string;
+  maxDiscountAmount: string | null;
+  minOrderValue: string | null;
+  totalQuantity: number | null;
+  usedCount: number;
+  perUserUsageLimit: number;
+  startsAt: string | null;
+  expiresAt: string | null;
+  isActive: boolean;
+  shop: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
+  category: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
+  createdAt: string;
 }

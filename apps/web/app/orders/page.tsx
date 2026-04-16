@@ -65,6 +65,18 @@ export default async function OrdersPage() {
                     </p>
                   </div>
                 </div>
+                {order.appliedVoucherCodes.length > 0 ? (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {order.appliedVoucherCodes.map((code) => (
+                      <div
+                        key={`${order.id}-${code}`}
+                        className="rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-600"
+                      >
+                        {code}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </Link>
             ))
           ) : (

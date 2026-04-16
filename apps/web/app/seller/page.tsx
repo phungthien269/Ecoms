@@ -1,10 +1,14 @@
 import type { Route } from "next";
 import Link from "next/link";
-import { createSellerProductAction, updateSellerShopAction } from "@/app/actions/seller";
+import {
+  createSellerProductAction,
+  createSellerVoucherAction,
+  updateSellerShopAction
+} from "@/app/actions/seller";
 import { formatPrice } from "@/components/commerce/price";
 import { EmptyState } from "@/components/storefront/emptyState";
 import { getBrands, getCategoryTree } from "@/lib/storefrontApi";
-import { getSellerProducts, getSellerShop } from "@/lib/commerceApi";
+import { getSellerProducts, getSellerShop, getSellerVouchers } from "@/lib/commerceApi";
 import { flattenCategories } from "@/lib/catalog";
 import { getDemoSession } from "@/lib/session";
 
@@ -12,11 +16,12 @@ export const dynamic = "force-dynamic";
 
 export default async function SellerPage() {
   const session = await getDemoSession();
-  const [shop, products, categories, brands] = await Promise.all([
+  const [shop, products, categories, brands, vouchers] = await Promise.all([
     getSellerShop(),
     getSellerProducts(),
     getCategoryTree(),
-    getBrands()
+    getBrands(),
+    getSellerVouchers()
   ]);
 
   if (!session || session.role !== "SELLER") {
@@ -255,6 +260,98 @@ export default async function SellerPage() {
                   Create product
                 </button>
               </form>
+            </section>
+
+            <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center justify-between gap-4">
+                <h2 className="text-xl font-bold text-slate-950">Shop vouchers</h2>
+                <div className="rounded-full bg-orange-50 px-4 py-2 text-sm font-semibold text-orange-600">
+                  {vouchers.length}
+                </div>
+              </div>
+              <form action={createSellerVoucherAction} className="mt-5 space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <input name="code" placeholder="Voucher code" className={inputClass} />
+                  <input name="name" placeholder="Voucher name" className={inputClass} />
+                  <select name="discountType" className={inputClass}>
+                    <option value="FIXED">Fixed amount</option>
+                    <option value="PERCENTAGE">Percentage</option>
+                  </select>
+                  <input
+                    name="discountValue"
+                    type="number"
+                    min={1}
+                    placeholder="Discount value"
+                    className={inputClass}
+                  />
+                  <input
+                    name="maxDiscountAmount"
+                    type="number"
+                    min={0}
+                    placeholder="Max discount"
+                    className={inputClass}
+                  />
+                  <input
+                    name="minOrderValue"
+                    type="number"
+                    min={0}
+                    placeholder="Min order value"
+                    className={inputClass}
+                  />
+                  <input
+                    name="totalQuantity"
+                    type="number"
+                    min={1}
+                    placeholder="Total quantity"
+                    className={inputClass}
+                  />
+                  <input
+                    name="perUserUsageLimit"
+                    type="number"
+                    min={1}
+                    placeholder="Per-user limit"
+                    className={inputClass}
+                  />
+                  <select name="categoryId" className={`${inputClass} sm:col-span-2`}>
+                    <option value="">Applies to all categories</option>
+                    {flatCategories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    name="description"
+                    placeholder="Voucher description"
+                    className={`${inputClass} sm:col-span-2`}
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="w-full rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+                >
+                  Create shop voucher
+                </button>
+              </form>
+              <div className="mt-5 space-y-3">
+                {vouchers.slice(0, 6).map((voucher) => (
+                  <div key={voucher.id} className="rounded-[1.5rem] bg-slate-50 p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="font-semibold text-slate-950">{voucher.code}</div>
+                        <div className="mt-1 text-sm text-slate-500">
+                          {voucher.name} • used {voucher.usedCount}
+                        </div>
+                      </div>
+                      <div className="text-right text-sm text-orange-600">
+                        {voucher.discountType === "FIXED"
+                          ? formatPrice(voucher.discountValue)
+                          : `${voucher.discountValue}%`}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </section>
 
             {shop ? (

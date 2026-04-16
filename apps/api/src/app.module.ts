@@ -17,6 +17,7 @@ import { RbacModule } from "./modules/rbac/rbac.module";
 import { ReviewsModule } from "./modules/reviews/reviews.module";
 import { ShopsModule } from "./modules/shops/shops.module";
 import { UsersModule } from "./modules/users/users.module";
+import { VouchersModule } from "./modules/vouchers/vouchers.module";
 import { WishlistModule } from "./modules/wishlist/wishlist.module";
 
 @Module({
@@ -40,6 +41,7 @@ import { WishlistModule } from "./modules/wishlist/wishlist.module";
     PaymentsModule,
     ShopsModule,
     ProductsModule,
+    VouchersModule,
     WishlistModule,
     ReviewsModule
   ]

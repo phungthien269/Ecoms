@@ -4,15 +4,20 @@ import {
   Injectable
 } from "@nestjs/common";
 import {
-  type CheckoutPreview,
   OrderStatus,
   PaymentMethod,
   PaymentStatus,
   ProductStatus,
-  ShopStatus
+  ShopStatus,
+  VoucherDiscountType,
+  VoucherScope,
+  type AppliedVoucherSummary,
+  type CheckoutPreview,
+  type CheckoutVoucherSelection
 } from "@ecoms/contracts";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { VouchersService } from "../vouchers/vouchers.service";
 import { CheckoutPreviewDto } from "./dto/checkout-preview.dto";
 
 const checkoutCartInclude = {
@@ -36,22 +41,51 @@ type CheckoutCartItem = Prisma.CartItemGetPayload<{
   include: typeof checkoutCartInclude;
 }>;
 
+type PreviewShopSummary = CheckoutPreview["shops"][number];
+
+type VoucherAllocation = {
+  voucherId: string;
+  code: string;
+  name: string;
+  scope: VoucherScope;
+  discountAmount: Prisma.Decimal;
+  shopDiscounts: Map<string, Prisma.Decimal>;
+  orderIds: string[];
+};
+
 @Injectable()
 export class CheckoutService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly vouchersService: VouchersService
+  ) {}
 
   async preview(userId: string, payload: CheckoutPreviewDto): Promise<CheckoutPreview> {
     const cartItems = await this.getValidatedCartItems(userId);
-    return this.buildPreview(cartItems, payload);
+    return this.buildPreview(userId, cartItems, payload);
   }
 
   async placeOrder(userId: string, payload: CheckoutPreviewDto) {
     const cartItems = await this.getValidatedCartItems(userId);
-    const preview = this.buildPreview(cartItems, payload);
+    const preview = await this.buildPreview(userId, cartItems, payload);
     const placedAt = new Date();
+    const appliedVoucherCodes = preview.appliedVouchers.map((voucher) => voucher.code);
 
     const result = await this.prisma.$transaction(async (tx) => {
-      const createdOrders = [];
+      const createdOrders = [] as Array<{
+        id: string;
+        orderNumber: string;
+        shopId: string;
+        status: string;
+        paymentMethod: string;
+        itemsSubtotal: Prisma.Decimal;
+        shippingFee: Prisma.Decimal;
+        discountTotal: Prisma.Decimal;
+        grandTotal: Prisma.Decimal;
+        placedAt: Date;
+      }>;
+
+      const voucherAllocations = this.buildVoucherAllocationMap(preview);
 
       for (const shopGroup of preview.shops) {
         const groupItems = cartItems.filter((item) => item.product.shopId === shopGroup.shop.id);
@@ -79,6 +113,7 @@ export class CheckoutService {
             discountTotal: new Prisma.Decimal(shopGroup.discountTotal),
             grandTotal: new Prisma.Decimal(shopGroup.grandTotal),
             note: payload.note,
+            appliedVoucherCodes,
             placedAt,
             items: {
               create: groupItems.map((item) => {
@@ -148,7 +183,35 @@ export class CheckoutService {
           });
         }
 
+        for (const allocation of voucherAllocations.values()) {
+          const discountForShop = allocation.shopDiscounts.get(shopGroup.shop.id);
+          if (discountForShop && discountForShop.gt(0)) {
+            allocation.orderIds.push(order.id);
+          }
+        }
+
         createdOrders.push(order);
+      }
+
+      for (const allocation of voucherAllocations.values()) {
+        await tx.voucher.update({
+          where: { id: allocation.voucherId },
+          data: {
+            usedCount: {
+              increment: 1
+            }
+          }
+        });
+
+        await tx.voucherRedemption.create({
+          data: {
+            voucherId: allocation.voucherId,
+            userId,
+            checkoutReference: `${createdOrders[0]?.id ?? "checkout"}:${allocation.code}`,
+            orderIds: allocation.orderIds,
+            discountAmount: allocation.discountAmount
+          }
+        });
       }
 
       await tx.cartItem.deleteMany({
@@ -207,10 +270,11 @@ export class CheckoutService {
     return cartItems;
   }
 
-  private buildPreview(
+  private async buildPreview(
+    userId: string,
     cartItems: CheckoutCartItem[],
     payload: CheckoutPreviewDto
-  ): CheckoutPreview {
+  ): Promise<CheckoutPreview> {
     const groupMap = new Map<
       string,
       {
@@ -218,8 +282,9 @@ export class CheckoutService {
         itemsSubtotal: Prisma.Decimal;
         shippingFee: Prisma.Decimal;
         discountTotal: Prisma.Decimal;
-        grandTotal: Prisma.Decimal;
         totalWeightGrams: number;
+        eligibleCategorySubtotal: Map<string, Prisma.Decimal>;
+        appliedVouchers: AppliedVoucherSummary[];
       }
     >();
 
@@ -245,31 +310,58 @@ export class CheckoutService {
           itemsSubtotal: new Prisma.Decimal(0),
           shippingFee: new Prisma.Decimal(0),
           discountTotal: new Prisma.Decimal(0),
-          grandTotal: new Prisma.Decimal(0),
-          totalWeightGrams: 0
+          totalWeightGrams: 0,
+          eligibleCategorySubtotal: new Map<string, Prisma.Decimal>(),
+          appliedVouchers: []
         };
 
       existing.itemsSubtotal = existing.itemsSubtotal.add(lineSubtotal);
       existing.totalWeightGrams += lineWeight;
+
+      const categorySubtotal =
+        existing.eligibleCategorySubtotal.get(item.product.categoryId) ??
+        new Prisma.Decimal(0);
+      existing.eligibleCategorySubtotal.set(
+        item.product.categoryId,
+        categorySubtotal.add(lineSubtotal)
+      );
+
       groupMap.set(item.product.shop.id, existing);
     }
 
-    const shops = Array.from(groupMap.values()).map((group) => {
+    const shopEntries = Array.from(groupMap.values()).map((group) => {
       const shippingFee = this.calculateShippingFee(
         payload.shippingAddress.regionCode,
         group.totalWeightGrams
       );
-      const grandTotal = group.itemsSubtotal.add(shippingFee).sub(group.discountTotal);
+      group.shippingFee = shippingFee;
       shippingFeeTotal = shippingFeeTotal.add(shippingFee);
+      return group;
+    });
 
+    const voucherSelection = this.normalizeVoucherSelection(payload.vouchers);
+    const appliedVouchers: AppliedVoucherSummary[] = [];
+
+    await this.applyPlatformVoucher(userId, voucherSelection.platformCode, shopEntries, appliedVouchers);
+    await this.applyShopVouchers(userId, voucherSelection.shopCodes ?? [], shopEntries, appliedVouchers);
+    await this.applyFreeshipVoucher(userId, voucherSelection.freeshipCode, shopEntries, appliedVouchers);
+
+    const shops: PreviewShopSummary[] = shopEntries.map((group) => {
+      const grandTotal = group.itemsSubtotal.add(group.shippingFee).sub(group.discountTotal);
       return {
         shop: group.shop,
         itemsSubtotal: group.itemsSubtotal.toString(),
-        shippingFee: shippingFee.toString(),
+        shippingFee: group.shippingFee.toString(),
         discountTotal: group.discountTotal.toString(),
-        grandTotal: grandTotal.toString()
+        grandTotal: grandTotal.toString(),
+        appliedVouchers: group.appliedVouchers
       };
     });
+
+    const discountTotal = shopEntries.reduce(
+      (sum, group) => sum.add(group.discountTotal),
+      new Prisma.Decimal(0)
+    );
 
     return {
       paymentMethod: payload.paymentMethod,
@@ -283,15 +375,337 @@ export class CheckoutService {
         province: payload.shippingAddress.province,
         regionCode: payload.shippingAddress.regionCode
       },
+      vouchers: voucherSelection,
       shops,
+      appliedVouchers,
       totals: {
         itemCount,
         itemsSubtotal: itemsSubtotal.toString(),
-        shippingFee: shippingFeeTotal.toString(),
-        discountTotal: "0",
-        grandTotal: itemsSubtotal.add(shippingFeeTotal).toString()
+        shippingFee: shopEntries
+          .reduce((sum, group) => sum.add(group.shippingFee), new Prisma.Decimal(0))
+          .toString(),
+        discountTotal: discountTotal.toString(),
+        grandTotal: itemsSubtotal
+          .add(shopEntries.reduce((sum, group) => sum.add(group.shippingFee), new Prisma.Decimal(0)))
+          .sub(discountTotal)
+          .toString()
       }
     };
+  }
+
+  private normalizeVoucherSelection(
+    vouchers?: CheckoutPreviewDto["vouchers"]
+  ): CheckoutVoucherSelection {
+    return {
+      platformCode: vouchers?.platformCode?.trim() || null,
+      freeshipCode: vouchers?.freeshipCode?.trim() || null,
+      shopCodes:
+        vouchers?.shopCodes
+          ?.filter((voucher) => voucher.shopId.trim() && voucher.code.trim())
+          .map((voucher) => ({
+            shopId: voucher.shopId.trim(),
+            code: voucher.code.trim()
+          })) ?? []
+    };
+  }
+
+  private async applyPlatformVoucher(
+    userId: string,
+    code: string | null | undefined,
+    groups: Array<{
+      shop: { id: string; name: string; slug: string };
+      itemsSubtotal: Prisma.Decimal;
+      shippingFee: Prisma.Decimal;
+      discountTotal: Prisma.Decimal;
+      totalWeightGrams: number;
+      eligibleCategorySubtotal: Map<string, Prisma.Decimal>;
+      appliedVouchers: AppliedVoucherSummary[];
+    }>,
+    appliedVouchers: AppliedVoucherSummary[]
+  ) {
+    if (!code) {
+      return;
+    }
+
+    const voucher = await this.vouchersService.findActiveVoucherByCode(code);
+    if (voucher.scope !== VoucherScope.PLATFORM) {
+      throw new ConflictException("Platform voucher code is invalid for this slot");
+    }
+
+    await this.vouchersService.assertVoucherUsageAllowed(
+      voucher.id,
+      userId,
+      voucher.perUserUsageLimit
+    );
+
+    const eligibleSubtotal = groups.reduce((sum, group) => {
+      return sum.add(this.getEligibleMerchandiseSubtotal(group, voucher.categoryId ?? undefined));
+    }, new Prisma.Decimal(0));
+
+    this.assertVoucherMinimumReached(voucher.minOrderValue, eligibleSubtotal);
+    const discountAmount = this.calculateVoucherDiscount(voucher, eligibleSubtotal);
+    if (discountAmount.lte(0)) {
+      return;
+    }
+
+    const distribution = this.distributeAmountAcrossGroups(
+      discountAmount,
+      groups.map((group) => ({
+        shopId: group.shop.id,
+        weight: this.getEligibleMerchandiseSubtotal(group, voucher.categoryId ?? undefined)
+      }))
+    );
+
+    for (const group of groups) {
+      const amount = distribution.get(group.shop.id) ?? new Prisma.Decimal(0);
+      if (amount.gt(0)) {
+        group.discountTotal = group.discountTotal.add(amount);
+        group.appliedVouchers.push(this.serializeAppliedVoucher(voucher, amount));
+      }
+    }
+
+    appliedVouchers.push(this.serializeAppliedVoucher(voucher, discountAmount));
+  }
+
+  private async applyShopVouchers(
+    userId: string,
+    shopCodes: Array<{ shopId: string; code: string }>,
+    groups: Array<{
+      shop: { id: string; name: string; slug: string };
+      itemsSubtotal: Prisma.Decimal;
+      shippingFee: Prisma.Decimal;
+      discountTotal: Prisma.Decimal;
+      totalWeightGrams: number;
+      eligibleCategorySubtotal: Map<string, Prisma.Decimal>;
+      appliedVouchers: AppliedVoucherSummary[];
+    }>,
+    appliedVouchers: AppliedVoucherSummary[]
+  ) {
+    const seenShopIds = new Set<string>();
+
+    for (const selection of shopCodes) {
+      if (seenShopIds.has(selection.shopId)) {
+        throw new BadRequestException("Only one shop voucher is allowed per shop");
+      }
+      seenShopIds.add(selection.shopId);
+
+      const group = groups.find((entry) => entry.shop.id === selection.shopId);
+      if (!group) {
+        throw new BadRequestException("Shop voucher references a shop not present in cart");
+      }
+
+      const voucher = await this.vouchersService.findActiveVoucherByCode(selection.code);
+      if (voucher.scope !== VoucherScope.SHOP || voucher.shopId !== selection.shopId) {
+        throw new ConflictException("Shop voucher does not belong to this shop");
+      }
+
+      await this.vouchersService.assertVoucherUsageAllowed(
+        voucher.id,
+        userId,
+        voucher.perUserUsageLimit
+      );
+
+      const eligibleSubtotal = this.getEligibleMerchandiseSubtotal(
+        group,
+        voucher.categoryId ?? undefined
+      );
+      this.assertVoucherMinimumReached(voucher.minOrderValue, eligibleSubtotal);
+      const discountAmount = this.calculateVoucherDiscount(voucher, eligibleSubtotal);
+      if (discountAmount.lte(0)) {
+        continue;
+      }
+
+      group.discountTotal = group.discountTotal.add(discountAmount);
+      const summary = this.serializeAppliedVoucher(voucher, discountAmount);
+      group.appliedVouchers.push(summary);
+      appliedVouchers.push(summary);
+    }
+  }
+
+  private async applyFreeshipVoucher(
+    userId: string,
+    code: string | null | undefined,
+    groups: Array<{
+      shop: { id: string; name: string; slug: string };
+      itemsSubtotal: Prisma.Decimal;
+      shippingFee: Prisma.Decimal;
+      discountTotal: Prisma.Decimal;
+      totalWeightGrams: number;
+      eligibleCategorySubtotal: Map<string, Prisma.Decimal>;
+      appliedVouchers: AppliedVoucherSummary[];
+    }>,
+    appliedVouchers: AppliedVoucherSummary[]
+  ) {
+    if (!code) {
+      return;
+    }
+
+    const voucher = await this.vouchersService.findActiveVoucherByCode(code);
+    if (voucher.scope !== VoucherScope.FREESHIP) {
+      throw new ConflictException("Freeship voucher code is invalid for this slot");
+    }
+
+    await this.vouchersService.assertVoucherUsageAllowed(
+      voucher.id,
+      userId,
+      voucher.perUserUsageLimit
+    );
+
+    const eligibleShippingSubtotal = groups.reduce((sum, group) => {
+      return sum.add(group.shippingFee);
+    }, new Prisma.Decimal(0));
+    const merchandiseSubtotal = groups.reduce((sum, group) => {
+      return sum.add(group.itemsSubtotal);
+    }, new Prisma.Decimal(0));
+
+    this.assertVoucherMinimumReached(voucher.minOrderValue, merchandiseSubtotal);
+    const discountAmount = this.calculateVoucherDiscount(voucher, eligibleShippingSubtotal);
+    if (discountAmount.lte(0)) {
+      return;
+    }
+
+    const distribution = this.distributeAmountAcrossGroups(
+      discountAmount,
+      groups.map((group) => ({
+        shopId: group.shop.id,
+        weight: group.shippingFee
+      }))
+    );
+
+    for (const group of groups) {
+      const amount = distribution.get(group.shop.id) ?? new Prisma.Decimal(0);
+      if (amount.gt(0)) {
+        group.shippingFee = group.shippingFee.sub(amount);
+        group.discountTotal = group.discountTotal.add(amount);
+        group.appliedVouchers.push(this.serializeAppliedVoucher(voucher, amount));
+      }
+    }
+
+    appliedVouchers.push(this.serializeAppliedVoucher(voucher, discountAmount));
+  }
+
+  private getEligibleMerchandiseSubtotal(
+    group: {
+      itemsSubtotal: Prisma.Decimal;
+      eligibleCategorySubtotal: Map<string, Prisma.Decimal>;
+    },
+    categoryId?: string
+  ) {
+    if (!categoryId) {
+      return group.itemsSubtotal;
+    }
+
+    return group.eligibleCategorySubtotal.get(categoryId) ?? new Prisma.Decimal(0);
+  }
+
+  private calculateVoucherDiscount(
+    voucher: {
+      discountType: string;
+      discountValue: Prisma.Decimal;
+      maxDiscountAmount: Prisma.Decimal | null;
+    },
+    eligibleSubtotal: Prisma.Decimal
+  ) {
+    if (eligibleSubtotal.lte(0)) {
+      throw new ConflictException("Voucher is not applicable to the current cart");
+    }
+
+    let discount =
+      voucher.discountType === "FIXED"
+        ? voucher.discountValue
+        : eligibleSubtotal.mul(voucher.discountValue).div(100);
+
+    if (voucher.maxDiscountAmount && discount.gt(voucher.maxDiscountAmount)) {
+      discount = voucher.maxDiscountAmount;
+    }
+
+    if (discount.gt(eligibleSubtotal)) {
+      discount = eligibleSubtotal;
+    }
+
+    return this.roundCurrency(discount);
+  }
+
+  private assertVoucherMinimumReached(
+    minimumValue: Prisma.Decimal | null,
+    eligibleSubtotal: Prisma.Decimal
+  ) {
+    if (minimumValue && eligibleSubtotal.lt(minimumValue)) {
+      throw new ConflictException("Voucher minimum order value has not been reached");
+    }
+  }
+
+  private distributeAmountAcrossGroups(
+    totalAmount: Prisma.Decimal,
+    groups: Array<{ shopId: string; weight: Prisma.Decimal }>
+  ) {
+    const nonZeroGroups = groups.filter((group) => group.weight.gt(0));
+    const totalWeight = nonZeroGroups.reduce(
+      (sum, group) => sum.add(group.weight),
+      new Prisma.Decimal(0)
+    );
+    const distribution = new Map<string, Prisma.Decimal>();
+
+    if (nonZeroGroups.length === 0 || totalWeight.lte(0)) {
+      return distribution;
+    }
+
+    let remaining = totalAmount;
+    nonZeroGroups.forEach((group, index) => {
+      const amount =
+        index === nonZeroGroups.length - 1
+          ? remaining
+          : this.roundCurrency(totalAmount.mul(group.weight).div(totalWeight));
+      distribution.set(group.shopId, amount);
+      remaining = remaining.sub(amount);
+    });
+
+    return distribution;
+  }
+
+  private serializeAppliedVoucher(
+    voucher: {
+      id: string;
+      code: string;
+      name: string;
+      scope: string;
+    },
+    discountAmount: Prisma.Decimal
+  ): AppliedVoucherSummary {
+    return {
+      id: voucher.id,
+      code: voucher.code,
+      name: voucher.name,
+      scope: voucher.scope as VoucherScope,
+      discountAmount: this.roundCurrency(discountAmount).toString()
+    };
+  }
+
+  private buildVoucherAllocationMap(preview: CheckoutPreview) {
+    const allocations = new Map<string, VoucherAllocation>();
+
+    for (const voucher of preview.appliedVouchers) {
+      allocations.set(voucher.id, {
+        voucherId: voucher.id,
+        code: voucher.code,
+        name: voucher.name,
+        scope: voucher.scope,
+        discountAmount: new Prisma.Decimal(voucher.discountAmount),
+        shopDiscounts: new Map<string, Prisma.Decimal>(),
+        orderIds: []
+      });
+    }
+
+    for (const shop of preview.shops) {
+      for (const voucher of shop.appliedVouchers) {
+        const allocation = allocations.get(voucher.id);
+        if (allocation) {
+          allocation.shopDiscounts.set(shop.shop.id, new Prisma.Decimal(voucher.discountAmount));
+        }
+      }
+    }
+
+    return allocations;
   }
 
   private calculateShippingFee(regionCode: string, totalWeightGrams: number) {
@@ -304,6 +718,10 @@ export class CheckoutService {
     const baseFee = baseFees[regionCode] ?? 35000;
     const extraBlocks = Math.max(0, Math.ceil((totalWeightGrams - 500) / 500));
     return new Prisma.Decimal(baseFee + extraBlocks * 6000);
+  }
+
+  private roundCurrency(value: Prisma.Decimal) {
+    return new Prisma.Decimal(value.toDecimalPlaces(2).toString());
   }
 
   private generateOrderNumber(shopId: string) {

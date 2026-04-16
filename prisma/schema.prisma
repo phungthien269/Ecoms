@@ -55,53 +55,68 @@ enum PaymentStatus {
   CANCELLED
 }
 
+enum VoucherScope {
+  PLATFORM
+  SHOP
+  FREESHIP
+}
+
+enum VoucherDiscountType {
+  FIXED
+  PERCENTAGE
+}
+
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  passwordHash String?
-  fullName     String
-  phoneNumber  String?
-  role         UserRole  @default(CUSTOMER)
-  isActive     Boolean   @default(true)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  deletedAt    DateTime?
-  shop         Shop?
-  cartItems    CartItem[]
-  orders       Order[]
-  payments     Payment[]
+  id                 String              @id @default(cuid())
+  email              String              @unique
+  passwordHash       String?
+  fullName           String
+  phoneNumber        String?
+  role               UserRole            @default(CUSTOMER)
+  isActive           Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  deletedAt          DateTime?
+  shop               Shop?
+  cartItems          CartItem[]
+  orders             Order[]
+  payments           Payment[]
   wishlistItems WishlistItem[]
-  reviews      Review[]
+  reviews            Review[]
+  createdVouchers    Voucher[]
+  voucherRedemptions VoucherRedemption[]
 }
 
 model Shop {
-  id          String      @id @default(cuid())
-  ownerId     String      @unique
+  id          String    @id @default(cuid())
+  ownerId     String    @unique
   name        String
-  slug        String      @unique
+  slug        String    @unique
   description String?
   logoUrl     String?
   bannerUrl   String?
-  status      ShopStatus  @default(PENDING_APPROVAL)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  status      ShopStatus @default(PENDING_APPROVAL)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
-  owner       User        @relation(fields: [ownerId], references: [id])
+  owner       User      @relation(fields: [ownerId], references: [id])
   products    Product[]
   orders      Order[]
+  vouchers    Voucher[]
 }
 
 model Category {
-  id          String      @id @default(cuid())
+  id          String     @id @default(cuid())
   parentId    String?
   name        String
-  slug        String      @unique
+  slug        String     @unique
   description String?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  parent      Category?   @relation("CategoryTree", fields: [parentId], references: [id])
-  children    Category[]  @relation("CategoryTree")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  parent      Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryTree")
   products    Product[]
+  vouchers    Voucher[]
 }
 
 model Brand {
@@ -215,6 +230,7 @@ model Order {
   discountTotal         Decimal       @default(0) @db.Decimal(12, 2)
   grandTotal            Decimal       @db.Decimal(12, 2)
   note                  String?
+  appliedVoucherCodes   String[]
   placedAt              DateTime      @default(now())
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
@@ -225,6 +241,54 @@ model Order {
 
   @@index([userId, createdAt])
   @@index([shopId, createdAt])
+}
+
+model Voucher {
+  id                 String              @id @default(cuid())
+  code               String              @unique
+  name               String
+  description        String?
+  scope              VoucherScope
+  discountType       VoucherDiscountType
+  discountValue      Decimal             @db.Decimal(12, 2)
+  maxDiscountAmount  Decimal?            @db.Decimal(12, 2)
+  minOrderValue      Decimal?            @db.Decimal(12, 2)
+  totalQuantity      Int?
+  usedCount          Int                 @default(0)
+  perUserUsageLimit  Int                 @default(1)
+  startsAt           DateTime?
+  expiresAt          DateTime?
+  isActive           Boolean             @default(true)
+  shopId             String?
+  categoryId         String?
+  createdByUserId    String
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  deletedAt          DateTime?
+  shop               Shop?               @relation(fields: [shopId], references: [id])
+  category           Category?           @relation(fields: [categoryId], references: [id])
+  createdByUser      User                @relation(fields: [createdByUserId], references: [id])
+  redemptions        VoucherRedemption[]
+
+  @@index([scope, isActive, expiresAt])
+  @@index([shopId, scope, isActive])
+  @@index([categoryId, scope, isActive])
+}
+
+model VoucherRedemption {
+  id                String    @id @default(cuid())
+  voucherId         String
+  userId            String
+  checkoutReference String
+  orderIds          String[]
+  discountAmount    Decimal   @db.Decimal(12, 2)
+  createdAt         DateTime  @default(now())
+  voucher           Voucher   @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([voucherId, createdAt])
+  @@index([userId, createdAt])
+  @@unique([voucherId, checkoutReference])
 }
 
 model OrderItem {

@@ -53,6 +53,14 @@ export interface CheckoutPreview {
     province: string;
     regionCode: string;
   };
+  vouchers: {
+    platformCode?: string | null;
+    freeshipCode?: string | null;
+    shopCodes?: Array<{
+      shopId: string;
+      code: string;
+    }>;
+  };
   shops: Array<{
     shop: {
       id: string;
@@ -63,7 +71,9 @@ export interface CheckoutPreview {
     shippingFee: string;
     discountTotal: string;
     grandTotal: string;
+    appliedVouchers: AppliedVoucherSummary[];
   }>;
+  appliedVouchers: AppliedVoucherSummary[];
   totals: {
     itemCount: number;
     itemsSubtotal: string;
@@ -82,6 +92,7 @@ export interface OrderListItem {
   shippingFee: string;
   discountTotal: string;
   grandTotal: string;
+  appliedVoucherCodes: string[];
   placedAt: string;
   shop: {
     id: string;
@@ -110,6 +121,7 @@ export interface OrderDetail extends OrderListItem {
     regionCode: string;
   };
   note: string | null;
+  appliedVoucherCodes: string[];
   totals: {
     itemsSubtotal: string;
     shippingFee: string;
@@ -360,6 +372,7 @@ export interface AdminOrderItem {
   shippingFee: string;
   discountTotal: string;
   grandTotal: string;
+  appliedVoucherCodes: string[];
   placedAt: string;
   customer: {
     id: string;
@@ -380,6 +393,43 @@ export interface AdminOrderItem {
     referenceCode: string;
     expiresAt: string | null;
   }>;
+}
+
+export interface VoucherSummary {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  scope: string;
+  discountType: string;
+  discountValue: string;
+  maxDiscountAmount: string | null;
+  minOrderValue: string | null;
+  totalQuantity: number | null;
+  usedCount: number;
+  perUserUsageLimit: number;
+  startsAt: string | null;
+  expiresAt: string | null;
+  isActive: boolean;
+  createdAt: string;
+  shop: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
+  category: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
+}
+
+export interface AppliedVoucherSummary {
+  id: string;
+  code: string;
+  name: string;
+  scope: string;
+  discountAmount: string;
 }
 
 async function requestAuthedJson<T>(path: string, init?: RequestInit): Promise<T | null> {
@@ -507,4 +557,20 @@ export async function getAdminBrands() {
 
 export async function getAdminOrders() {
   return (await requestAuthedJson<AdminOrderItem[]>("/orders/admin")) ?? [];
+}
+
+export async function getAdminVouchers() {
+  return (await requestAuthedJson<VoucherSummary[]>("/vouchers/admin")) ?? [];
+}
+
+export async function getSellerVouchers() {
+  return (await requestAuthedJson<VoucherSummary[]>("/vouchers/shop/me")) ?? [];
+}
+
+export async function getCheckoutPlatformVouchers() {
+  return (await requestAuthedJson<VoucherSummary[]>("/vouchers/checkout/platform")) ?? [];
+}
+
+export async function getCheckoutFreeshipVouchers() {
+  return (await requestAuthedJson<VoucherSummary[]>("/vouchers/checkout/freeship")) ?? [];
 }

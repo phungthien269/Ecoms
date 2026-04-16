@@ -157,3 +157,37 @@ export async function updateSellerShopAction(formData: FormData) {
 
   redirect("/seller?shop=updated");
 }
+
+export async function createSellerVoucherAction(formData: FormData) {
+  const token = await getToken();
+  if (!token) {
+    redirect("/seller");
+  }
+
+  const response = await fetch(`${API_URL}/vouchers/shop/me`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      code: String(formData.get("code") ?? ""),
+      name: String(formData.get("name") ?? ""),
+      description: String(formData.get("description") ?? "") || undefined,
+      discountType: String(formData.get("discountType") ?? "FIXED"),
+      discountValue: Number(formData.get("discountValue") ?? "0"),
+      maxDiscountAmount: Number(formData.get("maxDiscountAmount") ?? "0") || undefined,
+      minOrderValue: Number(formData.get("minOrderValue") ?? "0") || undefined,
+      totalQuantity: Number(formData.get("totalQuantity") ?? "0") || undefined,
+      perUserUsageLimit: Number(formData.get("perUserUsageLimit") ?? "1") || 1,
+      categoryId: String(formData.get("categoryId") ?? "") || undefined
+    }),
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    redirect("/seller?voucher=failed");
+  }
+
+  redirect("/seller?voucher=created");
+}

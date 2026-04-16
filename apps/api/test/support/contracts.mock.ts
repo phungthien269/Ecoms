@@ -46,3 +46,14 @@ export enum PaymentStatus {
   EXPIRED = "EXPIRED",
   CANCELLED = "CANCELLED"
 }
+
+export enum VoucherScope {
+  PLATFORM = "PLATFORM",
+  SHOP = "SHOP",
+  FREESHIP = "FREESHIP"
+}
+
+export enum VoucherDiscountType {
+  FIXED = "FIXED",
+  PERCENTAGE = "PERCENTAGE"
+}

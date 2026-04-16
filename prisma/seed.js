@@ -99,6 +99,100 @@ async function main() {
     }
   });
 
+  const shop = await prisma.shop.findUnique({
+    where: { ownerId: seller.id }
+  });
+
+  await prisma.voucher.upsert({
+    where: { code: "PLATFORM50K" },
+    update: {
+      name: "Platform 50k off",
+      scope: "PLATFORM",
+      discountType: "FIXED",
+      discountValue: 50000,
+      minOrderValue: 300000,
+      totalQuantity: 500,
+      perUserUsageLimit: 3,
+      isActive: true,
+      createdByUserId: admin.id
+    },
+    create: {
+      code: "PLATFORM50K",
+      name: "Platform 50k off",
+      description: "Seeded platform-wide fixed discount voucher",
+      scope: "PLATFORM",
+      discountType: "FIXED",
+      discountValue: 50000,
+      minOrderValue: 300000,
+      totalQuantity: 500,
+      perUserUsageLimit: 3,
+      isActive: true,
+      createdByUserId: admin.id
+    }
+  });
+
+  await prisma.voucher.upsert({
+    where: { code: "FREESHIP30K" },
+    update: {
+      name: "Freeship up to 30k",
+      scope: "FREESHIP",
+      discountType: "FIXED",
+      discountValue: 30000,
+      minOrderValue: 200000,
+      totalQuantity: 500,
+      perUserUsageLimit: 2,
+      isActive: true,
+      createdByUserId: admin.id
+    },
+    create: {
+      code: "FREESHIP30K",
+      name: "Freeship up to 30k",
+      description: "Seeded shipping discount voucher",
+      scope: "FREESHIP",
+      discountType: "FIXED",
+      discountValue: 30000,
+      minOrderValue: 200000,
+      totalQuantity: 500,
+      perUserUsageLimit: 2,
+      isActive: true,
+      createdByUserId: admin.id
+    }
+  });
+
+  if (shop) {
+    await prisma.voucher.upsert({
+      where: { code: "SHOP10OFF" },
+      update: {
+        name: "Demo shop 10% off",
+        scope: "SHOP",
+        discountType: "PERCENTAGE",
+        discountValue: 10,
+        maxDiscountAmount: 80000,
+        minOrderValue: 250000,
+        totalQuantity: 300,
+        perUserUsageLimit: 2,
+        isActive: true,
+        shopId: shop.id,
+        createdByUserId: seller.id
+      },
+      create: {
+        code: "SHOP10OFF",
+        name: "Demo shop 10% off",
+        description: "Seeded seller voucher for checkout demos",
+        scope: "SHOP",
+        discountType: "PERCENTAGE",
+        discountValue: 10,
+        maxDiscountAmount: 80000,
+        minOrderValue: 250000,
+        totalQuantity: 300,
+        perUserUsageLimit: 2,
+        isActive: true,
+        shopId: shop.id,
+        createdByUserId: seller.id
+      }
+    });
+  }
+
   console.log("Seed completed", {
     adminId: admin.id,
     sellerId: seller.id

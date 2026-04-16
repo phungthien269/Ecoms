@@ -41,6 +41,7 @@ export class OrdersService {
       shippingFee: order.shippingFee.toString(),
       discountTotal: order.discountTotal.toString(),
       grandTotal: order.grandTotal.toString(),
+      appliedVoucherCodes: order.appliedVoucherCodes,
       placedAt: order.placedAt.toISOString(),
       shop: order.shop,
       payments: order.payments.map((payment) => ({
@@ -162,6 +163,7 @@ export class OrdersService {
       },
       shop: order.shop,
       note: order.note,
+      appliedVoucherCodes: order.appliedVoucherCodes,
       placedAt: order.placedAt.toISOString(),
       items: order.items.map((item) => ({
         id: item.id,
@@ -308,6 +310,7 @@ export class OrdersService {
       shippingFee: order.shippingFee.toString(),
       discountTotal: order.discountTotal.toString(),
       grandTotal: order.grandTotal.toString(),
+      appliedVoucherCodes: order.appliedVoucherCodes,
       placedAt: order.placedAt.toISOString(),
       customer: order.user,
       shop: order.shop,
@@ -386,6 +389,7 @@ export class OrdersService {
       shop: order.shop,
       customer: order.user,
       note: order.note,
+      appliedVoucherCodes: order.appliedVoucherCodes,
       placedAt: order.placedAt.toISOString(),
       items: order.items.map((item) => ({
         id: item.id,

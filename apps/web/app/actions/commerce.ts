@@ -74,6 +74,19 @@ export async function removeCartItemAction(formData: FormData) {
 }
 
 export async function placeOrderAction(formData: FormData) {
+  const shopVoucherEntries = formData
+    .getAll("shopVoucher")
+    .map((value) => String(value))
+    .filter(Boolean)
+    .map((value) => {
+      const [shopId, code] = value.split("::");
+      return {
+        shopId,
+        code
+      };
+    })
+    .filter((entry) => entry.shopId && entry.code);
+
   const payload = {
     paymentMethod: String(formData.get("paymentMethod")),
     note: String(formData.get("note") ?? "") || undefined,
@@ -86,6 +99,11 @@ export async function placeOrderAction(formData: FormData) {
       district: String(formData.get("district")),
       province: String(formData.get("province")),
       regionCode: String(formData.get("regionCode"))
+    },
+    vouchers: {
+      platformCode: String(formData.get("platformCode") ?? "") || undefined,
+      freeshipCode: String(formData.get("freeshipCode") ?? "") || undefined,
+      shopCodes: shopVoucherEntries.length > 0 ? shopVoucherEntries : undefined
     }
   };
 

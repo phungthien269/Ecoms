@@ -229,11 +229,27 @@ export default async function OrderDetailPage({
                   <span>Shipping fee</span>
                   <span>{formatPrice(order.totals.shippingFee)}</span>
                 </div>
+                <div className="flex justify-between gap-4">
+                  <span>Voucher discount</span>
+                  <span>-{formatPrice(order.totals.discountTotal)}</span>
+                </div>
                 <div className="flex justify-between gap-4 font-semibold text-slate-950">
                   <span>Grand total</span>
                   <span>{formatPrice(order.totals.grandTotal)}</span>
                 </div>
               </div>
+              {order.appliedVoucherCodes.length > 0 ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {order.appliedVoucherCodes.map((code) => (
+                    <div
+                      key={`${order.id}-${code}`}
+                      className="rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-600"
+                    >
+                      {code}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </section>
 
             <section className="rounded-[2rem] border border-orange-200 bg-orange-50 p-6">

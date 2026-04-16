@@ -1,4 +1,5 @@
 import {
+  createAdminVoucherAction,
   createAdminBrandAction,
   createAdminCategoryAction,
   updateAdminOrderStatusAction,
@@ -15,6 +16,8 @@ import {
   getAdminProducts,
   getAdminReviews,
   getAdminShops
+  ,
+  getAdminVouchers
 } from "@/lib/commerceApi";
 import { getDemoSession } from "@/lib/session";
 
@@ -22,14 +25,15 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
   const session = await getDemoSession();
-  const [dashboard, shops, products, reviews, categories, brands, orders] = await Promise.all([
+  const [dashboard, shops, products, reviews, categories, brands, orders, vouchers] = await Promise.all([
     getAdminDashboard(),
     getAdminShops(),
     getAdminProducts(),
     getAdminReviews(),
     getAdminCategories(),
     getAdminBrands(),
-    getAdminOrders()
+    getAdminOrders(),
+    getAdminVouchers()
   ]);
 
   if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.role)) {
@@ -308,6 +312,78 @@ export default async function AdminPage() {
           </section>
         </div>
 
+        <div className="mt-8 grid gap-6 xl:grid-cols-[1fr_1fr]">
+          <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-xl font-bold text-slate-950">Voucher control</h2>
+              <div className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
+                {vouchers.length}
+              </div>
+            </div>
+            <form action={createAdminVoucherAction} className="mt-4 grid gap-3 lg:grid-cols-2">
+              <input name="code" placeholder="Code" className={inputClass} />
+              <input name="name" placeholder="Voucher name" className={inputClass} />
+              <select name="scope" className={inputClass}>
+                <option value="PLATFORM">Platform voucher</option>
+                <option value="FREESHIP">Freeship voucher</option>
+              </select>
+              <select name="discountType" className={inputClass}>
+                <option value="FIXED">Fixed amount</option>
+                <option value="PERCENTAGE">Percentage</option>
+              </select>
+              <input name="discountValue" type="number" min={1} placeholder="Discount value" className={inputClass} />
+              <input name="maxDiscountAmount" type="number" min={0} placeholder="Max discount" className={inputClass} />
+              <input name="minOrderValue" type="number" min={0} placeholder="Min order value" className={inputClass} />
+              <input name="totalQuantity" type="number" min={1} placeholder="Total quantity" className={inputClass} />
+              <input name="perUserUsageLimit" type="number" min={1} placeholder="Per-user limit" className={inputClass} />
+              <select name="categoryId" className={inputClass}>
+                <option value="">All categories</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+              <input
+                name="description"
+                placeholder="Description (optional)"
+                className={`${inputClass} lg:col-span-2`}
+              />
+              <button type="submit" className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white lg:col-span-2">
+                Create voucher
+              </button>
+            </form>
+          </section>
+
+          <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-xl font-bold text-slate-950">Recent vouchers</h2>
+              <div className="rounded-full bg-orange-50 px-4 py-2 text-sm font-semibold text-orange-600">
+                Platform + freeship
+              </div>
+            </div>
+            <div className="mt-4 space-y-3">
+              {vouchers.slice(0, 8).map((voucher) => (
+                <div key={voucher.id} className="rounded-[1.5rem] bg-slate-50 p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="font-semibold text-slate-950">{voucher.code}</div>
+                      <div className="mt-1 text-sm text-slate-500">
+                        {voucher.name} • {voucher.scope} • used {voucher.usedCount}
+                      </div>
+                    </div>
+                    <div className="text-right text-sm text-orange-600">
+                      {voucher.discountType === "FIXED"
+                        ? formatPrice(voucher.discountValue)
+                        : `${voucher.discountValue}%`}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+
         <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between gap-4">
             <h2 className="text-xl font-bold text-slate-950">Order backlog</h2>
@@ -344,6 +420,18 @@ export default async function AdminPage() {
                     </form>
                   ))}
                 </div>
+                {order.appliedVoucherCodes.length > 0 ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {order.appliedVoucherCodes.map((code) => (
+                      <div
+                        key={`${order.id}-${code}`}
+                        className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-orange-600"
+                      >
+                        {code}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>
