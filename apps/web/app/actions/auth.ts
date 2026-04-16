@@ -1,0 +1,66 @@
+"use server";
+
+import type { Route } from "next";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
+
+async function loginWithCredentials(email: string, password: string, redirectTo: string) {
+  const response = await fetch(`${API_URL}/auth/login`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      email,
+      password
+    }),
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    redirect(redirectTo as Route);
+  }
+
+  const payload = (await response.json()) as {
+    data: {
+      accessToken: string;
+      user: {
+        email: string;
+        role: string;
+      };
+    };
+  };
+
+  const cookieStore = await cookies();
+  cookieStore.set("ecoms_access_token", payload.data.accessToken, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/"
+  });
+  cookieStore.set("ecoms_user_email", payload.data.user.email, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/"
+  });
+  cookieStore.set("ecoms_user_role", payload.data.user.role, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/"
+  });
+
+  redirect(redirectTo as Route);
+}
+
+export async function loginBuyerDemo() {
+  await loginWithCredentials("buyer@ecoms.local", "Password123!", "/cart");
+}
+
+export async function logoutDemo() {
+  const cookieStore = await cookies();
+  cookieStore.delete("ecoms_access_token");
+  cookieStore.delete("ecoms_user_email");
+  cookieStore.delete("ecoms_user_role");
+  redirect("/" as Route);
+}

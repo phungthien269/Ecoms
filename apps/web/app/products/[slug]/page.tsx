@@ -1,15 +1,9 @@
 import type { Route } from "next";
 import Link from "next/link";
+import { addToCartAction } from "@/app/actions/commerce";
+import { formatPrice } from "@/components/commerce/price";
 import { EmptyState } from "@/components/storefront/emptyState";
 import { getProduct } from "@/lib/storefrontApi";
-
-function formatPrice(value: string) {
-  return new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-    maximumFractionDigits: 0
-  }).format(Number(value));
-}
 
 export const dynamic = "force-dynamic";
 
@@ -116,6 +110,32 @@ export default async function ProductDetailPage({
                 {product.description}
               </p>
             </div>
+
+            <form action={addToCartAction} className="rounded-[1.5rem] border border-orange-200 bg-orange-50 p-5">
+              <input type="hidden" name="productId" value={product.id} />
+              <input
+                type="hidden"
+                name="productVariantId"
+                value={defaultVariant?.id ?? ""}
+              />
+              <input type="hidden" name="quantity" value="1" />
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-[0.2em] text-orange-600">
+                    Quick action
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Add the default variant to the demo buyer cart and continue through checkout.
+                  </p>
+                </div>
+                <button
+                  type="submit"
+                  className="rounded-full bg-orange-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-orange-600"
+                >
+                  Add to cart
+                </button>
+              </div>
+            </form>
           </div>
         </section>
       </div>

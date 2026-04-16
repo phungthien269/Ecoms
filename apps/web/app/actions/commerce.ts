@@ -1,0 +1,133 @@
+"use server";
+
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
+
+async function getToken() {
+  const cookieStore = await cookies();
+  return cookieStore.get("ecoms_access_token")?.value;
+}
+
+async function authedMutation(path: string, init: RequestInit) {
+  const token = await getToken();
+  if (!token) {
+    redirect("/?auth=required");
+  }
+
+  const response = await fetch(`${API_URL}${path}`, {
+    ...init,
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`,
+      ...(init.headers ?? {})
+    },
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || "Request failed");
+  }
+
+  return response.json();
+}
+
+export async function addToCartAction(formData: FormData) {
+  const productId = String(formData.get("productId"));
+  const productVariantId = String(formData.get("productVariantId") ?? "");
+  const quantity = Number(formData.get("quantity") ?? "1");
+
+  await authedMutation("/cart/items", {
+    method: "POST",
+    body: JSON.stringify({
+      productId,
+      productVariantId: productVariantId || undefined,
+      quantity
+    })
+  });
+
+  redirect("/cart?added=1");
+}
+
+export async function updateCartItemAction(formData: FormData) {
+  const cartItemId = String(formData.get("cartItemId"));
+  const quantity = Number(formData.get("quantity") ?? "1");
+
+  await authedMutation(`/cart/items/${cartItemId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ quantity })
+  });
+
+  redirect("/cart");
+}
+
+export async function removeCartItemAction(formData: FormData) {
+  const cartItemId = String(formData.get("cartItemId"));
+
+  await authedMutation(`/cart/items/${cartItemId}`, {
+    method: "DELETE"
+  });
+
+  redirect("/cart");
+}
+
+export async function placeOrderAction(formData: FormData) {
+  const payload = {
+    paymentMethod: String(formData.get("paymentMethod")),
+    note: String(formData.get("note") ?? "") || undefined,
+    shippingAddress: {
+      recipientName: String(formData.get("recipientName")),
+      phoneNumber: String(formData.get("phoneNumber")),
+      addressLine1: String(formData.get("addressLine1")),
+      addressLine2: String(formData.get("addressLine2") ?? "") || undefined,
+      ward: String(formData.get("ward") ?? "") || undefined,
+      district: String(formData.get("district")),
+      province: String(formData.get("province")),
+      regionCode: String(formData.get("regionCode"))
+    }
+  };
+
+  const response = (await authedMutation("/checkout/place-order", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  })) as {
+    data: {
+      orders: Array<{ id: string }>;
+    };
+  };
+
+  redirect(`/orders/${response.data.orders[0]?.id ?? ""}?placed=1`);
+}
+
+export async function confirmPaymentAction(formData: FormData) {
+  const paymentId = String(formData.get("paymentId"));
+  const orderId = String(formData.get("orderId"));
+
+  await authedMutation(`/payments/${paymentId}/confirm`, {
+    method: "POST"
+  });
+
+  redirect(`/orders/${orderId}?payment=confirmed`);
+}
+
+export async function cancelOrderAction(formData: FormData) {
+  const orderId = String(formData.get("orderId"));
+
+  await authedMutation(`/orders/${orderId}/cancel`, {
+    method: "POST"
+  });
+
+  redirect(`/orders/${orderId}?status=cancelled`);
+}
+
+export async function completeOrderAction(formData: FormData) {
+  const orderId = String(formData.get("orderId"));
+
+  await authedMutation(`/orders/${orderId}/complete`, {
+    method: "POST"
+  });
+
+  redirect(`/orders/${orderId}?status=completed`);
+}
