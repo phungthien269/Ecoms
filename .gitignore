@@ -13,3 +13,4 @@ apps/*/dist
 packages/*/dist
 prisma/dev.db
 *.log
+*.tsbuildinfo
