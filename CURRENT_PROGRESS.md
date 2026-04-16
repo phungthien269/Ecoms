@@ -12,9 +12,9 @@ Extend the verified foundation into real Phase 1 domain modules and keep the rem
 Project requirements remain stable.
 Initial implementation has started.
 The repository now has a runnable monorepo foundation with verified `build`, `lint`, and `typecheck`.
-The baseline now includes auth/RBAC, Prisma migration + seed, public/admin category APIs, public/admin brand APIs, seller/admin shop APIs, product CRUD, product variants, publish-status guardrails, a richer storefront with catalog filters/sorting/pagination, and the first cart backend slice with tests.
+The baseline now includes auth/RBAC, Prisma migration + seed, public/admin category APIs, public/admin brand APIs, seller/admin shop APIs, product CRUD, product variants, publish-status guardrails, storefront catalog/search UX, cart backend, and a first checkout/order foundation with tests.
 The repository has been pushed to GitHub and is ready for continued incremental delivery.
-The immediate next step is to build checkout-adjacent commerce flows on top of the new cart slice, while seller-facing web management remains queued behind core transaction flows.
+The immediate next step is to extend payment/order lifecycle flows on top of the new checkout slice, while seller-facing web management remains queued behind core commerce completion.
 
 ## 4. Completed Items
 - Read required skill pack from `.claude/skills/everything-claude-code`
@@ -133,16 +133,28 @@ The immediate next step is to build checkout-adjacent commerce flows on top of t
   - duplicate cart lines merge quantity when product + variant match
 - Extended API test coverage:
   - `CartService` tests for add-item totals, line merging, and inactive-product rejection
+- Added checkout/order foundation:
+  - `Order`, `OrderItem`, and `Payment` Prisma models + migration SQL
+  - checkout preview API that splits cart items by shop and calculates shipping totals
+  - order placement API that creates one order per shop, snapshots shipping info, records payments, decrements stock, and clears cart
+  - customer order list/detail APIs
+- Fixed local runtime/demo blockers:
+  - `@ecoms/contracts` package now points runtime entrypoints to `dist`
+  - API config now resolves `.env` from root and workspace contexts
+  - modules using `JwtAuthGuard` now import `AuthModule` so Nest DI resolves `AuthService`
+  - local PostgreSQL `ecoms` database was created, migrations applied, and demo seed/product data inserted
+- Extended API test coverage again:
+  - `CheckoutService` tests for preview totals, empty-cart rejection, and COD order placement
 
 ## 5. In Progress Items
 - No half-finished code pending in the current slice
-- Next implementation target is checkout/order foundation on top of the new cart module
+- Next implementation target is payment flow completion and order lifecycle follow-up APIs
 
 ## 6. Next Exact Tasks
-1. Add checkout/order foundation that splits cart items by shop
-2. Add shipping fee calculation rules and checkout preview
-3. Add mock payment abstraction hooks for COD and pending online flows
-4. Extend backend test coverage to categories, shops, cart, and product query flows
+1. Add payment callback / mock payment confirmation flows for pending online orders
+2. Add richer order status transition APIs for buyer and seller actions
+3. Extend backend test coverage to categories, shops, and order/payment flows
+4. Add web checkout and order history UI on top of the new APIs
 5. Add seller-facing web management UI after core commerce backend is in place
 6. Restore Docker Desktop daemon access and run live DB validation later
 
@@ -221,6 +233,16 @@ The immediate next step is to build checkout-adjacent commerce flows on top of t
 - Re-ran `npm run build` after cart implementation
 - Re-ran `npm run test --workspace @ecoms/api` after cart tests
 - Re-ran `npm run lint` after cart tests
+- Added checkout/order schema, migration, and API modules
+- Re-ran `npm run prisma:generate` after checkout schema changes
+- Re-ran `npm run typecheck` after checkout/order implementation
+- Re-ran `npm run build` after checkout/order implementation
+- Added `CheckoutService` unit tests
+- Re-ran `npm run test --workspace @ecoms/api` after checkout tests
+- Fixed local runtime/demo issues for contracts package resolution, env loading, and Nest module DI
+- Created local PostgreSQL database `ecoms`
+- Applied Prisma migrations locally with `npx prisma migrate deploy --schema prisma\\schema.prisma`
+- Seeded local demo users/shops/categories/brands and inserted a demo product/variant dataset
 
 ## 10. Tests Run + Result
 - `npm run prisma:generate` ✅
@@ -236,6 +258,9 @@ The immediate next step is to build checkout-adjacent commerce flows on top of t
 - API service unit test baseline now exists for auth and product business rules ✅
 - Cart backend slice compile verification completed ✅
 - `CartService` unit tests added and passing ✅
+- Checkout/order backend slice compile verification completed ✅
+- `CheckoutService` unit tests added and passing ✅
+- Local runtime verification completed against a live PostgreSQL instance without Docker ✅
 - Broader integration/runtime business-flow tests are still pending
 
 ## 11. Bugs / Known Issues
@@ -246,7 +271,8 @@ The immediate next step is to build checkout-adjacent commerce flows on top of t
 - `npm audit` currently reports 20 transitive vulnerabilities from freshly installed dependency trees; triage is pending after core foundations stabilize
 - Storefront pages currently render soft-empty states if the API is unreachable; this is intentional to keep frontend progress unblocked before runtime wiring is restored
 - Jest currently uses a local test-only mapper for `@ecoms/contracts` inside `apps/api` specs to avoid ESM alias friction in the current monorepo setup; this should be revisited when shared package test tooling is standardized
-- Cart persistence exists in schema and migration files, but no live database migration has been applied in this session because Docker/PostgreSQL runtime remains deferred
+- Checkout currently supports COD, bank transfer, and online gateway as payment method values, but only COD is treated as immediately paid while non-COD flows remain mock-pending
+- Docker Desktop remains unavailable in this session, but local PostgreSQL service was sufficient for live verification so containerized runtime parity is still pending
 
 ## 12. Assumptions Made This Session
 - Use shadcn/ui + Tailwind as the primary shared UI system
@@ -267,7 +293,8 @@ The immediate next step is to build checkout-adjacent commerce flows on top of t
 - Category landing pages currently reuse the `/products` catalog implementation so storefront logic stays centralized while the route structure becomes more SEO-friendly
 - API unit tests use direct service instantiation with mocked Prisma/JWT dependencies instead of Nest testing modules to keep the first test slice fast and focused on business rules
 - Cart is modeled as direct user-owned `CartItem` rows instead of a separate `Cart` aggregate table to keep phase-1 checkout flows simple while preserving multi-shop grouping in service logic
+- Checkout snapshots shipping address directly onto each order and splits a multi-shop cart into one order per shop to match marketplace behavior with minimal phase-1 complexity
 
 ## 13. Handoff Note for Next Session
 The repo is already pushed to GitHub and the current API slice compiles cleanly.
-Resume from checkout/order foundation on top of the cart slice, not from scaffolding, auth basics, storefront filters, or existing catalog/product/cart groundwork.
+Resume from payment confirmation and order lifecycle APIs, not from scaffolding, auth basics, storefront filters, or existing cart/checkout/order groundwork.

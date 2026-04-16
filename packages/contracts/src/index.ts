@@ -19,6 +19,34 @@ export enum ProductStatus {
   BANNED = "BANNED"
 }
 
+export enum OrderStatus {
+  PENDING = "PENDING",
+  CONFIRMED = "CONFIRMED",
+  PROCESSING = "PROCESSING",
+  SHIPPING = "SHIPPING",
+  DELIVERED = "DELIVERED",
+  COMPLETED = "COMPLETED",
+  CANCELLED = "CANCELLED",
+  DELIVERY_FAILED = "DELIVERY_FAILED",
+  RETURN_REQUESTED = "RETURN_REQUESTED",
+  RETURNED = "RETURNED",
+  REFUNDED = "REFUNDED"
+}
+
+export enum PaymentMethod {
+  COD = "COD",
+  BANK_TRANSFER = "BANK_TRANSFER",
+  ONLINE_GATEWAY = "ONLINE_GATEWAY"
+}
+
+export enum PaymentStatus {
+  PENDING = "PENDING",
+  PAID = "PAID",
+  FAILED = "FAILED",
+  EXPIRED = "EXPIRED",
+  CANCELLED = "CANCELLED"
+}
+
 export interface CartItemSummary {
   id: string;
   productId: string;
@@ -59,6 +87,55 @@ export interface CartSummary {
     itemCount: number;
     subtotal: string;
   };
+}
+
+export interface CheckoutShippingAddress {
+  recipientName: string;
+  phoneNumber: string;
+  addressLine1: string;
+  addressLine2?: string | null;
+  ward?: string | null;
+  district: string;
+  province: string;
+  regionCode: string;
+}
+
+export interface CheckoutShopPreview {
+  shop: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+  itemsSubtotal: string;
+  shippingFee: string;
+  discountTotal: string;
+  grandTotal: string;
+}
+
+export interface CheckoutPreview {
+  paymentMethod: PaymentMethod;
+  shippingAddress: CheckoutShippingAddress;
+  shops: CheckoutShopPreview[];
+  totals: {
+    itemCount: number;
+    itemsSubtotal: string;
+    shippingFee: string;
+    discountTotal: string;
+    grandTotal: string;
+  };
+}
+
+export interface OrderSummary {
+  id: string;
+  orderNumber: string;
+  shopId: string;
+  status: OrderStatus;
+  paymentMethod: PaymentMethod;
+  itemsSubtotal: string;
+  shippingFee: string;
+  discountTotal: string;
+  grandTotal: string;
+  placedAt: string;
 }
 
 export interface ApiSuccessResponse<T> {
