@@ -1,9 +1,9 @@
 import type { Route } from "next";
 import Link from "next/link";
-import { addToCartAction } from "@/app/actions/commerce";
+import { addToCartAction, addToWishlistAction } from "@/app/actions/commerce";
 import { formatPrice } from "@/components/commerce/price";
 import { EmptyState } from "@/components/storefront/emptyState";
-import { getProduct } from "@/lib/storefrontApi";
+import { getProduct, getProductReviews } from "@/lib/storefrontApi";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +13,7 @@ export default async function ProductDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const product = await getProduct(slug);
+  const [product, reviews] = await Promise.all([getProduct(slug), getProductReviews(slug)]);
 
   if (!product) {
     return (
@@ -136,6 +136,74 @@ export default async function ProductDetailPage({
                 </button>
               </div>
             </form>
+
+            <form action={addToWishlistAction} className="rounded-[1.5rem] border border-slate-200 p-5">
+              <input type="hidden" name="productId" value={product.id} />
+              <input type="hidden" name="productSlug" value={product.slug} />
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    Wishlist
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Save this product for the buyer account and revisit it from the new wishlist page.
+                  </p>
+                </div>
+                <button
+                  type="submit"
+                  className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+                >
+                  Save to wishlist
+                </button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <section className="mt-8 rounded-[2rem] bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-orange-500">
+                Reviews
+              </p>
+              <h2 className="mt-2 text-2xl font-black text-slate-950">Verified buyer feedback</h2>
+            </div>
+            <div className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
+              {reviews.length} review(s)
+            </div>
+          </div>
+
+          <div className="mt-6 space-y-4">
+            {reviews.length > 0 ? (
+              reviews.map((review) => (
+                <article
+                  key={review.id}
+                  className="rounded-[1.5rem] border border-slate-200 p-5"
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <div className="text-base font-semibold text-slate-950">{review.reviewer.fullName}</div>
+                      <div className="mt-1 text-sm text-slate-500">
+                        {"★".repeat(review.rating)}
+                        {"☆".repeat(5 - review.rating)} • {new Date(review.createdAt).toLocaleDateString("vi-VN")}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="mt-4 text-sm leading-7 text-slate-600">{review.comment}</p>
+                  {review.sellerReply ? (
+                    <div className="mt-4 rounded-[1.25rem] bg-slate-50 p-4 text-sm text-slate-600">
+                      <div className="font-semibold text-slate-950">Seller reply</div>
+                      <div className="mt-2">{review.sellerReply}</div>
+                    </div>
+                  ) : null}
+                </article>
+              ))
+            ) : (
+              <EmptyState
+                title="No reviews yet"
+                description="Once a completed order item is reviewed, feedback will appear here."
+              />
+            )}
           </div>
         </section>
       </div>

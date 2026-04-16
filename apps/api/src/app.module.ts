@@ -13,8 +13,10 @@ import { PaymentsModule } from "./modules/payments/payments.module";
 import { PrismaModule } from "./modules/prisma/prisma.module";
 import { ProductsModule } from "./modules/products/products.module";
 import { RbacModule } from "./modules/rbac/rbac.module";
+import { ReviewsModule } from "./modules/reviews/reviews.module";
 import { ShopsModule } from "./modules/shops/shops.module";
 import { UsersModule } from "./modules/users/users.module";
+import { WishlistModule } from "./modules/wishlist/wishlist.module";
 
 @Module({
   imports: [
@@ -35,7 +37,9 @@ import { UsersModule } from "./modules/users/users.module";
     OrdersModule,
     PaymentsModule,
     ShopsModule,
-    ProductsModule
+    ProductsModule,
+    WishlistModule,
+    ReviewsModule
   ]
 })
 export class AppModule {}

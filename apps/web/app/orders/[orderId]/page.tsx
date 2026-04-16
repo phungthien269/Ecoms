@@ -1,4 +1,4 @@
-import { cancelOrderAction, completeOrderAction, confirmPaymentAction } from "@/app/actions/commerce";
+import { cancelOrderAction, completeOrderAction, confirmPaymentAction, createReviewAction } from "@/app/actions/commerce";
 import { formatPrice } from "@/components/commerce/price";
 import { EmptyState } from "@/components/storefront/emptyState";
 import { getOrder } from "@/lib/commerceApi";
@@ -161,6 +161,41 @@ export default async function OrderDetailPage({
                         </div>
                       </div>
                     </div>
+                    {order.status === "COMPLETED" && !item.reviewId ? (
+                      <form action={createReviewAction} className="mt-4 rounded-[1.25rem] bg-slate-50 p-4">
+                        <input type="hidden" name="orderId" value={order.id} />
+                        <input type="hidden" name="orderItemId" value={item.id} />
+                        <div className="grid gap-3 sm:grid-cols-[120px_1fr_auto]">
+                          <select
+                            name="rating"
+                            defaultValue="5"
+                            className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                          >
+                            <option value="5">5 stars</option>
+                            <option value="4">4 stars</option>
+                            <option value="3">3 stars</option>
+                            <option value="2">2 stars</option>
+                            <option value="1">1 star</option>
+                          </select>
+                          <input
+                            name="comment"
+                            placeholder="Share your feedback for this product"
+                            className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                          />
+                          <button
+                            type="submit"
+                            className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                          >
+                            Review
+                          </button>
+                        </div>
+                      </form>
+                    ) : null}
+                    {item.reviewId ? (
+                      <div className="mt-4 rounded-[1.25rem] bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+                        Review submitted for this item.
+                      </div>
+                    ) : null}
                   </div>
                 ))}
               </div>

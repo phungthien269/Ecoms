@@ -14,7 +14,7 @@ Initial implementation has started.
 The repository now has a runnable monorepo foundation with verified `build`, `lint`, and `typecheck`.
 The baseline now includes auth/RBAC, Prisma migration + seed, public/admin category APIs, public/admin brand APIs, seller/admin shop APIs, product CRUD, product variants, publish-status guardrails, storefront catalog/search UX, cart backend, checkout/order/payment backend flows, and a customer-side web commerce shell for cart/checkout/orders.
 The repository has been pushed to GitHub and is ready for continued incremental delivery.
-The immediate next step is to polish the customer checkout and order lifecycle UX on top of the now-runnable backend APIs.
+The immediate next step is to extend engagement features on top of the now-runnable backend APIs, starting with wishlist and verified reviews.
 
 ## 4. Completed Items
 - Read required skill pack from `.claude/skills/everything-claude-code`
@@ -175,15 +175,22 @@ The immediate next step is to polish the customer checkout and order lifecycle U
   - checkout explains the difference between COD and pending online payment flows
   - order list now flags pending payment attention states
   - order detail now shows lifecycle timeline, flash banners, and richer payment metadata
+- Added wishlist and verified-review foundations:
+  - Prisma models + SQL migration for `WishlistItem` and `Review`
+  - buyer wishlist APIs for add/list/remove
+  - review APIs for public product reviews, buyer eligible review creation, and seller replies
+  - product detail page now shows reviews and save-to-wishlist actions
+  - order detail page now supports posting reviews for completed order items
+  - new `/wishlist` page wired to the live wishlist API
 
 ## 5. In Progress Items
 - No half-finished code pending in the current slice
-- Next implementation target is wishlist/review foundations and further customer polish
+- Next implementation target is admin moderation/dashboard work and richer seller/customer review management
 
 ## 6. Next Exact Tasks
-1. Add wishlist/review foundations after seller center basics land
-2. Add richer seller order detail/history actions if needed after the current seller list flow
-3. Add admin-facing order moderation and dashboards
+1. Add admin-facing order moderation and dashboards
+2. Add richer seller review reply/history actions if needed after the current buyer review flow
+3. Add wishlist polish such as remove states and product-heart indicators
 4. Restore Docker Desktop daemon access and run live DB validation later
 
 ## 7. Blockers / Open Questions
@@ -281,6 +288,7 @@ The immediate next step is to polish the customer checkout and order lifecycle U
 - Added seller demo login and seller dashboard web slice
 - Added seller order APIs, tests, and Seller Center order page
 - Polished checkout preview and order lifecycle web UX
+- Added wishlist/review schema, APIs, tests, and buyer-facing web surfaces
 
 ## 10. Tests Run + Result
 - `npm run prisma:generate` ✅
@@ -316,6 +324,7 @@ The immediate next step is to polish the customer checkout and order lifecycle U
 - Payment confirmation is still a mock customer-triggered endpoint, not a real gateway callback yet
 - Buyer demo web auth currently uses a local cookie-backed server-action login helper instead of a full frontend auth flow, to unblock commerce UI testing quickly
 - Docker Desktop remains unavailable in this session, but local PostgreSQL service was sufficient for live verification so containerized runtime parity is still pending
+- `npm run prisma:generate` is currently failing with a Windows file-lock rename error on `node_modules/.prisma/client/query_engine-windows.dll.node`; a running API/demo process likely needs to be stopped before regenerating the client cleanly
 
 ## 12. Assumptions Made This Session
 - Use shadcn/ui + Tailwind as the primary shared UI system
@@ -342,7 +351,8 @@ The immediate next step is to polish the customer checkout and order lifecycle U
 - Seller-side web flows currently prioritize live API wiring for product visibility/creation before richer editing, analytics, or bulk management tools
 - Seller-side order management uses a narrow allowed transition map to keep first-pass fulfillment logic explicit and safe
 - Checkout preview state is still URL-driven and server-rendered rather than client-managed, to preserve SEO-safe simplicity in this phase
+- Reviews are limited to one review per completed order item, with image upload URLs stored as strings for now rather than a dedicated media relation
 
 ## 13. Handoff Note for Next Session
 The repo is already pushed to GitHub and the current web/API slices compile cleanly.
-Resume from wishlist/review foundations and admin polish, not from scaffolding, auth basics, or backend cart/checkout/order/payment groundwork.
+Resume from admin polish and review/wishlist refinement, not from scaffolding, auth basics, or backend cart/checkout/order/payment groundwork.

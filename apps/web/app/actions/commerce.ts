@@ -131,3 +131,41 @@ export async function completeOrderAction(formData: FormData) {
 
   redirect(`/orders/${orderId}?status=completed`);
 }
+
+export async function addToWishlistAction(formData: FormData) {
+  const productId = String(formData.get("productId"));
+
+  await authedMutation(`/wishlist/${productId}`, {
+    method: "POST"
+  });
+
+  redirect(`/products/${String(formData.get("productSlug"))}?wishlist=added`);
+}
+
+export async function removeFromWishlistAction(formData: FormData) {
+  const productId = String(formData.get("productId"));
+
+  await authedMutation(`/wishlist/${productId}`, {
+    method: "DELETE"
+  });
+
+  redirect("/wishlist?removed=1");
+}
+
+export async function createReviewAction(formData: FormData) {
+  const orderItemId = String(formData.get("orderItemId"));
+  const orderId = String(formData.get("orderId"));
+  const rating = Number(formData.get("rating") ?? "5");
+  const comment = String(formData.get("comment") ?? "");
+
+  await authedMutation("/reviews", {
+    method: "POST",
+    body: JSON.stringify({
+      orderItemId,
+      rating,
+      comment
+    })
+  });
+
+  redirect(`/orders/${orderId}?review=created`);
+}

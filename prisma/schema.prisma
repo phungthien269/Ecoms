@@ -70,6 +70,8 @@ model User {
   cartItems    CartItem[]
   orders       Order[]
   payments     Payment[]
+  wishlistItems WishlistItem[]
+  reviews      Review[]
 }
 
 model Shop {
@@ -145,6 +147,8 @@ model Product {
   variants      ProductVariant[]
   cartItems     CartItem[]
   orderItems    OrderItem[]
+  wishlistItems WishlistItem[]
+  reviews       Review[]
 }
 
 model ProductImage {
@@ -241,9 +245,43 @@ model OrderItem {
   order            Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product          Product         @relation(fields: [productId], references: [id])
   productVariant   ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
+  review           Review?
 
   @@index([orderId])
   @@index([productId])
+}
+
+model WishlistItem {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId, createdAt])
+  @@index([productId])
+}
+
+model Review {
+  id             String    @id @default(cuid())
+  reviewerId     String
+  productId      String
+  orderItemId    String    @unique
+  rating         Int
+  comment        String
+  imageUrls      String[]
+  sellerReply    String?
+  sellerReplyAt  DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  reviewer       User      @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+  product        Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItem      OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@index([productId, createdAt])
+  @@index([reviewerId, createdAt])
 }
 
 model Payment {

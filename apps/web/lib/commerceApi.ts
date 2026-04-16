@@ -127,6 +127,7 @@ export interface OrderDetail extends OrderListItem {
     variantSku: string | null;
     variantAttributes: Record<string, string> | null;
     quantity: number;
+    reviewId?: string | null;
     unitPrice: string;
     subtotal: string;
   }>;
@@ -170,6 +171,26 @@ export interface SellerOrderDetail extends Omit<OrderDetail, "shop"> {
     name: string;
     slug: string;
     status: string;
+  };
+}
+
+export interface WishlistItem {
+  id: string;
+  createdAt: string;
+  product: {
+    id: string;
+    name: string;
+    slug: string;
+    salePrice: string;
+    originalPrice: string;
+    ratingAverage: string;
+    soldCount: number;
+    imageUrl: string | null;
+    shop: {
+      id: string;
+      name: string;
+      slug: string;
+    };
   };
 }
 
@@ -262,4 +283,8 @@ export async function getSellerOrders() {
 
 export async function getSellerOrder(orderId: string) {
   return requestAuthedJson<SellerOrderDetail>(`/orders/seller/me/${orderId}`);
+}
+
+export async function getWishlist() {
+  return (await requestAuthedJson<WishlistItem[]>("/wishlist")) ?? [];
 }

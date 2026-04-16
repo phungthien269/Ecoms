@@ -3,6 +3,7 @@ import type {
   BrandSummary,
   CategoryNode,
   ProductCard,
+  ProductReview,
   ProductListResponse,
   ShopPageData
 } from "./storefrontTypes";
@@ -62,6 +63,10 @@ export async function getProducts(query?: Record<string, string | number | undef
 
 export async function getProduct(slug: string): Promise<ProductCard | null> {
   return requestJson<ProductCard>(`/products/${slug}`);
+}
+
+export async function getProductReviews(productIdOrSlug: string): Promise<ProductReview[]> {
+  return (await requestJson<ProductReview[]>(`/reviews/product/${productIdOrSlug}`)) ?? [];
 }
 
 export async function getShop(slug: string): Promise<ShopPageData | null> {

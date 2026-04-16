@@ -25,6 +25,9 @@ export function AppShell({
               <Link href={"/cart" as Route} className="transition hover:text-orange-600">
                 Cart
               </Link>
+              <Link href={"/wishlist" as Route} className="transition hover:text-orange-600">
+                Wishlist
+              </Link>
               <Link href={"/checkout" as Route} className="transition hover:text-orange-600">
                 Checkout
               </Link>

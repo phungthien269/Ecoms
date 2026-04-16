@@ -66,7 +66,14 @@ export class OrdersService {
           }
         },
         items: {
-          orderBy: [{ createdAt: "asc" }]
+          orderBy: [{ createdAt: "asc" }],
+          include: {
+            review: {
+              select: {
+                id: true
+              }
+            }
+          }
         },
         payments: {
           orderBy: [{ createdAt: "desc" }]
@@ -113,6 +120,7 @@ export class OrdersService {
         variantSku: item.variantSku,
         variantAttributes: item.variantAttributes,
         quantity: item.quantity,
+        reviewId: item.review?.id ?? null,
         unitPrice: item.unitPrice.toString(),
         subtotal: item.subtotal.toString()
       })),

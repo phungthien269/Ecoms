@@ -63,6 +63,20 @@ export interface ProductCard {
   }>;
 }
 
+export interface ProductReview {
+  id: string;
+  reviewer: {
+    id: string;
+    fullName: string;
+  };
+  rating: number;
+  comment: string;
+  imageUrls: string[];
+  sellerReply: string | null;
+  sellerReplyAt: string | null;
+  createdAt: string;
+}
+
 export interface ProductListResponse {
   items: ProductCard[];
   pagination: {

@@ -47,6 +47,20 @@ export enum PaymentStatus {
   CANCELLED = "CANCELLED"
 }
 
+export interface ProductReviewSummary {
+  id: string;
+  reviewer: {
+    id: string;
+    fullName: string;
+  };
+  rating: number;
+  comment: string;
+  imageUrls: string[];
+  sellerReply: string | null;
+  sellerReplyAt: string | null;
+  createdAt: string;
+}
+
 export interface CartItemSummary {
   id: string;
   productId: string;
