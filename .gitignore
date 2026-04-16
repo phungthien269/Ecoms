@@ -16,3 +16,6 @@ packages/*/dist
 prisma/dev.db
 *.log
 *.tsbuildinfo
+CURRENT_PROGRESS.md
+PROJECT_CONTEXT.md
+.claude/
