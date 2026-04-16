@@ -61,3 +61,57 @@ export async function updateAdminProductStatusAction(formData: FormData) {
 
   redirect("/admin?products=updated");
 }
+
+export async function createAdminCategoryAction(formData: FormData) {
+  const token = await getToken();
+  if (!token) {
+    redirect("/admin");
+  }
+
+  const response = await fetch(`${API_URL}/categories`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      name: String(formData.get("name") ?? ""),
+      description: String(formData.get("description") ?? "") || undefined,
+      parentId: String(formData.get("parentId") ?? "") || undefined
+    }),
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    redirect("/admin?categories=failed");
+  }
+
+  redirect("/admin?categories=created");
+}
+
+export async function createAdminBrandAction(formData: FormData) {
+  const token = await getToken();
+  if (!token) {
+    redirect("/admin");
+  }
+
+  const response = await fetch(`${API_URL}/brands`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      name: String(formData.get("name") ?? ""),
+      description: String(formData.get("description") ?? "") || undefined,
+      logoUrl: String(formData.get("logoUrl") ?? "") || undefined
+    }),
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    redirect("/admin?brands=failed");
+  }
+
+  redirect("/admin?brands=created");
+}

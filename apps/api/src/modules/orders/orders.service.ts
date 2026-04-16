@@ -51,6 +51,60 @@ export class OrdersService {
     }));
   }
 
+  async listAdmin() {
+    const orders = await this.prisma.order.findMany({
+      orderBy: [{ createdAt: "desc" }],
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true
+          }
+        },
+        shop: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            status: true
+          }
+        },
+        payments: {
+          select: {
+            id: true,
+            method: true,
+            status: true,
+            amount: true,
+            referenceCode: true,
+            expiresAt: true
+          },
+          orderBy: [{ createdAt: "desc" }]
+        }
+      },
+      take: 50
+    });
+
+    return orders.map((order) => ({
+      id: order.id,
+      orderNumber: order.orderNumber,
+      status: order.status,
+      paymentMethod: order.paymentMethod,
+      itemsSubtotal: order.itemsSubtotal.toString(),
+      shippingFee: order.shippingFee.toString(),
+      discountTotal: order.discountTotal.toString(),
+      grandTotal: order.grandTotal.toString(),
+      placedAt: order.placedAt.toISOString(),
+      customer: order.user,
+      shop: order.shop,
+      payments: order.payments.map((payment) => ({
+        ...payment,
+        amount: payment.amount.toString(),
+        expiresAt: payment.expiresAt?.toISOString() ?? null
+      }))
+    }));
+  }
+
   async getOwnDetail(userId: string, orderId: string) {
     const order = await this.prisma.order.findFirst({
       where: {

@@ -333,6 +333,55 @@ export interface AdminProductItem {
   } | null;
 }
 
+export interface AdminCategoryItem {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  parentId: string | null;
+  createdAt: string;
+}
+
+export interface AdminBrandItem {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  logoUrl: string | null;
+  createdAt?: string;
+}
+
+export interface AdminOrderItem {
+  id: string;
+  orderNumber: string;
+  status: string;
+  paymentMethod: string;
+  itemsSubtotal: string;
+  shippingFee: string;
+  discountTotal: string;
+  grandTotal: string;
+  placedAt: string;
+  customer: {
+    id: string;
+    fullName: string;
+    email: string;
+  };
+  shop: {
+    id: string;
+    name: string;
+    slug: string;
+    status: string;
+  };
+  payments: Array<{
+    id: string;
+    method: string;
+    status: string;
+    amount: string;
+    referenceCode: string;
+    expiresAt: string | null;
+  }>;
+}
+
 async function requestAuthedJson<T>(path: string, init?: RequestInit): Promise<T | null> {
   const session = await getDemoSession();
   if (!session) {
@@ -446,4 +495,16 @@ export async function getAdminShops() {
 
 export async function getAdminProducts() {
   return (await requestAuthedJson<AdminProductItem[]>("/products/admin")) ?? [];
+}
+
+export async function getAdminCategories() {
+  return (await requestAuthedJson<AdminCategoryItem[]>("/categories/admin")) ?? [];
+}
+
+export async function getAdminBrands() {
+  return (await requestAuthedJson<AdminBrandItem[]>("/brands")) ?? [];
+}
+
+export async function getAdminOrders() {
+  return (await requestAuthedJson<AdminOrderItem[]>("/orders/admin")) ?? [];
 }

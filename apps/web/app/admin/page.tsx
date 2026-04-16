@@ -1,8 +1,16 @@
-import { updateAdminProductStatusAction, updateAdminShopStatusAction } from "@/app/actions/admin";
+import {
+  createAdminBrandAction,
+  createAdminCategoryAction,
+  updateAdminProductStatusAction,
+  updateAdminShopStatusAction
+} from "@/app/actions/admin";
 import { formatPrice } from "@/components/commerce/price";
 import { EmptyState } from "@/components/storefront/emptyState";
 import {
+  getAdminBrands,
+  getAdminCategories,
   getAdminDashboard,
+  getAdminOrders,
   getAdminProducts,
   getAdminReviews,
   getAdminShops
@@ -13,11 +21,14 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
   const session = await getDemoSession();
-  const [dashboard, shops, products, reviews] = await Promise.all([
+  const [dashboard, shops, products, reviews, categories, brands, orders] = await Promise.all([
     getAdminDashboard(),
     getAdminShops(),
     getAdminProducts(),
-    getAdminReviews()
+    getAdminReviews(),
+    getAdminCategories(),
+    getAdminBrands(),
+    getAdminOrders()
   ]);
 
   if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.role)) {
@@ -230,7 +241,102 @@ export default async function AdminPage() {
             </div>
           </section>
         </div>
+
+        <div className="mt-8 grid gap-6 xl:grid-cols-[1fr_1fr]">
+          <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-xl font-bold text-slate-950">Category management</h2>
+              <div className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
+                {categories.length}
+              </div>
+            </div>
+            <form action={createAdminCategoryAction} className="mt-4 grid gap-3 lg:grid-cols-[1fr_1fr_auto]">
+              <input name="name" placeholder="New category name" className={inputClass} />
+              <input name="description" placeholder="Description (optional)" className={inputClass} />
+              <button type="submit" className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white">
+                Create
+              </button>
+              <select name="parentId" className={`${inputClass} lg:col-span-2`}>
+                <option value="">No parent category</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </form>
+            <div className="mt-4 space-y-3">
+              {categories.slice(0, 8).map((category) => (
+                <div key={category.id} className="rounded-[1.5rem] bg-slate-50 p-4">
+                  <div className="font-semibold text-slate-950">{category.name}</div>
+                  <div className="mt-1 text-sm text-slate-500">
+                    {category.slug} {category.parentId ? "• Child category" : "• Root category"}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-xl font-bold text-slate-950">Brand management</h2>
+              <div className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
+                {brands.length}
+              </div>
+            </div>
+            <form action={createAdminBrandAction} className="mt-4 grid gap-3 lg:grid-cols-[1fr_1fr_auto]">
+              <input name="name" placeholder="New brand name" className={inputClass} />
+              <input name="description" placeholder="Description (optional)" className={inputClass} />
+              <button type="submit" className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white">
+                Create
+              </button>
+              <input
+                name="logoUrl"
+                placeholder="Logo URL (optional)"
+                className={`${inputClass} lg:col-span-3`}
+              />
+            </form>
+            <div className="mt-4 space-y-3">
+              {brands.slice(0, 8).map((brand) => (
+                <div key={brand.id} className="rounded-[1.5rem] bg-slate-50 p-4">
+                  <div className="font-semibold text-slate-950">{brand.name}</div>
+                  <div className="mt-1 text-sm text-slate-500">{brand.slug}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-xl font-bold text-slate-950">Order backlog</h2>
+            <div className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
+              {orders.length}
+            </div>
+          </div>
+          <div className="mt-4 space-y-3">
+            {orders.slice(0, 8).map((order) => (
+              <div key={order.id} className="rounded-[1.5rem] bg-slate-50 p-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <div className="font-semibold text-slate-950">{order.orderNumber}</div>
+                    <div className="mt-1 text-sm text-slate-500">
+                      {order.customer.fullName} • {order.shop.name} • {order.status}
+                    </div>
+                  </div>
+                  <div className="text-left lg:text-right">
+                    <div className="text-sm font-semibold text-orange-600">{order.paymentMethod}</div>
+                    <div className="mt-1 text-sm text-slate-500">{formatPrice(order.grandTotal)}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
     </main>
   );
 }
+
+const inputClass =
+  "rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700 placeholder:text-slate-400";

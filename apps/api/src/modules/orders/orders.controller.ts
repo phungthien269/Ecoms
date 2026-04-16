@@ -17,6 +17,13 @@ export class OrdersController {
     return this.ordersService.listOwn(userId);
   }
 
+  @Get("admin")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  listAdmin() {
+    return this.ordersService.listAdmin();
+  }
+
   @Get("seller/me")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SELLER, UserRole.ADMIN, UserRole.SUPER_ADMIN)
