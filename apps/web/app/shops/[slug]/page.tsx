@@ -1,5 +1,6 @@
 import type { Route } from "next";
 import Link from "next/link";
+import { createReportAction } from "@/app/actions/commerce";
 import { EmptyState } from "@/components/storefront/emptyState";
 import { getShop } from "@/lib/storefrontApi";
 
@@ -59,6 +60,24 @@ export default async function ShopDetailPage({
               <p className="max-w-3xl text-sm leading-7 text-slate-600">
                 {shop.description ?? "This seller storefront is ready for product merchandising."}
               </p>
+              <form action={createReportAction} className="pt-3">
+                <input type="hidden" name="targetType" value="SHOP" />
+                <input type="hidden" name="targetId" value={shop.id} />
+                <input type="hidden" name="redirectTo" value={`/shops/${shop.slug}`} />
+                <div className="flex flex-col gap-3 lg:flex-row">
+                  <input
+                    name="reason"
+                    placeholder="Report this shop"
+                    className="rounded-full border border-red-200 px-4 py-3 text-sm text-slate-700"
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-full border border-red-200 px-5 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+                  >
+                    Submit shop report
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </section>

@@ -243,3 +243,19 @@ export async function markAllNotificationsReadAction() {
 
   redirect("/notifications" as Route);
 }
+
+export async function createReportAction(formData: FormData) {
+  const redirectTo = String(formData.get("redirectTo") ?? "/");
+
+  await authedMutation("/reports", {
+    method: "POST",
+    body: JSON.stringify({
+      targetType: String(formData.get("targetType") ?? ""),
+      targetId: String(formData.get("targetId") ?? ""),
+      reason: String(formData.get("reason") ?? ""),
+      details: String(formData.get("details") ?? "") || undefined
+    })
+  });
+
+  redirect(`${redirectTo}?report=submitted` as Route);
+}

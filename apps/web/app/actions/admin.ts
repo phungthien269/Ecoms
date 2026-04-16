@@ -224,3 +224,33 @@ export async function createAdminFlashSaleAction(formData: FormData) {
 
   redirect("/admin?flashSale=created");
 }
+
+export async function updateAdminReportStatusAction(formData: FormData) {
+  const token = await getToken();
+  if (!token) {
+    redirect("/admin");
+  }
+
+  const reportId = String(formData.get("reportId") ?? "");
+  const status = String(formData.get("status") ?? "");
+  const resolvedNote = String(formData.get("resolvedNote") ?? "") || undefined;
+
+  const response = await fetch(`${API_URL}/reports/admin/${reportId}/status`, {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      status,
+      resolvedNote
+    }),
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    redirect("/admin?reports=failed");
+  }
+
+  redirect("/admin?reports=updated");
+}

@@ -18,6 +18,8 @@ export class AdminDashboardService {
       pendingPayments,
       totalFlashSales,
       activeFlashSales,
+      totalReports,
+      openReports,
       totalReviews,
       recentOrders,
       shopsNeedingReview,
@@ -33,6 +35,8 @@ export class AdminDashboardService {
       this.prisma.payment.count({ where: { status: "PENDING" } }),
       this.prisma.flashSale.count(),
       this.prisma.flashSale.count({ where: { status: "ACTIVE" } }),
+      this.prisma.report.count(),
+      this.prisma.report.count({ where: { status: { in: ["OPEN", "IN_REVIEW"] } } }),
       this.prisma.review.count(),
       this.prisma.order.findMany({
         take: 5,
@@ -92,6 +96,8 @@ export class AdminDashboardService {
         pendingPayments,
         totalFlashSales,
         activeFlashSales,
+        totalReports,
+        openReports,
         totalReviews
       },
       recentOrders: recentOrders.map((order) => ({

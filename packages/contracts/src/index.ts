@@ -66,6 +66,19 @@ export enum NotificationCategory {
   SYSTEM = "SYSTEM"
 }
 
+export enum ReportTargetType {
+  PRODUCT = "PRODUCT",
+  SHOP = "SHOP",
+  REVIEW = "REVIEW"
+}
+
+export enum ReportStatus {
+  OPEN = "OPEN",
+  IN_REVIEW = "IN_REVIEW",
+  RESOLVED = "RESOLVED",
+  DISMISSED = "DISMISSED"
+}
+
 export enum FlashSaleStatus {
   DRAFT = "DRAFT",
   SCHEDULED = "SCHEDULED",
@@ -348,5 +361,17 @@ export interface ChatMessageSummary {
     name: string;
     slug: string;
   } | null;
+  createdAt: string;
+}
+
+export interface ReportSummary {
+  id: string;
+  targetType: ReportTargetType;
+  targetId: string;
+  reason: string;
+  details: string | null;
+  status: ReportStatus;
+  resolvedNote: string | null;
+  resolvedAt: string | null;
   createdAt: string;
 }

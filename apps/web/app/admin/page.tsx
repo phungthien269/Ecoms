@@ -3,6 +3,7 @@ import {
   createAdminVoucherAction,
   createAdminBrandAction,
   createAdminCategoryAction,
+  updateAdminReportStatusAction,
   updateAdminOrderStatusAction,
   updateAdminProductStatusAction,
   updateAdminShopStatusAction
@@ -16,6 +17,7 @@ import {
   getAdminFlashSales,
   getAdminOrders,
   getAdminProducts,
+  getAdminReports,
   getAdminReviews,
   getAdminShops,
   getAdminVouchers
@@ -26,7 +28,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
   const session = await getDemoSession();
-  const [dashboard, shops, products, reviews, categories, brands, orders, vouchers, flashSales] = await Promise.all([
+  const [dashboard, shops, products, reviews, categories, brands, orders, vouchers, flashSales, reports] = await Promise.all([
     getAdminDashboard(),
     getAdminShops(),
     getAdminProducts(),
@@ -35,7 +37,8 @@ export default async function AdminPage() {
     getAdminBrands(),
     getAdminOrders(),
     getAdminVouchers(),
-    getAdminFlashSales()
+    getAdminFlashSales(),
+    getAdminReports()
   ]);
 
   if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.role)) {
@@ -85,9 +88,11 @@ export default async function AdminPage() {
             { label: "Pending Payments", value: dashboard.stats.pendingPayments },
             { label: "Flash Sales", value: dashboard.stats.totalFlashSales },
             { label: "Live Flash Sales", value: dashboard.stats.activeFlashSales },
+            { label: "Open Reports", value: dashboard.stats.openReports },
             { label: "Products", value: dashboard.stats.totalProducts },
             { label: "Active Products", value: dashboard.stats.activeProducts },
             { label: "Banned Products", value: dashboard.stats.bannedProducts },
+            { label: "Reports", value: dashboard.stats.totalReports },
             { label: "Reviews", value: dashboard.stats.totalReviews }
           ].map((item) => (
             <div key={item.label} className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
@@ -515,6 +520,58 @@ export default async function AdminPage() {
                     ))}
                   </div>
                 ) : null}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-xl font-bold text-slate-950">Moderation reports</h2>
+            <div className="rounded-full bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
+              {reports.filter((report) => ["OPEN", "IN_REVIEW"].includes(report.status)).length} active
+            </div>
+          </div>
+          <div className="mt-4 space-y-3">
+            {reports.slice(0, 8).map((report) => (
+              <div key={report.id} className="rounded-[1.5rem] bg-slate-50 p-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <div className="font-semibold text-slate-950">
+                      {report.targetType} report • {report.reason}
+                    </div>
+                    <div className="mt-1 text-sm text-slate-500">
+                      {report.reporter.fullName} • {report.status} •{" "}
+                      {new Date(report.createdAt).toLocaleDateString("vi-VN")}
+                    </div>
+                    <div className="mt-2 text-sm text-slate-600">
+                      {report.details ?? "No additional detail provided."}
+                    </div>
+                    <div className="mt-2 text-xs text-slate-500">
+                      Target:{" "}
+                      {"name" in (report.target ?? {}) && report.target?.name
+                        ? report.target.name
+                        : "comment" in (report.target ?? {}) && report.target?.product
+                          ? `${report.target.product.name} review`
+                          : report.targetId}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {["IN_REVIEW", "RESOLVED", "DISMISSED"].map((status) => (
+                      <form key={status} action={updateAdminReportStatusAction}>
+                        <input type="hidden" name="reportId" value={report.id} />
+                        <input type="hidden" name="status" value={status} />
+                        <input type="hidden" name="resolvedNote" value={`Admin set ${status.toLowerCase().replaceAll("_", " ")}`} />
+                        <button
+                          type="submit"
+                          className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+                        >
+                          Set {status.toLowerCase().replaceAll("_", " ")}
+                        </button>
+                      </form>
+                    ))}
+                  </div>
+                </div>
               </div>
             ))}
           </div>

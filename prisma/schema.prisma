@@ -74,6 +74,19 @@ enum NotificationCategory {
   SYSTEM
 }
 
+enum ReportTargetType {
+  PRODUCT
+  SHOP
+  REVIEW
+}
+
+enum ReportStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
 enum FlashSaleStatus {
   DRAFT
   SCHEDULED
@@ -104,6 +117,8 @@ model User {
   buyerConversations ChatConversation[] @relation("BuyerConversations")
   chatMessages       ChatMessage[]
   notifications      Notification[]
+  reports            Report[]           @relation("ReportReporter")
+  resolvedReports    Report[]           @relation("ReportResolver")
 }
 
 model Shop {
@@ -123,6 +138,7 @@ model Shop {
   orders      Order[]
   vouchers    Voucher[]
   chatConversations ChatConversation[]
+  reports     Report[]
 }
 
 model Category {
@@ -187,6 +203,7 @@ model Product {
   chatConversations ChatConversation[]
   chatMessages   ChatMessage[]
   flashSaleItems FlashSaleItem[]
+  reports        Report[]
 }
 
 model ProductImage {
@@ -453,6 +470,7 @@ model Review {
   reviewer       User      @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
   product        Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
   orderItem      OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  reports        Report[]
 
   @@index([productId, createdAt])
   @@index([reviewerId, createdAt])
@@ -476,5 +494,31 @@ model Payment {
 
   @@index([userId, createdAt])
   @@index([orderId])
+  @@index([status, createdAt])
+}
+
+model Report {
+  id           String           @id @default(cuid())
+  reporterId   String
+  targetType   ReportTargetType
+  productId    String?
+  shopId       String?
+  reviewId     String?
+  reason       String
+  details      String?
+  status       ReportStatus     @default(OPEN)
+  resolvedNote String?
+  resolvedById String?
+  resolvedAt   DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  reporter     User             @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  resolvedBy   User?            @relation("ReportResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+  product      Product?         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  shop         Shop?            @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  review       Review?          @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([reporterId, createdAt])
+  @@index([targetType, productId, shopId, reviewId, createdAt])
   @@index([status, createdAt])
 }

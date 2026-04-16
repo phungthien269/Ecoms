@@ -3,6 +3,7 @@ import Link from "next/link";
 import {
   addToCartAction,
   addToWishlistAction,
+  createReportAction,
   startChatConversationAction
 } from "@/app/actions/commerce";
 import { formatPrice } from "@/components/commerce/price";
@@ -202,6 +203,38 @@ export default async function ProductDetailPage({
                 </button>
               </div>
             </form>
+
+            <form action={createReportAction} className="rounded-[1.5rem] border border-red-100 bg-red-50 p-5">
+              <input type="hidden" name="targetType" value="PRODUCT" />
+              <input type="hidden" name="targetId" value={product.id} />
+              <input type="hidden" name="redirectTo" value={`/products/${product.slug}`} />
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-[0.2em] text-red-600">
+                    Report listing
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Flag counterfeit, misleading, or policy-violating product content for admin moderation.
+                  </p>
+                </div>
+                <input
+                  name="reason"
+                  placeholder="Reason"
+                  className="w-full rounded-full border border-red-200 bg-white px-4 py-3 text-sm text-slate-700"
+                />
+                <textarea
+                  name="details"
+                  placeholder="Optional details"
+                  className="min-h-24 w-full rounded-[1.25rem] border border-red-200 bg-white px-4 py-3 text-sm text-slate-700"
+                />
+                <button
+                  type="submit"
+                  className="rounded-full border border-red-200 px-5 py-3 text-sm font-semibold text-red-600 transition hover:bg-white"
+                >
+                  Submit report
+                </button>
+              </div>
+            </form>
           </div>
         </section>
 
@@ -241,6 +274,22 @@ export default async function ProductDetailPage({
                       <div className="mt-2">{review.sellerReply}</div>
                     </div>
                   ) : null}
+                  <form action={createReportAction} className="mt-4 flex flex-wrap items-center gap-3">
+                    <input type="hidden" name="targetType" value="REVIEW" />
+                    <input type="hidden" name="targetId" value={review.id} />
+                    <input type="hidden" name="redirectTo" value={`/products/${product.slug}`} />
+                    <input
+                      name="reason"
+                      defaultValue="Review content violates policy"
+                      className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-700"
+                    />
+                    <button
+                      type="submit"
+                      className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+                    >
+                      Report review
+                    </button>
+                  </form>
                 </article>
               ))
             ) : (

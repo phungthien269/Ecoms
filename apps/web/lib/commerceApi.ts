@@ -293,6 +293,8 @@ export interface AdminDashboardData {
     pendingPayments: number;
     totalFlashSales: number;
     activeFlashSales: number;
+    totalReports: number;
+    openReports: number;
     totalReviews: number;
   };
   recentOrders: Array<{
@@ -503,6 +505,41 @@ export interface FlashSaleSummary {
   }>;
 }
 
+export interface AdminReportItem {
+  id: string;
+  targetType: string;
+  targetId: string;
+  reason: string;
+  details: string | null;
+  status: string;
+  resolvedNote: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  reporter: {
+    id: string;
+    fullName: string;
+    email: string;
+  };
+  resolvedBy: {
+    id: string;
+    fullName: string;
+    email: string;
+  } | null;
+  target:
+    | {
+        id: string;
+        name?: string;
+        slug?: string;
+        comment?: string;
+        product?: {
+          id: string;
+          name: string;
+          slug: string;
+        };
+      }
+    | null;
+}
+
 export interface AppliedVoucherSummary {
   id: string;
   code: string;
@@ -644,6 +681,10 @@ export async function getAdminVouchers() {
 
 export async function getAdminFlashSales() {
   return (await requestAuthedJson<FlashSaleSummary[]>("/flash-sales/admin")) ?? [];
+}
+
+export async function getAdminReports() {
+  return (await requestAuthedJson<AdminReportItem[]>("/reports/admin")) ?? [];
 }
 
 export async function getSellerVouchers() {
