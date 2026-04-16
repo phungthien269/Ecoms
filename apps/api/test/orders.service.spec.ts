@@ -58,4 +58,49 @@ describe("OrdersService", () => {
     const result = await service.complete("user-1", "order-1");
     expect(result.status).toBe(OrderStatus.COMPLETED);
   });
+
+  it("allows seller confirmation for COD orders", async () => {
+    prisma.order.findFirst.mockResolvedValue({
+      id: "order-1",
+      shopId: "shop-1",
+      status: OrderStatus.PENDING,
+      paymentMethod: "COD",
+      payments: [{ status: "PENDING" }]
+    });
+    prisma.order.update.mockResolvedValue({
+      id: "order-1",
+      status: OrderStatus.CONFIRMED
+    });
+
+    const result = await service.updateSellerStatus("seller-1", "order-1", OrderStatus.CONFIRMED);
+    expect(result.status).toBe(OrderStatus.CONFIRMED);
+  });
+
+  it("blocks seller confirmation for unpaid online orders", async () => {
+    prisma.order.findFirst.mockResolvedValue({
+      id: "order-1",
+      shopId: "shop-1",
+      status: OrderStatus.PENDING,
+      paymentMethod: "ONLINE_GATEWAY",
+      payments: [{ status: "PENDING" }]
+    });
+
+    await expect(
+      service.updateSellerStatus("seller-1", "order-1", OrderStatus.CONFIRMED)
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it("blocks invalid seller status jumps", async () => {
+    prisma.order.findFirst.mockResolvedValue({
+      id: "order-1",
+      shopId: "shop-1",
+      status: OrderStatus.PENDING,
+      paymentMethod: "COD",
+      payments: [{ status: "PENDING" }]
+    });
+
+    await expect(
+      service.updateSellerStatus("seller-1", "order-1", OrderStatus.SHIPPING)
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
 });

@@ -69,3 +69,33 @@ export async function createSellerProductAction(formData: FormData) {
 
   redirect("/seller?create=success");
 }
+
+export async function updateSellerOrderStatusAction(formData: FormData) {
+  const token = await getToken();
+  if (!token) {
+    redirect("/seller/orders");
+  }
+
+  const orderId = String(formData.get("orderId") ?? "");
+  const status = String(formData.get("status") ?? "");
+
+  if (!orderId || !status) {
+    redirect("/seller/orders?status=failed");
+  }
+
+  const response = await fetch(`${API_URL}/orders/seller/me/${orderId}/status`, {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({ status }),
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    redirect("/seller/orders?status=failed");
+  }
+
+  redirect("/seller/orders?status=success");
+}

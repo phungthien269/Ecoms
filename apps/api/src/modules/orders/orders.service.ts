@@ -1,5 +1,5 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { OrderStatus } from "@ecoms/contracts";
+import { OrderStatus, PaymentMethod, PaymentStatus } from "@ecoms/contracts";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
@@ -185,5 +185,235 @@ export class OrdersService {
       id: updated.id,
       status: updated.status
     };
+  }
+
+  async listSellerOrders(userId: string) {
+    const orders = await this.prisma.order.findMany({
+      where: {
+        shop: {
+          ownerId: userId
+        }
+      },
+      orderBy: [{ createdAt: "desc" }],
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true
+          }
+        },
+        shop: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            status: true
+          }
+        },
+        items: {
+          select: {
+            id: true,
+            productName: true,
+            productSlug: true,
+            variantName: true,
+            quantity: true,
+            subtotal: true
+          },
+          orderBy: [{ createdAt: "asc" }]
+        },
+        payments: {
+          select: {
+            id: true,
+            method: true,
+            status: true,
+            amount: true,
+            referenceCode: true,
+            expiresAt: true,
+            paidAt: true
+          },
+          orderBy: [{ createdAt: "desc" }]
+        }
+      }
+    });
+
+    return orders.map((order) => ({
+      id: order.id,
+      orderNumber: order.orderNumber,
+      status: order.status,
+      paymentMethod: order.paymentMethod,
+      itemsSubtotal: order.itemsSubtotal.toString(),
+      shippingFee: order.shippingFee.toString(),
+      discountTotal: order.discountTotal.toString(),
+      grandTotal: order.grandTotal.toString(),
+      placedAt: order.placedAt.toISOString(),
+      customer: order.user,
+      shop: order.shop,
+      items: order.items.map((item) => ({
+        ...item,
+        subtotal: item.subtotal.toString()
+      })),
+      payments: order.payments.map((payment) => ({
+        ...payment,
+        amount: payment.amount.toString(),
+        expiresAt: payment.expiresAt?.toISOString() ?? null,
+        paidAt: payment.paidAt?.toISOString() ?? null
+      }))
+    }));
+  }
+
+  async getSellerOrderDetail(userId: string, orderId: string) {
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        shop: {
+          ownerId: userId
+        }
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            phoneNumber: true
+          }
+        },
+        shop: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            status: true
+          }
+        },
+        items: {
+          orderBy: [{ createdAt: "asc" }]
+        },
+        payments: {
+          orderBy: [{ createdAt: "desc" }]
+        }
+      }
+    });
+
+    if (!order) {
+      throw new NotFoundException("Order not found");
+    }
+
+    return {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      status: order.status,
+      paymentMethod: order.paymentMethod,
+      shippingAddress: {
+        recipientName: order.shippingRecipientName,
+        phoneNumber: order.shippingPhoneNumber,
+        addressLine1: order.shippingAddressLine1,
+        addressLine2: order.shippingAddressLine2,
+        ward: order.shippingWard,
+        district: order.shippingDistrict,
+        province: order.shippingProvince,
+        regionCode: order.shippingRegionCode
+      },
+      totals: {
+        itemsSubtotal: order.itemsSubtotal.toString(),
+        shippingFee: order.shippingFee.toString(),
+        discountTotal: order.discountTotal.toString(),
+        grandTotal: order.grandTotal.toString()
+      },
+      shop: order.shop,
+      customer: order.user,
+      note: order.note,
+      placedAt: order.placedAt.toISOString(),
+      items: order.items.map((item) => ({
+        id: item.id,
+        productId: item.productId,
+        productVariantId: item.productVariantId,
+        productName: item.productName,
+        productSlug: item.productSlug,
+        productSku: item.productSku,
+        variantName: item.variantName,
+        variantSku: item.variantSku,
+        variantAttributes: item.variantAttributes,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice.toString(),
+        subtotal: item.subtotal.toString()
+      })),
+      payments: order.payments.map((payment) => ({
+        id: payment.id,
+        method: payment.method,
+        status: payment.status,
+        amount: payment.amount.toString(),
+        referenceCode: payment.referenceCode,
+        expiresAt: payment.expiresAt?.toISOString() ?? null,
+        paidAt: payment.paidAt?.toISOString() ?? null,
+        metadata: payment.metadata
+      }))
+    };
+  }
+
+  async updateSellerStatus(userId: string, orderId: string, nextStatus: OrderStatus) {
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        shop: {
+          ownerId: userId
+        }
+      },
+      include: {
+        payments: {
+          orderBy: [{ createdAt: "desc" }]
+        }
+      }
+    });
+
+    if (!order) {
+      throw new NotFoundException("Order not found");
+    }
+
+    this.assertSellerTransitionAllowed(order.status as OrderStatus, nextStatus);
+    if (nextStatus === OrderStatus.CONFIRMED) {
+      this.assertOrderReadyForConfirmation(order.paymentMethod as PaymentMethod, order.payments);
+    }
+
+    const updated = await this.prisma.order.update({
+      where: { id: order.id },
+      data: {
+        status: nextStatus
+      }
+    });
+
+    return {
+      id: updated.id,
+      status: updated.status
+    };
+  }
+
+  private assertSellerTransitionAllowed(currentStatus: OrderStatus, nextStatus: OrderStatus) {
+    const allowedTransitions: Partial<Record<OrderStatus, OrderStatus[]>> = {
+      [OrderStatus.PENDING]: [OrderStatus.CONFIRMED],
+      [OrderStatus.CONFIRMED]: [OrderStatus.PROCESSING],
+      [OrderStatus.PROCESSING]: [OrderStatus.SHIPPING],
+      [OrderStatus.SHIPPING]: [OrderStatus.DELIVERED, OrderStatus.DELIVERY_FAILED]
+    };
+
+    const nextStatuses = allowedTransitions[currentStatus] ?? [];
+    if (!nextStatuses.includes(nextStatus)) {
+      throw new ConflictException(`Seller cannot move order from ${currentStatus} to ${nextStatus}`);
+    }
+  }
+
+  private assertOrderReadyForConfirmation(
+    paymentMethod: PaymentMethod,
+    payments: Array<{ status: string }>
+  ) {
+    if (paymentMethod === PaymentMethod.COD) {
+      return;
+    }
+
+    const hasPaidPayment = payments.some((payment) => payment.status === PaymentStatus.PAID);
+    if (!hasPaidPayment) {
+      throw new ConflictException("Order cannot be confirmed before payment is completed");
+    }
   }
 }

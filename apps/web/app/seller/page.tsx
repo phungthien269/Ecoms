@@ -48,12 +48,20 @@ export default async function SellerPage() {
             </p>
           </div>
           {shop ? (
-            <Link
-              href={`/shops/${shop.slug}` as Route}
-              className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
-            >
-              View public shop
-            </Link>
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href={"/seller/orders" as Route}
+                className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+              >
+                Manage orders
+              </Link>
+              <Link
+                href={`/shops/${shop.slug}` as Route}
+                className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+              >
+                View public shop
+              </Link>
+            </div>
           ) : null}
         </div>
 

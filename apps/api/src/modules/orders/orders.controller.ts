@@ -1,7 +1,10 @@
-import { Controller, Get, Param, UseGuards } from "@nestjs/common";
-import { Post } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { UserRole } from "@ecoms/contracts";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { Roles } from "../rbac/decorators/roles.decorator";
+import { RolesGuard } from "../rbac/guards/roles.guard";
+import { UpdateSellerOrderStatusDto } from "./dto/update-seller-order-status.dto";
 import { OrdersService } from "./orders.service";
 
 @Controller("orders")
@@ -12,6 +15,20 @@ export class OrdersController {
   @Get()
   listOwn(@CurrentUser("sub") userId: string) {
     return this.ordersService.listOwn(userId);
+  }
+
+  @Get("seller/me")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SELLER, UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  listSellerOrders(@CurrentUser("sub") userId: string) {
+    return this.ordersService.listSellerOrders(userId);
+  }
+
+  @Get("seller/me/:orderId")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SELLER, UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  getSellerOrderDetail(@CurrentUser("sub") userId: string, @Param("orderId") orderId: string) {
+    return this.ordersService.getSellerOrderDetail(userId, orderId);
   }
 
   @Get(":orderId")
@@ -27,5 +44,16 @@ export class OrdersController {
   @Post(":orderId/complete")
   complete(@CurrentUser("sub") userId: string, @Param("orderId") orderId: string) {
     return this.ordersService.complete(userId, orderId);
+  }
+
+  @Patch("seller/me/:orderId/status")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SELLER, UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  updateSellerStatus(
+    @CurrentUser("sub") userId: string,
+    @Param("orderId") orderId: string,
+    @Body() payload: UpdateSellerOrderStatusDto
+  ) {
+    return this.ordersService.updateSellerStatus(userId, orderId, payload.status);
   }
 }

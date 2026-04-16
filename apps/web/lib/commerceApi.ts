@@ -142,6 +142,37 @@ export interface OrderDetail extends OrderListItem {
   }>;
 }
 
+export interface SellerOrderListItem extends OrderListItem {
+  customer: {
+    id: string;
+    fullName: string;
+    email: string;
+  };
+  items: Array<{
+    id: string;
+    productName: string;
+    productSlug: string;
+    variantName: string | null;
+    quantity: number;
+    subtotal: string;
+  }>;
+}
+
+export interface SellerOrderDetail extends Omit<OrderDetail, "shop"> {
+  customer: {
+    id: string;
+    fullName: string;
+    email: string;
+    phoneNumber: string | null;
+  };
+  shop: {
+    id: string;
+    name: string;
+    slug: string;
+    status: string;
+  };
+}
+
 async function requestAuthedJson<T>(path: string, init?: RequestInit): Promise<T | null> {
   const session = await getDemoSession();
   if (!session) {
@@ -223,4 +254,12 @@ export async function getSellerProducts() {
       }>
     >("/products/me")) ?? []
   );
+}
+
+export async function getSellerOrders() {
+  return (await requestAuthedJson<SellerOrderListItem[]>("/orders/seller/me")) ?? [];
+}
+
+export async function getSellerOrder(orderId: string) {
+  return requestAuthedJson<SellerOrderDetail>(`/orders/seller/me/${orderId}`);
 }
