@@ -7,6 +7,17 @@ export interface ProductImageResponseEntity {
   sortOrder: number;
 }
 
+export interface ProductVariantResponseEntity {
+  id: string;
+  sku: string;
+  name: string;
+  attributes: Record<string, string>;
+  price: string | null;
+  stock: number;
+  imageUrl: string | null;
+  isDefault: boolean;
+}
+
 export interface ProductResponseEntity {
   id: string;
   shopId: string;
@@ -32,4 +43,5 @@ export interface ProductResponseEntity {
   createdAt: string;
   updatedAt: string;
   images: ProductImageResponseEntity[];
+  variants: ProductVariantResponseEntity[];
 }

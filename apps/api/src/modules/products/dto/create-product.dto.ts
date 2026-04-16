@@ -14,6 +14,7 @@ import {
 import { Type } from "class-transformer";
 import { ProductStatus } from "@ecoms/contracts";
 import { ProductImageInputDto } from "./product-image-input.dto";
+import { ProductVariantInputDto } from "./productVariantInput.dto";
 
 export class CreateProductDto {
   @IsString()
@@ -96,4 +97,11 @@ export class CreateProductDto {
   @ValidateNested({ each: true })
   @Type(() => ProductImageInputDto)
   images?: ProductImageInputDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(50)
+  @ValidateNested({ each: true })
+  @Type(() => ProductVariantInputDto)
+  variants?: ProductVariantInputDto[];
 }

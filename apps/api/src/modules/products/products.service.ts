@@ -13,6 +13,19 @@ import { UpdateProductStatusDto } from "./dto/update-product-status.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import type { ProductResponseEntity } from "./entities/product-response.entity";
 
+const productDetailInclude = {
+  images: {
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+  },
+  variants: {
+    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }]
+  }
+} satisfies Prisma.ProductInclude;
+
+type ProductDetailRecord = Prisma.ProductGetPayload<{
+  include: typeof productDetailInclude;
+}>;
+
 @Injectable()
 export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -58,11 +71,7 @@ export class ProductsService {
     const [items, total] = await this.prisma.$transaction([
       this.prisma.product.findMany({
         where,
-        include: {
-          images: {
-            orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
-          }
-        },
+        include: productDetailInclude,
         orderBy: [{ createdAt: "desc" }],
         skip: (page - 1) * pageSize,
         take: pageSize
@@ -93,9 +102,7 @@ export class ProductsService {
         OR: [{ id: productIdOrSlug }, { slug: productIdOrSlug }]
       },
       include: {
-        images: {
-          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
-        }
+        ...productDetailInclude
       }
     });
 
@@ -124,9 +131,7 @@ export class ProductsService {
         deletedAt: null
       },
       include: {
-        images: {
-          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
-        }
+        ...productDetailInclude
       },
       orderBy: [{ createdAt: "desc" }]
     });
@@ -149,42 +154,60 @@ export class ProductsService {
       throw new ConflictException("SKU already exists");
     }
 
+    await this.ensureVariantSkusAvailable(payload.variants);
     const slug = await this.generateUniqueSlug(payload.name);
 
-    const product = await this.prisma.product.create({
-      data: {
-        shopId: shop.id,
-        categoryId: payload.categoryId,
-        brandId: payload.brandId,
-        name: payload.name,
-        slug,
-        sku: payload.sku,
-        description: payload.description,
-        videoUrl: payload.videoUrl,
-        originalPrice: payload.originalPrice,
-        salePrice: payload.salePrice,
-        status: (payload.status ?? ProductStatus.DRAFT) as ProductStatus,
-        stock: payload.stock,
-        weightGrams: payload.weightGrams,
-        lengthCm: payload.lengthCm,
-        widthCm: payload.widthCm,
-        heightCm: payload.heightCm,
-        tags: (payload.tags ?? []).map((tag) => tag.trim().toLowerCase()),
-        images: payload.images
-          ? {
-              create: payload.images.map((image, index) => ({
-                url: image.url,
-                altText: image.altText,
-                sortOrder: image.sortOrder ?? index
-              }))
-            }
-          : undefined
-      },
-      include: {
-        images: {
-          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+    const createData: Prisma.ProductCreateInput = {
+      shop: {
+        connect: {
+          id: shop.id
         }
-      }
+      },
+      category: {
+        connect: {
+          id: payload.categoryId
+        }
+      },
+      brand: payload.brandId
+        ? {
+            connect: {
+              id: payload.brandId
+            }
+          }
+        : undefined,
+      name: payload.name,
+      slug,
+      sku: payload.sku,
+      description: payload.description,
+      videoUrl: payload.videoUrl,
+      originalPrice: payload.originalPrice,
+      salePrice: payload.salePrice,
+      status: this.resolveRequestedStatus(shop.status as ShopStatus, payload.status),
+      stock: payload.stock,
+      weightGrams: payload.weightGrams,
+      lengthCm: payload.lengthCm,
+      widthCm: payload.widthCm,
+      heightCm: payload.heightCm,
+      tags: (payload.tags ?? []).map((tag) => tag.trim().toLowerCase()),
+      images: payload.images
+        ? {
+            create: payload.images.map((image, index) => ({
+              url: image.url,
+              altText: image.altText,
+              sortOrder: image.sortOrder ?? index
+            }))
+          }
+        : undefined,
+      variants: payload.variants
+        ? {
+            create: this.normalizeVariants(payload.variants)
+          }
+        : undefined
+    };
+
+    const product = await this.prisma.product.create({
+      data: createData,
+      include: productDetailInclude
     });
 
     return this.toProductResponse(product);
@@ -210,6 +233,8 @@ export class ProductsService {
       }
     }
 
+    await this.ensureVariantSkusAvailable(payload.variants, productId);
+
     const imagesOperation =
       payload.images !== undefined
         ? {
@@ -222,34 +247,61 @@ export class ProductsService {
           }
         : undefined;
 
+    const variantsOperation =
+      payload.variants !== undefined
+        ? {
+            deleteMany: {},
+            create: this.normalizeVariants(payload.variants)
+          }
+        : undefined;
+
+    const updateData: Prisma.ProductUpdateInput = {
+      name: payload.name,
+      slug: payload.name
+        ? await this.generateUniqueSlug(payload.name, productId)
+        : undefined,
+      sku: payload.sku,
+      description: payload.description,
+      category: payload.categoryId
+        ? {
+            connect: {
+              id: payload.categoryId
+            }
+          }
+        : undefined,
+      brand:
+        payload.brandId === undefined
+          ? undefined
+          : payload.brandId
+            ? {
+                connect: {
+                  id: payload.brandId
+                }
+              }
+            : {
+                disconnect: true
+              },
+      videoUrl: payload.videoUrl,
+      originalPrice: payload.originalPrice,
+      salePrice: payload.salePrice,
+      status:
+        payload.status !== undefined
+          ? this.resolveRequestedStatus(product.shop.status as ShopStatus, payload.status)
+          : undefined,
+      stock: payload.stock,
+      weightGrams: payload.weightGrams,
+      lengthCm: payload.lengthCm,
+      widthCm: payload.widthCm,
+      heightCm: payload.heightCm,
+      tags: payload.tags?.map((tag) => tag.trim().toLowerCase()),
+      images: imagesOperation,
+      variants: variantsOperation
+    };
+
     const updated = await this.prisma.product.update({
       where: { id: productId },
-      data: {
-        name: payload.name,
-        slug: payload.name
-          ? await this.generateUniqueSlug(payload.name, productId)
-          : undefined,
-        sku: payload.sku,
-        description: payload.description,
-        categoryId: payload.categoryId,
-        brandId: payload.brandId,
-        videoUrl: payload.videoUrl,
-        originalPrice: payload.originalPrice,
-        salePrice: payload.salePrice,
-        status: payload.status as ProductStatus | undefined,
-        stock: payload.stock,
-        weightGrams: payload.weightGrams,
-        lengthCm: payload.lengthCm,
-        widthCm: payload.widthCm,
-        heightCm: payload.heightCm,
-        tags: payload.tags?.map((tag) => tag.trim().toLowerCase()),
-        images: imagesOperation
-      },
-      include: {
-        images: {
-          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
-        }
-      }
+      data: updateData,
+      include: productDetailInclude
     });
 
     return this.toProductResponse(updated);
@@ -275,9 +327,7 @@ export class ProductsService {
         deletedAt: null
       },
       include: {
-        images: {
-          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
-        },
+        ...productDetailInclude,
         shop: {
           select: {
             id: true,
@@ -314,6 +364,9 @@ export class ProductsService {
       where: {
         id: productId,
         deletedAt: null
+      },
+      include: {
+        ...productDetailInclude
       }
     });
 
@@ -329,6 +382,9 @@ export class ProductsService {
       include: {
         images: {
           orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+        },
+        variants: {
+          orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }]
         }
       }
     });
@@ -357,8 +413,12 @@ export class ProductsService {
         deletedAt: null
       },
       include: {
-        images: {
-          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+        ...productDetailInclude,
+        shop: {
+          select: {
+            id: true,
+            status: true
+          }
         }
       }
     });
@@ -419,37 +479,61 @@ export class ProductsService {
     }
   }
 
-  private toProductResponse(product: {
-    id: string;
-    shopId: string;
-    categoryId: string;
-    brandId: string | null;
-    name: string;
-    slug: string;
-    sku: string;
-    description: string;
-    videoUrl: string | null;
-    originalPrice: Prisma.Decimal;
-    salePrice: Prisma.Decimal;
-    status: string;
-    stock: number;
-    weightGrams: number | null;
-    lengthCm: number | null;
-    widthCm: number | null;
-    heightCm: number | null;
-    tags: string[];
-    soldCount: number;
-    viewCount: number;
-    ratingAverage: Prisma.Decimal;
-    createdAt: Date;
-    updatedAt: Date;
-    images: {
-      id: string;
-      url: string;
-      altText: string | null;
-      sortOrder: number;
-    }[];
-  }): ProductResponseEntity {
+  private async ensureVariantSkusAvailable(
+    variants: CreateProductDto["variants"],
+    productId?: string
+  ) {
+    if (!variants || variants.length === 0) {
+      return;
+    }
+
+    const seenSkus = new Set<string>();
+    for (const variant of variants) {
+      if (seenSkus.has(variant.sku)) {
+        throw new ConflictException("Variant SKUs must be unique within the product");
+      }
+      seenSkus.add(variant.sku);
+
+      const existing = await this.prisma.productVariant.findUnique({
+        where: { sku: variant.sku }
+      });
+
+      if (existing && (!productId || existing.productId !== productId)) {
+        throw new ConflictException(`Variant SKU ${variant.sku} already exists`);
+      }
+    }
+  }
+
+  private normalizeVariants(variants: NonNullable<CreateProductDto["variants"]>) {
+    const hasExplicitDefault = variants.some((variant) => variant.isDefault);
+
+    return variants.map((variant, index) => ({
+      sku: variant.sku,
+      name: variant.name,
+      attributes: variant.attributes,
+      price: variant.price,
+      stock: variant.stock,
+      imageUrl: variant.imageUrl,
+      isDefault: hasExplicitDefault ? Boolean(variant.isDefault) : index === 0
+    }));
+  }
+
+  private resolveRequestedStatus(
+    shopStatus: ShopStatus,
+    requestedStatus?: ProductStatus
+  ): ProductStatus {
+    const targetStatus = requestedStatus ?? ProductStatus.DRAFT;
+
+    if (targetStatus === ProductStatus.ACTIVE && shopStatus !== ShopStatus.ACTIVE) {
+      throw new ConflictException(
+        "Only approved and active shops can publish products as ACTIVE"
+      );
+    }
+
+    return targetStatus;
+  }
+
+  private toProductResponse(product: ProductDetailRecord): ProductResponseEntity {
     return {
       id: product.id,
       shopId: product.shopId,
@@ -479,6 +563,16 @@ export class ProductsService {
         url: image.url,
         altText: image.altText,
         sortOrder: image.sortOrder
+      })),
+      variants: product.variants.map((variant) => ({
+        id: variant.id,
+        sku: variant.sku,
+        name: variant.name,
+        attributes: variant.attributes as Record<string, string>,
+        price: variant.price?.toString() ?? null,
+        stock: variant.stock,
+        imageUrl: variant.imageUrl,
+        isDefault: variant.isDefault
       }))
     };
   }
