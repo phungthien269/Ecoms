@@ -52,6 +52,11 @@ export default async function OrdersPage() {
                     <p className="text-sm text-slate-500">
                       {order.status} • {order.paymentMethod} • {new Date(order.placedAt).toLocaleString("vi-VN")}
                     </p>
+                    {order.payments.some((payment) => payment.status === "PENDING") ? (
+                      <div className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+                        Pending payment action
+                      </div>
+                    ) : null}
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-slate-500">Grand total</p>

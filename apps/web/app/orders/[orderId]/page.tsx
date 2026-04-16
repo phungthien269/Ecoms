@@ -6,13 +6,18 @@ import { getDemoSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
+const timeline = ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPING", "DELIVERED", "COMPLETED"];
+
 export default async function OrderDetailPage({
-  params
+  params,
+  searchParams
 }: {
   params: Promise<{ orderId: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await getDemoSession();
   const { orderId } = await params;
+  const resolvedSearchParams = (await searchParams) ?? {};
   const order = await getOrder(orderId);
 
   if (!session) {
@@ -38,10 +43,18 @@ export default async function OrderDetailPage({
   }
 
   const latestPendingPayment = order.payments.find((payment) => payment.status === "PENDING");
+  const activeTimelineIndex = timeline.indexOf(order.status);
+  const flashMessage = getOrderFlashMessage(resolvedSearchParams);
 
   return (
     <main className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {flashMessage ? (
+          <div className="mb-6 rounded-[1.5rem] border border-orange-200 bg-orange-50 px-5 py-4 text-sm text-slate-700">
+            {flashMessage}
+          </div>
+        ) : null}
+
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-orange-500">
@@ -95,13 +108,45 @@ export default async function OrderDetailPage({
         <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_360px]">
           <div className="space-y-6">
             <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="text-xl font-bold text-slate-950">Lifecycle</h2>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
+                {timeline.map((status, index) => {
+                  const isActive = order.status === status;
+                  const isReached =
+                    activeTimelineIndex >= 0
+                      ? index <= activeTimelineIndex
+                      : ["CANCELLED", "DELIVERY_FAILED", "RETURN_REQUESTED", "RETURNED", "REFUNDED"].includes(
+                          order.status
+                        ) && index === 0;
+
+                  return (
+                    <div
+                      key={status}
+                      className={`rounded-[1.5rem] border px-4 py-3 text-sm ${
+                        isActive
+                          ? "border-orange-300 bg-orange-50 text-orange-700"
+                          : isReached
+                            ? "border-slate-200 bg-slate-50 text-slate-700"
+                            : "border-slate-100 bg-white text-slate-400"
+                      }`}
+                    >
+                      <div className="font-semibold">{status.replaceAll("_", " ")}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              {["CANCELLED", "DELIVERY_FAILED", "RETURN_REQUESTED", "RETURNED", "REFUNDED"].includes(order.status) ? (
+                <div className="mt-4 rounded-[1.5rem] bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                  This order left the normal completion track with status <span className="font-semibold text-slate-950">{order.status}</span>.
+                </div>
+              ) : null}
+            </section>
+
+            <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
               <h2 className="text-xl font-bold text-slate-950">Items</h2>
               <div className="mt-4 space-y-4">
                 {order.items.map((item) => (
-                  <div
-                    key={item.id}
-                    className="rounded-[1.5rem] border border-slate-100 p-4"
-                  >
+                  <div key={item.id} className="rounded-[1.5rem] border border-slate-100 p-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <div className="text-base font-semibold text-slate-950">{item.productName}</div>
@@ -168,6 +213,16 @@ export default async function OrderDetailPage({
                     <div className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-400">
                       {payment.referenceCode}
                     </div>
+                    {payment.expiresAt ? (
+                      <div className="mt-2 text-xs text-slate-500">
+                        Expires {new Date(payment.expiresAt).toLocaleString("vi-VN")}
+                      </div>
+                    ) : null}
+                    {payment.paidAt ? (
+                      <div className="mt-2 text-xs text-emerald-600">
+                        Confirmed {new Date(payment.paidAt).toLocaleString("vi-VN")}
+                      </div>
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -177,4 +232,36 @@ export default async function OrderDetailPage({
       </div>
     </main>
   );
+}
+
+function getOrderFlashMessage(searchParams: Record<string, string | string[] | undefined>) {
+  const placed = readSearchParam(searchParams.placed);
+  const payment = readSearchParam(searchParams.payment);
+  const status = readSearchParam(searchParams.status);
+
+  if (placed === "1") {
+    return "Order placed successfully. If you selected an online payment method, confirm the pending payment below to move the order forward.";
+  }
+
+  if (payment === "confirmed") {
+    return "Payment confirmed. The order status has been refreshed and is ready for seller processing.";
+  }
+
+  if (status === "cancelled") {
+    return "Order cancelled before shipping.";
+  }
+
+  if (status === "completed") {
+    return "Order marked as completed.";
+  }
+
+  return null;
+}
+
+function readSearchParam(value: string | string[] | undefined) {
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+
+  return value;
 }

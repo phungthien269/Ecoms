@@ -18,10 +18,70 @@ const defaultCheckoutPayload = {
   }
 };
 
-export default async function CheckoutPage() {
+const paymentMethodOptions = [
+  {
+    value: "COD",
+    label: "Cash on delivery",
+    description: "Creates confirmed orders immediately."
+  },
+  {
+    value: "BANK_TRANSFER",
+    label: "Mock bank transfer",
+    description: "Creates pending payment for manual confirmation."
+  },
+  {
+    value: "ONLINE_GATEWAY",
+    label: "Mock gateway",
+    description: "Creates pending payment for callback simulation."
+  }
+] as const;
+
+export default async function CheckoutPage({
+  searchParams
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await getDemoSession();
   const cart = await getCart();
-  const preview = await getCheckoutPreview(defaultCheckoutPayload);
+  const resolvedSearchParams = (await searchParams) ?? {};
+
+  const shippingAddress = {
+    recipientName: getQueryValue(
+      resolvedSearchParams.recipientName,
+      defaultCheckoutPayload.shippingAddress.recipientName
+    ),
+    phoneNumber: getQueryValue(
+      resolvedSearchParams.phoneNumber,
+      defaultCheckoutPayload.shippingAddress.phoneNumber
+    ),
+    addressLine1: getQueryValue(
+      resolvedSearchParams.addressLine1,
+      defaultCheckoutPayload.shippingAddress.addressLine1
+    ),
+    addressLine2: getOptionalQueryValue(resolvedSearchParams.addressLine2),
+    ward: getOptionalQueryValue(resolvedSearchParams.ward),
+    district: getQueryValue(
+      resolvedSearchParams.district,
+      defaultCheckoutPayload.shippingAddress.district
+    ),
+    province: getQueryValue(
+      resolvedSearchParams.province,
+      defaultCheckoutPayload.shippingAddress.province
+    ),
+    regionCode: getQueryValue(
+      resolvedSearchParams.regionCode,
+      defaultCheckoutPayload.shippingAddress.regionCode
+    )
+  };
+  const selectedPaymentMethod = getQueryValue(
+    resolvedSearchParams.paymentMethod,
+    defaultCheckoutPayload.paymentMethod
+  );
+  const note = getOptionalQueryValue(resolvedSearchParams.note) ?? "";
+  const preview = await getCheckoutPreview({
+    paymentMethod: selectedPaymentMethod,
+    shippingAddress
+  });
 
   if (!session) {
     return (
@@ -56,6 +116,9 @@ export default async function CheckoutPage() {
           <p className="max-w-2xl text-sm text-slate-500">
             This screen uses the live preview API and currently places one order per shop.
           </p>
+          <div className="rounded-[1.5rem] border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-slate-600">
+            Update address or payment method, then use <span className="font-semibold text-slate-950">Refresh preview</span> before placing the order.
+          </div>
         </div>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_360px]">
@@ -70,18 +133,28 @@ export default async function CheckoutPage() {
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <input name="recipientName" defaultValue="Demo Buyer" className={inputClass} />
-                  <input name="phoneNumber" defaultValue="0900000000" className={inputClass} />
+                  <input name="recipientName" defaultValue={shippingAddress.recipientName} className={inputClass} />
+                  <input name="phoneNumber" defaultValue={shippingAddress.phoneNumber} className={inputClass} />
                   <input
                     name="addressLine1"
-                    defaultValue="123 Demo Street"
+                    defaultValue={shippingAddress.addressLine1}
                     className={`${inputClass} sm:col-span-2`}
                   />
-                  <input name="addressLine2" placeholder="Apartment / building (optional)" className={inputClass} />
-                  <input name="ward" placeholder="Ward (optional)" className={inputClass} />
-                  <input name="district" defaultValue="District 1" className={inputClass} />
-                  <input name="province" defaultValue="Ho Chi Minh City" className={inputClass} />
-                  <select name="regionCode" defaultValue="HCM" className={inputClass}>
+                  <input
+                    name="addressLine2"
+                    defaultValue={shippingAddress.addressLine2 ?? ""}
+                    placeholder="Apartment / building (optional)"
+                    className={inputClass}
+                  />
+                  <input
+                    name="ward"
+                    defaultValue={shippingAddress.ward ?? ""}
+                    placeholder="Ward (optional)"
+                    className={inputClass}
+                  />
+                  <input name="district" defaultValue={shippingAddress.district} className={inputClass} />
+                  <input name="province" defaultValue={shippingAddress.province} className={inputClass} />
+                  <select name="regionCode" defaultValue={shippingAddress.regionCode} className={inputClass}>
                     <option value="HCM">Ho Chi Minh City</option>
                     <option value="HN">Ha Noi</option>
                     <option value="CENTRAL">Central</option>
@@ -97,23 +170,7 @@ export default async function CheckoutPage() {
                   <h2 className="text-xl font-bold text-slate-950">Payment method</h2>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-3">
-                  {[
-                    {
-                      value: "COD",
-                      label: "Cash on delivery",
-                      description: "Creates confirmed orders immediately."
-                    },
-                    {
-                      value: "BANK_TRANSFER",
-                      label: "Mock bank transfer",
-                      description: "Creates pending payment for manual confirmation."
-                    },
-                    {
-                      value: "ONLINE_GATEWAY",
-                      label: "Mock gateway",
-                      description: "Creates pending payment for callback simulation."
-                    }
-                  ].map((method) => (
+                  {paymentMethodOptions.map((method) => (
                     <label
                       key={method.value}
                       className="rounded-[1.5rem] border border-slate-200 p-4 text-sm text-slate-600"
@@ -122,7 +179,7 @@ export default async function CheckoutPage() {
                         type="radio"
                         name="paymentMethod"
                         value={method.value}
-                        defaultChecked={method.value === "COD"}
+                        defaultChecked={method.value === selectedPaymentMethod}
                         className="mb-3"
                       />
                       <div className="font-semibold text-slate-950">{method.label}</div>
@@ -132,6 +189,7 @@ export default async function CheckoutPage() {
                 </div>
                 <textarea
                   name="note"
+                  defaultValue={note}
                   placeholder="Optional note for the seller"
                   rows={3}
                   className={`${inputClass} min-h-28 rounded-[1.5rem]`}
@@ -139,12 +197,22 @@ export default async function CheckoutPage() {
               </div>
             </section>
 
-            <button
-              type="submit"
-              className="rounded-full bg-orange-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-orange-600"
-            >
-              Place demo order
-            </button>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="submit"
+                formAction="/checkout"
+                formMethod="GET"
+                className="rounded-full border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+              >
+                Refresh preview
+              </button>
+              <button
+                type="submit"
+                className="rounded-full bg-orange-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-orange-600"
+              >
+                Place demo order
+              </button>
+            </div>
           </form>
 
           <aside className="space-y-6">
@@ -174,6 +242,11 @@ export default async function CheckoutPage() {
             </section>
 
             <section className="rounded-[2rem] border border-orange-200 bg-orange-50 p-6">
+              <div className="mb-4 rounded-[1.5rem] bg-white/80 px-4 py-3 text-sm text-slate-600">
+                {selectedPaymentMethod === "COD"
+                  ? "COD orders will land directly in confirmed state."
+                  : "Online and bank-transfer orders stay pending until you confirm the payment from order detail."}
+              </div>
               <div className="space-y-3">
                 <div className="flex justify-between gap-4 text-sm text-slate-600">
                   <span>Items subtotal</span>
@@ -198,3 +271,19 @@ export default async function CheckoutPage() {
 
 const inputClass =
   "rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700 placeholder:text-slate-400";
+
+function getQueryValue(value: string | string[] | undefined, fallback: string) {
+  if (Array.isArray(value)) {
+    return value[0] ?? fallback;
+  }
+
+  return value && value.length > 0 ? value : fallback;
+}
+
+function getOptionalQueryValue(value: string | string[] | undefined) {
+  if (Array.isArray(value)) {
+    return value[0] && value[0].length > 0 ? value[0] : undefined;
+  }
+
+  return value && value.length > 0 ? value : undefined;
+}

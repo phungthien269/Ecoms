@@ -14,7 +14,7 @@ Initial implementation has started.
 The repository now has a runnable monorepo foundation with verified `build`, `lint`, and `typecheck`.
 The baseline now includes auth/RBAC, Prisma migration + seed, public/admin category APIs, public/admin brand APIs, seller/admin shop APIs, product CRUD, product variants, publish-status guardrails, storefront catalog/search UX, cart backend, checkout/order/payment backend flows, and a customer-side web commerce shell for cart/checkout/orders.
 The repository has been pushed to GitHub and is ready for continued incremental delivery.
-The immediate next step is to connect seller order management end-to-end and then return to customer checkout polish on top of the now-runnable backend APIs.
+The immediate next step is to polish the customer checkout and order lifecycle UX on top of the now-runnable backend APIs.
 
 ## 4. Completed Items
 - Read required skill pack from `.claude/skills/everything-claude-code`
@@ -170,17 +170,21 @@ The immediate next step is to connect seller order management end-to-end and the
   - seller status transitions limited to fulfillment-safe paths
   - unpaid online/bank-transfer orders cannot be confirmed by the seller
   - `/seller/orders` web page now shows buyer, payment, and fulfillment actions through server actions
+- Polished customer checkout and order lifecycle UX:
+  - checkout preview now refreshes from current form inputs through URL-driven server rendering
+  - checkout explains the difference between COD and pending online payment flows
+  - order list now flags pending payment attention states
+  - order detail now shows lifecycle timeline, flash banners, and richer payment metadata
 
 ## 5. In Progress Items
 - No half-finished code pending in the current slice
-- Next implementation target is customer checkout polish and richer order detail surfaces
+- Next implementation target is wishlist/review foundations and further customer polish
 
 ## 6. Next Exact Tasks
-1. Add customer-visible order status changes after payment confirmation/completion actions
-2. Improve customer checkout UX with editable preview/payment state refresh
-3. Add richer seller order detail/history actions if needed after the current seller list flow
-4. Add wishlist/review foundations after seller center basics land
-5. Restore Docker Desktop daemon access and run live DB validation later
+1. Add wishlist/review foundations after seller center basics land
+2. Add richer seller order detail/history actions if needed after the current seller list flow
+3. Add admin-facing order moderation and dashboards
+4. Restore Docker Desktop daemon access and run live DB validation later
 
 ## 7. Blockers / Open Questions
 - No hard blocker currently
@@ -276,6 +280,7 @@ The immediate next step is to connect seller order management end-to-end and the
 - Re-ran `npm run build` after web commerce slice
 - Added seller demo login and seller dashboard web slice
 - Added seller order APIs, tests, and Seller Center order page
+- Polished checkout preview and order lifecycle web UX
 
 ## 10. Tests Run + Result
 - `npm run prisma:generate` ✅
@@ -336,7 +341,8 @@ The immediate next step is to connect seller order management end-to-end and the
 - Customer-side web pages intentionally use server-rendered fetches and server actions instead of client state libraries for the first commerce UI slice to keep the implementation simple and SEO-safe
 - Seller-side web flows currently prioritize live API wiring for product visibility/creation before richer editing, analytics, or bulk management tools
 - Seller-side order management uses a narrow allowed transition map to keep first-pass fulfillment logic explicit and safe
+- Checkout preview state is still URL-driven and server-rendered rather than client-managed, to preserve SEO-safe simplicity in this phase
 
 ## 13. Handoff Note for Next Session
 The repo is already pushed to GitHub and the current web/API slices compile cleanly.
-Resume from customer checkout polish and order lifecycle UX, not from scaffolding, auth basics, or backend cart/checkout/order/payment groundwork.
+Resume from wishlist/review foundations and admin polish, not from scaffolding, auth basics, or backend cart/checkout/order/payment groundwork.
