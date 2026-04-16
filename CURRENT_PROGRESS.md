@@ -13,7 +13,8 @@ Project requirements remain stable.
 Initial implementation has started.
 The repository now has a runnable monorepo foundation with verified `build`, `lint`, and `typecheck`.
 The baseline includes shared contracts, a Next.js storefront shell, a NestJS API shell, Docker infra, Prisma schema, and the first auth/RBAC slice.
-The immediate next step is to add database migrations plus the next Phase 1 domain modules (categories, brands, shops, products).
+The codebase is now also initialized as a local git repository with two commits ready to publish.
+The immediate next step is to create or connect a GitHub remote, push `main`, then continue with database migrations and the next Phase 1 domain modules.
 
 ## 4. Completed Items
 - Read required skill pack from `.claude/skills/everything-claude-code`
@@ -66,27 +67,32 @@ The immediate next step is to add database migrations plus the next Phase 1 doma
   - `CurrentUser` decorator
 - Implemented initial authenticated user surface:
   - `GET /api/users/me`
+- Initialized local git repository on branch `main`
+- Created initial local commits:
+  - `feat: bootstrap ecoms marketplace foundation`
+  - `chore: ignore TypeScript build artifacts`
 
 ## 5. In Progress Items
 - No partially implemented code slice currently open
 - Next implementation target is catalog and seller foundation on top of the verified auth baseline
 
 ## 6. Next Exact Tasks
-1. Add Prisma migration flow and initial seed placeholders
-2. Start local PostgreSQL/Redis via Docker Compose and validate API against a real database
-3. Implement category and brand modules:
+1. Create GitHub remote repository and push local `main`
+2. Add Prisma migration flow and initial seed placeholders
+3. Start local PostgreSQL/Redis via Docker Compose and validate API against a real database
+4. Implement category and brand modules:
    - entities
    - CRUD DTOs
    - admin APIs
-4. Implement shop foundation:
+5. Implement shop foundation:
    - seller shop profile
    - admin approval flow baseline
-5. Implement product module baseline:
+6. Implement product module baseline:
    - product CRUD
    - status handling
    - category/brand/shop relations
-6. Add integration tests for auth endpoints
-7. Update this file after each meaningful step
+7. Add integration tests for auth endpoints
+8. Update this file after each meaningful step
 
 ## 7. Blockers / Open Questions
 - No hard blocker currently
@@ -94,8 +100,11 @@ The immediate next step is to add database migrations plus the next Phase 1 doma
   - exact Google OAuth package choice
   - exact media provider (Cloudinary vs S3-compatible)
   - exact shared UI package scope beyond the current web shell
+- Operational blocker for publishing:
+  - local machine is not authenticated to GitHub in browser or CLI, and the available GitHub connector does not expose repository-creation APIs
 
 ## 8. Recently Changed Files
+- `.gitignore`
 - `package.json`
 - `turbo.json`
 - `tsconfig.base.json`
@@ -123,6 +132,11 @@ The immediate next step is to add database migrations plus the next Phase 1 doma
 - Re-ran `npm run typecheck`
 - Re-ran `npm run lint`
 - Re-ran `npm run build`
+- `git init -b main`
+- `git add .`
+- `git commit -m "feat: bootstrap ecoms marketplace foundation"`
+- `git rm --cached apps/web/tsconfig.tsbuildinfo`
+- `git commit -m "chore: ignore TypeScript build artifacts"`
 
 ## 10. Tests Run + Result
 - `npm run prisma:generate` ✅
@@ -135,6 +149,7 @@ The immediate next step is to add database migrations plus the next Phase 1 doma
 - `rg` executable in this environment is not callable due to local access restrictions, so PowerShell file discovery is used instead
 - No database container has been started yet in this session, so auth endpoints were compile-verified but not exercised against a live PostgreSQL instance
 - `npm audit` currently reports 20 transitive vulnerabilities from freshly installed dependency trees; triage is pending after core foundations stabilize
+- GitHub publishing is blocked until a remote repository exists and this machine/session has push-capable authentication
 
 ## 12. Assumptions Made This Session
 - Use shadcn/ui + Tailwind as the primary shared UI system
@@ -147,5 +162,5 @@ The immediate next step is to add database migrations plus the next Phase 1 doma
 - JWT access token only is enough for the first auth foundation slice; refresh-token flow can be added once session management requirements are implemented
 
 ## 13. Handoff Note for Next Session
-The repo is now bootstrapped and verified. Do not redo scaffolding.
-Resume from real database wiring and Phase 1 catalog/seller modules. The auth/JWT/RBAC baseline is already in place and compiling.
+The repo is bootstrapped, verified, and already committed locally.
+If GitHub authentication becomes available, create/connect the remote first and push `main`, then resume with real database wiring and Phase 1 catalog/seller modules.
