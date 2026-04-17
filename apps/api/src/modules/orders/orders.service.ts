@@ -5,6 +5,7 @@ import {
   PaymentMethod,
   PaymentStatus
 } from "@ecoms/contracts";
+import { MailerService } from "../mailer/mailer.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -12,7 +13,8 @@ import { PrismaService } from "../prisma/prisma.service";
 export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly notificationsService: NotificationsService
+    private readonly notificationsService: NotificationsService,
+    private readonly mailerService: MailerService
   ) {}
 
   async listOwn(userId: string) {
@@ -274,6 +276,24 @@ export class OrdersService {
         title: "Order marked completed",
         body: `${order.orderNumber} has been completed by the buyer.`,
         linkUrl: "/seller/orders"
+      });
+    }
+
+    const buyer = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        email: true,
+        fullName: true
+      }
+    });
+
+    if (buyer) {
+      await this.mailerService.sendSafely({
+        to: buyer.email,
+        subject: `Order completed: ${order.orderNumber}`,
+        html: `<p>Hello ${buyer.fullName},</p><p>Your order ${order.orderNumber} has been marked completed.</p><p>You can now leave a review for the purchased items.</p>`,
+        text: `Hello ${buyer.fullName}, your order ${order.orderNumber} has been marked completed. You can now leave a review for the purchased items.`,
+        tags: ["order_completed"]
       });
     }
 

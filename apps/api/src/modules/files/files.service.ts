@@ -1,8 +1,21 @@
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import type { FileAssetSummary } from "@ecoms/contracts";
+import { createHash } from "node:crypto";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException
+} from "@nestjs/common";
+import type {
+  FileAssetSummary,
+  FileUploadIntentSummary
+} from "@ecoms/contracts";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateUploadIntentDto } from "./dto/create-upload-intent.dto";
+
+type UploadInstruction = FileUploadIntentSummary["upload"];
 
 @Injectable()
 export class FilesService {
@@ -21,11 +34,15 @@ export class FilesService {
     return assets.map((asset) => this.serialize(asset));
   }
 
-  async createUploadIntent(userId: string, payload: CreateUploadIntentDto) {
+  async createUploadIntent(
+    userId: string,
+    payload: CreateUploadIntentDto
+  ): Promise<FileUploadIntentSummary> {
     const driver = this.configService.get<string>("MEDIA_DRIVER") ?? "s3";
-    const bucket = this.configService.get<string>("S3_BUCKET") ?? null;
+    const bucket = driver === "s3" ? this.configService.get<string>("S3_BUCKET") ?? null : null;
     const objectKey = this.buildObjectKey(payload.folder, payload.filename);
     const publicUrl = this.resolvePublicUrl(driver, objectKey);
+    const upload = await this.buildUploadInstruction(driver, objectKey, publicUrl, payload);
 
     const asset = await this.prisma.fileAsset.create({
       data: {
@@ -39,20 +56,16 @@ export class FilesService {
         url: publicUrl,
         status: "PENDING",
         metadata: {
-          folder: payload.folder ?? null
+          folder: payload.folder ?? null,
+          uploadStrategy: upload.strategy,
+          expiresAt: upload.expiresAt
         }
       }
     });
 
     return {
       asset: this.serialize(asset),
-      upload: {
-        method: "PUT",
-        uploadUrl: publicUrl,
-        headers: {
-          "content-type": payload.mimeType
-        }
-      }
+      upload
     };
   }
 
@@ -136,9 +149,133 @@ export class FilesService {
     });
   }
 
+  private async buildUploadInstruction(
+    driver: string,
+    objectKey: string,
+    publicUrl: string,
+    payload: CreateUploadIntentDto
+  ): Promise<UploadInstruction> {
+    if (driver === "cloudinary") {
+      return this.buildCloudinaryUploadInstruction(objectKey, publicUrl);
+    }
+
+    if (driver === "s3") {
+      return this.buildS3UploadInstruction(objectKey, publicUrl, payload.mimeType);
+    }
+
+    return {
+      strategy: "single_put",
+      method: "PUT",
+      uploadUrl: publicUrl,
+      publicUrl,
+      headers: {
+        "content-type": payload.mimeType
+      },
+      expiresAt: null
+    };
+  }
+
+  private async buildS3UploadInstruction(
+    objectKey: string,
+    publicUrl: string,
+    mimeType: string
+  ): Promise<UploadInstruction> {
+    const bucket = this.configService.get<string>("S3_BUCKET");
+    if (!bucket) {
+      throw new ServiceUnavailableException("S3_BUCKET is required for s3 media uploads");
+    }
+
+    const expiresIn = this.configService.get<number>("MEDIA_UPLOAD_URL_TTL_SECONDS", 900);
+    const client = this.createS3Client();
+    const uploadUrl = await getSignedUrl(
+      client,
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: objectKey,
+        ContentType: mimeType
+      }),
+      {
+        expiresIn
+      }
+    );
+
+    return {
+      strategy: "single_put",
+      method: "PUT",
+      uploadUrl,
+      publicUrl,
+      headers: {
+        "content-type": mimeType
+      },
+      expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString()
+    };
+  }
+
+  private buildCloudinaryUploadInstruction(
+    objectKey: string,
+    publicUrl: string
+  ): UploadInstruction {
+    const cloudName = this.configService.get<string>("CLOUDINARY_CLOUD_NAME");
+    const apiKey = this.configService.get<string>("CLOUDINARY_API_KEY");
+    const apiSecret = this.configService.get<string>("CLOUDINARY_API_SECRET");
+
+    if (!cloudName || !apiKey || !apiSecret) {
+      throw new ServiceUnavailableException(
+        "Cloudinary upload config is incomplete for signed uploads"
+      );
+    }
+
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const publicId = objectKey.replace(/\.[^.]+$/, "");
+    const signaturePayload = `public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
+    const signature = createHash("sha1").update(signaturePayload).digest("hex");
+
+    return {
+      strategy: "form_post",
+      method: "POST",
+      uploadUrl: `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
+      publicUrl,
+      fields: {
+        api_key: apiKey,
+        public_id: publicId,
+        timestamp,
+        signature
+      },
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString()
+    };
+  }
+
+  private createS3Client() {
+    const endpoint = this.configService.get<string>("S3_ENDPOINT");
+    const region = this.configService.get<string>("S3_REGION", "us-east-1");
+    const accessKeyId = this.configService.get<string>("S3_ACCESS_KEY");
+    const secretAccessKey = this.configService.get<string>("S3_SECRET_KEY");
+    const forcePathStyle = this.configService.get<boolean>("S3_FORCE_PATH_STYLE", true);
+
+    return new S3Client({
+      region,
+      endpoint,
+      forcePathStyle,
+      credentials:
+        accessKeyId && secretAccessKey
+          ? {
+              accessKeyId,
+              secretAccessKey
+            }
+          : undefined
+    });
+  }
+
   private buildObjectKey(folder: string | undefined, filename: string) {
-    const safeName = filename.trim().replace(/\s+/g, "-").replace(/[^a-zA-Z0-9.\-_]/g, "").toLowerCase();
-    const prefix = folder?.trim().replace(/[^a-zA-Z0-9/_-]/g, "").replace(/^\/+|\/+$/g, "");
+    const safeName = filename
+      .trim()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-zA-Z0-9.\-_]/g, "")
+      .toLowerCase();
+    const prefix = folder
+      ?.trim()
+      .replace(/[^a-zA-Z0-9/_-]/g, "")
+      .replace(/^\/+|\/+$/g, "");
     const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     return prefix ? `${prefix}/${stamp}-${safeName}` : `uploads/${stamp}-${safeName}`;
   }
@@ -151,7 +288,7 @@ export class FilesService {
 
     if (driver === "cloudinary") {
       const cloudName = this.configService.get<string>("CLOUDINARY_CLOUD_NAME") ?? "demo";
-      return `https://res.cloudinary.com/${cloudName}/image/upload/${objectKey}`;
+      return `https://res.cloudinary.com/${cloudName}/image/upload/${objectKey.replace(/\.[^.]+$/, "")}`;
     }
 
     if (driver === "local") {

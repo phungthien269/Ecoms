@@ -31,8 +31,16 @@ describe("AuthService", () => {
       return fallback;
     })
   };
+  const mailerService = {
+    sendSafely: jest.fn()
+  };
 
-  const service = new AuthService(prisma as never, jwtService, configService as never);
+  const service = new AuthService(
+    prisma as never,
+    jwtService,
+    configService as never,
+    mailerService as never
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -62,6 +70,12 @@ describe("AuthService", () => {
         role: UserRole.CUSTOMER
       })
     });
+    expect(mailerService.sendSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "buyer@example.com",
+        tags: ["signup"]
+      })
+    );
     expect(result).toEqual({
       user: {
         id: "user-1",
@@ -140,6 +154,12 @@ describe("AuthService", () => {
         role: UserRole.CUSTOMER
       }
     });
+    expect(mailerService.sendSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "buyer@example.com",
+        tags: ["signup"]
+      })
+    );
     expect(result.accessToken).toBe("signed-token");
   });
 

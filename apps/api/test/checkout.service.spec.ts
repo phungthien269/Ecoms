@@ -73,6 +73,9 @@ describe("CheckoutService", () => {
     voucherRedemption: {
       create: jest.fn()
     },
+    user: {
+      findUnique: jest.fn()
+    },
     $transaction: jest.fn()
   };
   const vouchersService = {
@@ -82,11 +85,15 @@ describe("CheckoutService", () => {
   const notificationsService = {
     create: jest.fn()
   };
+  const mailerService = {
+    sendSafely: jest.fn()
+  };
 
   const service = new CheckoutService(
     prisma as never,
     vouchersService as never,
-    notificationsService as never
+    notificationsService as never,
+    mailerService as never
   );
 
   beforeEach(() => {
@@ -159,6 +166,10 @@ describe("CheckoutService", () => {
       id: "payment-1",
       status: PaymentStatus.PAID
     });
+    prisma.user.findUnique.mockResolvedValue({
+      email: "buyer@example.com",
+      fullName: "Demo Buyer"
+    });
 
     const result = await service.placeOrder("user-1", {
       paymentMethod: PaymentMethod.COD,
@@ -183,6 +194,12 @@ describe("CheckoutService", () => {
       where: { userId: "user-1" }
     });
     expect(notificationsService.create).toHaveBeenCalled();
+    expect(mailerService.sendSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "buyer@example.com",
+        tags: ["order_placed"]
+      })
+    );
     expect(result.orders[0]?.status).toBe("CONFIRMED");
   });
 
@@ -207,6 +224,10 @@ describe("CheckoutService", () => {
     prisma.payment.create.mockResolvedValue({
       id: "payment-1",
       status: PaymentStatus.PENDING
+    });
+    prisma.user.findUnique.mockResolvedValue({
+      email: "buyer@example.com",
+      fullName: "Demo Buyer"
     });
     vouchersService.findActiveVoucherByCode.mockImplementation(async (code: string) => {
       if (code === "PLATFORM50K") {

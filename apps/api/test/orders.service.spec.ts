@@ -12,13 +12,23 @@ describe("OrdersService", () => {
     },
     shop: {
       findUnique: jest.fn()
+    },
+    user: {
+      findUnique: jest.fn()
     }
   };
   const notificationsService = {
     create: jest.fn()
   };
+  const mailerService = {
+    sendSafely: jest.fn()
+  };
 
-  const service = new OrdersService(prisma as never, notificationsService as never);
+  const service = new OrdersService(
+    prisma as never,
+    notificationsService as never,
+    mailerService as never
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -72,9 +82,19 @@ describe("OrdersService", () => {
     prisma.shop.findUnique.mockResolvedValue({
       ownerId: "seller-1"
     });
+    prisma.user.findUnique.mockResolvedValue({
+      email: "buyer@example.com",
+      fullName: "Demo Buyer"
+    });
 
     const result = await service.complete("user-1", "order-1");
     expect(result.status).toBe(OrderStatus.COMPLETED);
+    expect(mailerService.sendSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "buyer@example.com",
+        tags: ["order_completed"]
+      })
+    );
   });
 
   it("allows seller confirmation for COD orders", async () => {

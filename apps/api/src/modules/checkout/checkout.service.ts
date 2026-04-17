@@ -17,6 +17,7 @@ import {
   type CheckoutVoucherSelection
 } from "@ecoms/contracts";
 import { Prisma } from "@prisma/client";
+import { MailerService } from "../mailer/mailer.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { VouchersService } from "../vouchers/vouchers.service";
@@ -61,7 +62,8 @@ export class CheckoutService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly vouchersService: VouchersService,
-    private readonly notificationsService: NotificationsService
+    private readonly notificationsService: NotificationsService,
+    private readonly mailerService: MailerService
   ) {}
 
   async preview(userId: string, payload: CheckoutPreviewDto): Promise<CheckoutPreview> {
@@ -258,6 +260,28 @@ export class CheckoutService {
         })
       )
     );
+
+    const buyer = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        email: true,
+        fullName: true
+      }
+    });
+
+    if (buyer) {
+      await this.mailerService.sendSafely({
+        to: buyer.email,
+        subject: `Order placed: ${result.length} order(s) created`,
+        html: `<p>Hello ${buyer.fullName},</p><p>Your checkout was successful.</p><p>Orders: ${result
+          .map((order) => order.orderNumber)
+          .join(", ")}</p><p>Total: ${preview.totals.grandTotal} VND</p>`,
+        text: `Hello ${buyer.fullName}, your checkout was successful. Orders: ${result
+          .map((order) => order.orderNumber)
+          .join(", ")}. Total: ${preview.totals.grandTotal} VND.`,
+        tags: ["order_placed"]
+      });
+    }
 
     return {
       orders: result.map((order) => ({

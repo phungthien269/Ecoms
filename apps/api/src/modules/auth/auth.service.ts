@@ -8,6 +8,7 @@ import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { UserRole } from "@ecoms/contracts";
 import { compare, hash } from "bcryptjs";
+import { MailerService } from "../mailer/mailer.service";
 import { PrismaService } from "../prisma/prisma.service";
 import type { UserProfileEntity } from "../users/entities/user-profile.entity";
 import { LoginDto } from "./dto/login.dto";
@@ -58,7 +59,8 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
+    private readonly mailerService: MailerService
   ) {}
 
   async register(payload: RegisterDto): Promise<AuthResponse> {
@@ -82,6 +84,7 @@ export class AuthService {
     });
 
     const role = user.role as UserRole;
+    await this.sendWelcomeEmail(user.email, user.fullName);
     return {
       user: this.toUserProfile(user, role),
       accessToken: await this.signToken(user.id, user.email, role)
@@ -195,6 +198,7 @@ export class AuthService {
       }
     });
     const role = createdUser.role as UserRole;
+    await this.sendWelcomeEmail(createdUser.email, createdUser.fullName);
 
     return {
       user: this.toUserProfile(createdUser, role),
@@ -318,6 +322,16 @@ export class AuthService {
     } catch {
       return defaultUrl.toString();
     }
+  }
+
+  private async sendWelcomeEmail(email: string, fullName: string) {
+    await this.mailerService.sendSafely({
+      to: email,
+      subject: "Welcome to Ecoms",
+      html: `<p>Hello ${fullName},</p><p>Your Ecoms account is ready. You can now browse products, place orders, and track updates in real time.</p>`,
+      text: `Hello ${fullName}, your Ecoms account is ready. You can now browse products, place orders, and track updates in real time.`,
+      tags: ["signup"]
+    });
   }
 
   private toUserProfile(user: PersistedUser, role: UserRole): UserProfileEntity {

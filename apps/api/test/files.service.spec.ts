@@ -1,4 +1,9 @@
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { FilesService } from "../src/modules/files/files.service";
+
+jest.mock("@aws-sdk/s3-request-presigner", () => ({
+  getSignedUrl: jest.fn().mockResolvedValue("http://localhost:9000/presigned-upload")
+}));
 
 describe("FilesService", () => {
   const prisma = {
@@ -10,13 +15,18 @@ describe("FilesService", () => {
     }
   };
   const configService = {
-    get: jest.fn((key: string) => {
-      const values: Record<string, string> = {
+    get: jest.fn((key: string, fallback?: unknown) => {
+      const values: Record<string, unknown> = {
         MEDIA_DRIVER: "s3",
         S3_ENDPOINT: "http://localhost:9000",
-        S3_BUCKET: "ecoms"
+        S3_BUCKET: "ecoms",
+        S3_REGION: "us-east-1",
+        S3_ACCESS_KEY: "minio",
+        S3_SECRET_KEY: "miniosecret",
+        S3_FORCE_PATH_STYLE: true,
+        MEDIA_UPLOAD_URL_TTL_SECONDS: 900
       };
-      return values[key];
+      return values[key] ?? fallback;
     })
   };
 
@@ -26,7 +36,7 @@ describe("FilesService", () => {
     jest.clearAllMocks();
   });
 
-  it("creates upload intent with deterministic public url", async () => {
+  it("creates s3 upload intent with a presigned upload url", async () => {
     prisma.fileAsset.create.mockResolvedValue({
       id: "asset-1",
       driver: "s3",
@@ -47,7 +57,10 @@ describe("FilesService", () => {
     });
 
     expect(prisma.fileAsset.create).toHaveBeenCalled();
+    expect(getSignedUrl).toHaveBeenCalled();
     expect(result.upload.method).toBe("PUT");
+    expect(result.upload.strategy).toBe("single_put");
+    expect(result.upload.uploadUrl).toBe("http://localhost:9000/presigned-upload");
     expect(result.asset.status).toBe("PENDING");
   });
 

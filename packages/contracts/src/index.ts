@@ -394,3 +394,18 @@ export interface FileAssetSummary {
   status: FileAssetStatus;
   createdAt: string;
 }
+
+export interface FileUploadInstruction {
+  strategy: "single_put" | "form_post";
+  method: "PUT" | "POST";
+  uploadUrl: string;
+  publicUrl: string;
+  headers?: Record<string, string>;
+  fields?: Record<string, string>;
+  expiresAt: string | null;
+}
+
+export interface FileUploadIntentSummary {
+  asset: FileAssetSummary;
+  upload: FileUploadInstruction;
+}
