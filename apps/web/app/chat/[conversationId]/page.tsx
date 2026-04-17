@@ -1,8 +1,5 @@
-import {
-  completeAttachmentAssetAction,
-  requestAttachmentUploadIntentAction,
-  sendChatMessageAction
-} from "@/app/actions/commerce";
+import { sendChatMessageAction } from "@/app/actions/commerce";
+import { UploadAssetField } from "@/components/media/uploadAssetField";
 import { EmptyState } from "@/components/storefront/emptyState";
 import { getChatConversations, getChatMessages } from "@/lib/commerceApi";
 import { getDemoSession } from "@/lib/session";
@@ -10,23 +7,12 @@ import { getDemoSession } from "@/lib/session";
 export const dynamic = "force-dynamic";
 
 export default async function ChatConversationPage({
-  params,
-  searchParams
+  params
 }: {
   params: Promise<{ conversationId: string }>;
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await getDemoSession();
   const { conversationId } = await params;
-  const resolvedSearchParams = (await searchParams) ?? {};
-  const preparedAttachmentUrl =
-    typeof resolvedSearchParams.attachmentUrl === "string"
-      ? resolvedSearchParams.attachmentUrl
-      : "";
-  const preparedAttachmentAssetId =
-    typeof resolvedSearchParams.attachmentAssetId === "string"
-      ? resolvedSearchParams.attachmentAssetId
-      : "";
   const [conversations, messages] = await Promise.all([
     getChatConversations(),
     getChatMessages(conversationId)
@@ -126,7 +112,6 @@ export default async function ChatConversationPage({
 
           <form action={sendChatMessageAction} className="mt-6 border-t border-slate-100 pt-4">
             <input type="hidden" name="conversationId" value={conversation.id} />
-            <input type="hidden" name="imageFileAssetId" value={preparedAttachmentAssetId} />
             <div className="flex gap-3">
               <input
                 name="content"
@@ -140,43 +125,16 @@ export default async function ChatConversationPage({
                 Send
               </button>
             </div>
+            <div className="mt-4">
+              <UploadAssetField
+                accessToken={session.accessToken}
+                folder="chat"
+                assetIdInputName="imageFileAssetId"
+                label="Chat attachment"
+                helperText="Upload ảnh vào thread này. Submit message sau khi asset hiện READY."
+              />
+            </div>
           </form>
-          <div className="mt-4 rounded-[1.5rem] bg-slate-50 p-4">
-            <div className="text-sm font-semibold text-slate-950">Attachment prep</div>
-            <p className="mt-1 text-sm text-slate-500">
-              Prepare an attachment asset, mark it ready, then send it with the message form.
-            </p>
-            <form action={requestAttachmentUploadIntentAction} className="mt-4 grid gap-3 sm:grid-cols-[1fr_180px_auto]">
-              <input type="hidden" name="redirectTo" value={`/chat/${conversation.id}`} />
-              <input name="filename" placeholder="chat-image.jpg" className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700" />
-              <input name="mimeType" defaultValue="image/jpeg" className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700" />
-              <input type="hidden" name="folder" value="chat" />
-              <button
-                type="submit"
-                className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
-              >
-                Prepare asset
-              </button>
-            </form>
-            {preparedAttachmentUrl ? (
-              <div className="mt-4 rounded-[1.25rem] bg-white p-4 text-sm text-slate-600">
-                <div className="font-semibold text-slate-950">Prepared attachment</div>
-                <div className="mt-2 break-all text-orange-600">{preparedAttachmentUrl}</div>
-                <div className="mt-1 text-xs text-slate-500">{preparedAttachmentAssetId}</div>
-                <form action={completeAttachmentAssetAction} className="mt-4">
-                  <input type="hidden" name="redirectTo" value={`/chat/${conversation.id}`} />
-                  <input type="hidden" name="fileAssetId" value={preparedAttachmentAssetId} />
-                  <input type="hidden" name="attachmentUrl" value={preparedAttachmentUrl} />
-                  <button
-                    type="submit"
-                    className="rounded-full border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-semibold text-orange-600 transition hover:border-orange-300"
-                  >
-                    Mark attachment ready
-                  </button>
-                </form>
-              </div>
-            ) : null}
-          </div>
         </div>
       </div>
     </main>

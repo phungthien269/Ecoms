@@ -1,15 +1,14 @@
 import type { Route } from "next";
 import Link from "next/link";
 import {
-  completeSellerFileAssetAction,
   createSellerProductAction,
   createSellerVoucherAction,
   deleteSellerProductAction,
-  requestSellerUploadIntentAction,
   updateSellerProductAction,
   updateSellerShopAction
 } from "@/app/actions/seller";
 import { formatPrice } from "@/components/commerce/price";
+import { UploadAssetField } from "@/components/media/uploadAssetField";
 import { EmptyState } from "@/components/storefront/emptyState";
 import { flattenCategories } from "@/lib/catalog";
 import {
@@ -23,16 +22,8 @@ import { getDemoSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-export default async function SellerPage({
-  searchParams
-}: {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
-}) {
+export default async function SellerPage() {
   const session = await getDemoSession();
-  const params = (await searchParams) ?? {};
-  const preparedMediaUrl = typeof params.mediaUrl === "string" ? params.mediaUrl : "";
-  const preparedMediaAssetId =
-    typeof params.mediaAssetId === "string" ? params.mediaAssetId : "";
   const [shop, products, categories, brands, vouchers, files] = await Promise.all([
     getSellerShop(),
     getSellerProducts(),
@@ -228,13 +219,13 @@ export default async function SellerPage({
                             </select>
                             <input
                               name="imageUrl"
-                              defaultValue={product.images[0]?.url ?? preparedMediaUrl}
+                              defaultValue={product.images[0]?.url ?? ""}
                               placeholder="Image URL"
                               className={`${inputClass} sm:col-span-2`}
                             />
                             <input
                               name="imageFileAssetId"
-                              defaultValue={preparedMediaAssetId}
+                              defaultValue=""
                               placeholder="Prepared image asset ID"
                               className={`${inputClass} sm:col-span-2`}
                             />
@@ -272,40 +263,8 @@ export default async function SellerPage({
                 </div>
               </div>
               <p className="mt-1 text-sm text-slate-500">
-                Generate centralized media records first, then mark them ready before attaching them to products.
+                Assets mới upload sẽ tự complete và xuất hiện trong list bên dưới.
               </p>
-              <form action={requestSellerUploadIntentAction} className="mt-5 space-y-4">
-                <input name="filename" placeholder="example.jpg" className={inputClass} />
-                <input name="mimeType" defaultValue="image/jpeg" placeholder="image/jpeg" className={inputClass} />
-                <input name="folder" defaultValue="products" placeholder="products" className={inputClass} />
-                <button
-                  type="submit"
-                  className="w-full rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
-                >
-                  Prepare media asset
-                </button>
-              </form>
-              {preparedMediaUrl ? (
-                <div className="mt-4 rounded-[1.5rem] bg-orange-50 p-4 text-sm text-slate-700">
-                  <div className="font-semibold text-slate-950">Prepared URL</div>
-                  <div className="mt-2 break-all text-orange-600">{preparedMediaUrl}</div>
-                  {preparedMediaAssetId ? (
-                    <div className="mt-2 text-xs text-slate-500">Asset ID: {preparedMediaAssetId}</div>
-                  ) : null}
-                  {preparedMediaAssetId ? (
-                    <form action={completeSellerFileAssetAction} className="mt-4">
-                      <input type="hidden" name="fileAssetId" value={preparedMediaAssetId} />
-                      <input type="hidden" name="mediaUrl" value={preparedMediaUrl} />
-                      <button
-                        type="submit"
-                        className="rounded-full border border-orange-200 bg-white px-4 py-2 text-sm font-semibold text-orange-600 transition hover:border-orange-300"
-                      >
-                        Mark asset ready
-                      </button>
-                    </form>
-                  ) : null}
-                </div>
-              ) : null}
               <div className="mt-4 space-y-3">
                 {files.slice(0, 4).map((file) => (
                   <div key={file.id} className="rounded-[1.25rem] bg-slate-50 p-4 text-sm text-slate-600">
@@ -313,18 +272,6 @@ export default async function SellerPage({
                     <div className="mt-1">{file.status} • {file.driver}</div>
                     <div className="mt-1 text-xs text-slate-500">{file.id}</div>
                     <div className="mt-2 break-all text-xs text-orange-600">{file.url}</div>
-                    {file.status !== "READY" ? (
-                      <form action={completeSellerFileAssetAction} className="mt-3">
-                        <input type="hidden" name="fileAssetId" value={file.id} />
-                        <input type="hidden" name="mediaUrl" value={file.url} />
-                        <button
-                          type="submit"
-                          className="rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
-                        >
-                          Mark ready
-                        </button>
-                      </form>
-                    ) : null}
                   </div>
                 ))}
               </div>
@@ -407,23 +354,19 @@ export default async function SellerPage({
                     <option value="DRAFT">Draft</option>
                     <option value="ACTIVE">Active</option>
                   </select>
-                  <input
-                    name="imageUrl"
-                    defaultValue={preparedMediaUrl}
-                    placeholder="Image URL (optional)"
-                    className={`${inputClass} sm:col-span-2`}
-                  />
-                  <input
-                    name="imageFileAssetId"
-                    defaultValue={preparedMediaAssetId}
-                    placeholder="Prepared image asset ID (optional)"
-                    className={`${inputClass} sm:col-span-2`}
-                  />
                   <input name="variantName" placeholder="Variant name" className={inputClass} />
                   <input name="variantSku" placeholder="Variant SKU" className={inputClass} />
                   <input name="variantPrice" type="number" min={0} placeholder="Variant price" className={inputClass} />
                   <input name="variantStock" type="number" min={0} placeholder="Variant stock" className={inputClass} />
                 </div>
+                <UploadAssetField
+                  accessToken={session.accessToken}
+                  folder="products"
+                  assetIdInputName="imageFileAssetId"
+                  urlInputName="imageUrl"
+                  label="Product image upload"
+                  helperText="Upload ảnh thật. Form sẽ tự nhận `fileAssetId` và URL public."
+                />
                 <button
                   type="submit"
                   className="w-full rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
