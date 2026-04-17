@@ -1,6 +1,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 import {
+  completeSellerFileAssetAction,
   createSellerProductAction,
   createSellerVoucherAction,
   deleteSellerProductAction,
@@ -30,6 +31,8 @@ export default async function SellerPage({
   const session = await getDemoSession();
   const params = (await searchParams) ?? {};
   const preparedMediaUrl = typeof params.mediaUrl === "string" ? params.mediaUrl : "";
+  const preparedMediaAssetId =
+    typeof params.mediaAssetId === "string" ? params.mediaAssetId : "";
   const [shop, products, categories, brands, vouchers, files] = await Promise.all([
     getSellerShop(),
     getSellerProducts(),
@@ -64,7 +67,7 @@ export default async function SellerPage({
               {shop?.name ?? "Seller demo dashboard"}
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-500">
-              Manage listings, prep media URLs, tune vouchers, keep shop ready for production flows.
+              Manage listings, prep media assets, tune vouchers, keep shop ready for production flows.
             </p>
           </div>
           {shop ? (
@@ -149,6 +152,7 @@ export default async function SellerPage({
                             <input type="hidden" name="weightGrams" value={product.weightGrams ?? ""} />
                             <input type="hidden" name="tags" value={product.tags.join(", ")} />
                             <input type="hidden" name="imageUrl" value={product.images[0]?.url ?? ""} />
+                            <input type="hidden" name="imageFileAssetId" value="" />
                             <input type="hidden" name="variantName" value={product.variants[0]?.name ?? "Default"} />
                             <input type="hidden" name="variantSku" value={product.variants[0]?.sku ?? `${product.sku}-DEFAULT`} />
                             <input type="hidden" name="variantPrice" value={product.variants[0]?.price ?? product.salePrice} />
@@ -228,6 +232,12 @@ export default async function SellerPage({
                               placeholder="Image URL"
                               className={`${inputClass} sm:col-span-2`}
                             />
+                            <input
+                              name="imageFileAssetId"
+                              defaultValue={preparedMediaAssetId}
+                              placeholder="Prepared image asset ID"
+                              className={`${inputClass} sm:col-span-2`}
+                            />
                             <input name="variantName" defaultValue={product.variants[0]?.name ?? "Default"} placeholder="Variant name" className={inputClass} />
                             <input name="variantSku" defaultValue={product.variants[0]?.sku ?? `${product.sku}-DEFAULT`} placeholder="Variant SKU" className={inputClass} />
                             <input name="variantPrice" defaultValue={product.variants[0]?.price ?? product.salePrice} type="number" min={0} className={inputClass} />
@@ -262,7 +272,7 @@ export default async function SellerPage({
                 </div>
               </div>
               <p className="mt-1 text-sm text-slate-500">
-                Generate centralized media URLs first. Upload still abstracted, but storage path now consistent.
+                Generate centralized media records first, then mark them ready before attaching them to products.
               </p>
               <form action={requestSellerUploadIntentAction} className="mt-5 space-y-4">
                 <input name="filename" placeholder="example.jpg" className={inputClass} />
@@ -272,13 +282,28 @@ export default async function SellerPage({
                   type="submit"
                   className="w-full rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
                 >
-                  Prepare media URL
+                  Prepare media asset
                 </button>
               </form>
               {preparedMediaUrl ? (
                 <div className="mt-4 rounded-[1.5rem] bg-orange-50 p-4 text-sm text-slate-700">
                   <div className="font-semibold text-slate-950">Prepared URL</div>
                   <div className="mt-2 break-all text-orange-600">{preparedMediaUrl}</div>
+                  {preparedMediaAssetId ? (
+                    <div className="mt-2 text-xs text-slate-500">Asset ID: {preparedMediaAssetId}</div>
+                  ) : null}
+                  {preparedMediaAssetId ? (
+                    <form action={completeSellerFileAssetAction} className="mt-4">
+                      <input type="hidden" name="fileAssetId" value={preparedMediaAssetId} />
+                      <input type="hidden" name="mediaUrl" value={preparedMediaUrl} />
+                      <button
+                        type="submit"
+                        className="rounded-full border border-orange-200 bg-white px-4 py-2 text-sm font-semibold text-orange-600 transition hover:border-orange-300"
+                      >
+                        Mark asset ready
+                      </button>
+                    </form>
+                  ) : null}
                 </div>
               ) : null}
               <div className="mt-4 space-y-3">
@@ -286,7 +311,20 @@ export default async function SellerPage({
                   <div key={file.id} className="rounded-[1.25rem] bg-slate-50 p-4 text-sm text-slate-600">
                     <div className="font-semibold text-slate-950">{file.originalName}</div>
                     <div className="mt-1">{file.status} • {file.driver}</div>
+                    <div className="mt-1 text-xs text-slate-500">{file.id}</div>
                     <div className="mt-2 break-all text-xs text-orange-600">{file.url}</div>
+                    {file.status !== "READY" ? (
+                      <form action={completeSellerFileAssetAction} className="mt-3">
+                        <input type="hidden" name="fileAssetId" value={file.id} />
+                        <input type="hidden" name="mediaUrl" value={file.url} />
+                        <button
+                          type="submit"
+                          className="rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+                        >
+                          Mark ready
+                        </button>
+                      </form>
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -332,7 +370,7 @@ export default async function SellerPage({
             <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
               <h2 className="text-xl font-bold text-slate-950">Create product</h2>
               <p className="mt-1 text-sm text-slate-500">
-                Posts directly to seller product API. Media prep URL can drop into image field.
+                Posts directly to seller product API. Ready asset IDs can be attached without hand-entering CDN URLs.
               </p>
 
               <form action={createSellerProductAction} className="mt-5 space-y-4">
@@ -373,6 +411,12 @@ export default async function SellerPage({
                     name="imageUrl"
                     defaultValue={preparedMediaUrl}
                     placeholder="Image URL (optional)"
+                    className={`${inputClass} sm:col-span-2`}
+                  />
+                  <input
+                    name="imageFileAssetId"
+                    defaultValue={preparedMediaAssetId}
+                    placeholder="Prepared image asset ID (optional)"
                     className={`${inputClass} sm:col-span-2`}
                   />
                   <input name="variantName" placeholder="Variant name" className={inputClass} />

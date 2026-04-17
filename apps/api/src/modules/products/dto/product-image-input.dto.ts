@@ -1,8 +1,21 @@
-import { IsInt, IsOptional, IsString, IsUrl, MaxLength, Min } from "class-validator";
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MaxLength,
+  Min,
+  ValidateIf
+} from "class-validator";
 
 export class ProductImageInputDto {
+  @ValidateIf((value: ProductImageInputDto) => !value.fileAssetId)
   @IsUrl()
-  url!: string;
+  url?: string;
+
+  @ValidateIf((value: ProductImageInputDto) => !value.url)
+  @IsString()
+  fileAssetId?: string;
 
   @IsOptional()
   @IsString()

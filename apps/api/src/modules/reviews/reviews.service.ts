@@ -6,6 +6,7 @@ import {
   ShopStatus,
   type ProductReviewSummary
 } from "@ecoms/contracts";
+import { FilesService } from "../files/files.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateReviewDto } from "./dto/create-review.dto";
@@ -14,7 +15,8 @@ import { CreateReviewDto } from "./dto/create-review.dto";
 export class ReviewsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly notificationsService: NotificationsService
+    private readonly notificationsService: NotificationsService,
+    private readonly filesService: FilesService
   ) {}
 
   async listForProduct(productIdOrSlug: string): Promise<ProductReviewSummary[]> {
@@ -207,6 +209,8 @@ export class ReviewsService {
       throw new ConflictException("This order item has already been reviewed");
     }
 
+    const imageUrls = await this.resolveReviewImages(userId, payload);
+
     const review = await this.prisma.review.create({
       data: {
         reviewerId: userId,
@@ -214,7 +218,7 @@ export class ReviewsService {
         orderItemId: orderItem.id,
         rating: payload.rating,
         comment: payload.comment.trim(),
-        imageUrls: (payload.imageUrls ?? []).slice(0, 5)
+        imageUrls
       },
       include: {
         reviewer: {
@@ -323,5 +327,15 @@ export class ReviewsService {
         ratingAverage: aggregate._avg.rating ?? 0
       }
     });
+  }
+
+  private async resolveReviewImages(userId: string, payload: CreateReviewDto) {
+    const directUrls = (payload.imageUrls ?? []).map((url) => url.trim()).filter(Boolean);
+    const fileAssetIds = (payload.imageFileAssetIds ?? [])
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .slice(0, 5);
+    const assets = await this.filesService.requireOwnedReadyAssets(userId, fileAssetIds);
+    return [...directUrls, ...assets.map((asset) => asset.url)].slice(0, 5);
   }
 }

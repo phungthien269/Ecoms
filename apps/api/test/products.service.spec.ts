@@ -57,8 +57,15 @@ describe("ProductsService", () => {
   const flashSalesService = {
     getActiveItemMap: jest.fn()
   };
+  const filesService = {
+    requireOwnedReadyAssets: jest.fn()
+  };
 
-  const service = new ProductsService(prisma as never, flashSalesService as never);
+  const service = new ProductsService(
+    prisma as never,
+    flashSalesService as never,
+    filesService as never
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -75,6 +82,7 @@ describe("ProductsService", () => {
     prisma.product.findUnique.mockResolvedValue(null);
     prisma.product.findFirst.mockResolvedValue(null);
     prisma.productVariant.findUnique.mockResolvedValue(null);
+    filesService.requireOwnedReadyAssets.mockResolvedValue([]);
     prisma.product.create.mockResolvedValue(
       buildProductRecord({
         images: [
@@ -223,5 +231,44 @@ describe("ProductsService", () => {
         ]
       })
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it("can resolve product images from ready file assets", async () => {
+    filesService.requireOwnedReadyAssets.mockResolvedValue([
+      {
+        id: "asset-1",
+        url: "https://cdn.example.com/mouse-from-asset.jpg"
+      }
+    ]);
+
+    await service.create("seller-1", {
+      name: "Gaming Mouse Pro",
+      sku: "MOUSE-001",
+      description: "Precision mouse with programmable DPI profiles.",
+      categoryId: "category-1",
+      originalPrice: 499000,
+      salePrice: 399000,
+      stock: 30,
+      images: [
+        {
+          fileAssetId: "asset-1",
+          altText: "Gaming Mouse Pro"
+        }
+      ]
+    });
+
+    expect(filesService.requireOwnedReadyAssets).toHaveBeenCalledWith("seller-1", ["asset-1"]);
+    expect(prisma.product.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        images: {
+          create: [
+            expect.objectContaining({
+              url: "https://cdn.example.com/mouse-from-asset.jpg"
+            })
+          ]
+        }
+      }),
+      include: expect.any(Object)
+    });
   });
 });

@@ -1,4 +1,13 @@
-import { IsArray, IsInt, IsOptional, IsString, Max, MaxLength, Min } from "class-validator";
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min
+} from "class-validator";
 
 export class CreateReviewDto {
   @IsString()
@@ -15,6 +24,13 @@ export class CreateReviewDto {
 
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(5)
   @IsString({ each: true })
   imageUrls?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(5)
+  @IsString({ each: true })
+  imageFileAssetIds?: string[];
 }

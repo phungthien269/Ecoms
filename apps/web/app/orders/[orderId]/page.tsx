@@ -1,4 +1,11 @@
-import { cancelOrderAction, completeOrderAction, confirmPaymentAction, createReviewAction } from "@/app/actions/commerce";
+import {
+  cancelOrderAction,
+  completeAttachmentAssetAction,
+  completeOrderAction,
+  confirmPaymentAction,
+  createReviewAction,
+  requestAttachmentUploadIntentAction
+} from "@/app/actions/commerce";
 import { formatPrice } from "@/components/commerce/price";
 import { EmptyState } from "@/components/storefront/emptyState";
 import { getOrder } from "@/lib/commerceApi";
@@ -45,6 +52,14 @@ export default async function OrderDetailPage({
   const latestPendingPayment = order.payments.find((payment) => payment.status === "PENDING");
   const activeTimelineIndex = timeline.indexOf(order.status);
   const flashMessage = getOrderFlashMessage(resolvedSearchParams);
+  const preparedAttachmentUrl =
+    typeof resolvedSearchParams.attachmentUrl === "string"
+      ? resolvedSearchParams.attachmentUrl
+      : "";
+  const preparedAttachmentAssetId =
+    typeof resolvedSearchParams.attachmentAssetId === "string"
+      ? resolvedSearchParams.attachmentAssetId
+      : "";
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -162,34 +177,84 @@ export default async function OrderDetailPage({
                       </div>
                     </div>
                     {order.status === "COMPLETED" && !item.reviewId ? (
-                      <form action={createReviewAction} className="mt-4 rounded-[1.25rem] bg-slate-50 p-4">
-                        <input type="hidden" name="orderId" value={order.id} />
-                        <input type="hidden" name="orderItemId" value={item.id} />
-                        <div className="grid gap-3 sm:grid-cols-[120px_1fr_auto]">
-                          <select
-                            name="rating"
-                            defaultValue="5"
-                            className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                      <div className="mt-4 rounded-[1.25rem] bg-slate-50 p-4">
+                        <form action={createReviewAction}>
+                          <input type="hidden" name="orderId" value={order.id} />
+                          <input type="hidden" name="orderItemId" value={item.id} />
+                          <input type="hidden" name="imageFileAssetId" value={preparedAttachmentAssetId} />
+                          <div className="grid gap-3 sm:grid-cols-[120px_1fr_auto]">
+                            <select
+                              name="rating"
+                              defaultValue="5"
+                              className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                            >
+                              <option value="5">5 stars</option>
+                              <option value="4">4 stars</option>
+                              <option value="3">3 stars</option>
+                              <option value="2">2 stars</option>
+                              <option value="1">1 star</option>
+                            </select>
+                            <input
+                              name="comment"
+                              placeholder="Share your feedback for this product"
+                              className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                            />
+                            <button
+                              type="submit"
+                              className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                            >
+                              Review
+                            </button>
+                          </div>
+                        </form>
+                        <div className="mt-4 rounded-[1rem] bg-white p-4">
+                          <div className="text-sm font-semibold text-slate-950">Review attachment</div>
+                          <p className="mt-1 text-sm text-slate-500">
+                            Prepare image asset for this review, then mark it ready before submitting.
+                          </p>
+                          <form
+                            action={requestAttachmentUploadIntentAction}
+                            className="mt-4 grid gap-3 sm:grid-cols-[1fr_180px_auto]"
                           >
-                            <option value="5">5 stars</option>
-                            <option value="4">4 stars</option>
-                            <option value="3">3 stars</option>
-                            <option value="2">2 stars</option>
-                            <option value="1">1 star</option>
-                          </select>
-                          <input
-                            name="comment"
-                            placeholder="Share your feedback for this product"
-                            className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700"
-                          />
-                          <button
-                            type="submit"
-                            className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-                          >
-                            Review
-                          </button>
+                            <input type="hidden" name="redirectTo" value={`/orders/${order.id}`} />
+                            <input type="hidden" name="folder" value="reviews" />
+                            <input
+                              name="filename"
+                              placeholder="review-image.jpg"
+                              className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                            />
+                            <input
+                              name="mimeType"
+                              defaultValue="image/jpeg"
+                              className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                            />
+                            <button
+                              type="submit"
+                              className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+                            >
+                              Prepare asset
+                            </button>
+                          </form>
+                          {preparedAttachmentUrl ? (
+                            <div className="mt-4 rounded-[1rem] bg-slate-50 p-4 text-sm text-slate-600">
+                              <div className="font-semibold text-slate-950">Prepared review asset</div>
+                              <div className="mt-2 break-all text-orange-600">{preparedAttachmentUrl}</div>
+                              <div className="mt-1 text-xs text-slate-500">{preparedAttachmentAssetId}</div>
+                              <form action={completeAttachmentAssetAction} className="mt-4">
+                                <input type="hidden" name="redirectTo" value={`/orders/${order.id}`} />
+                                <input type="hidden" name="fileAssetId" value={preparedAttachmentAssetId} />
+                                <input type="hidden" name="attachmentUrl" value={preparedAttachmentUrl} />
+                                <button
+                                  type="submit"
+                                  className="rounded-full border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-semibold text-orange-600 transition hover:border-orange-300"
+                                >
+                                  Mark attachment ready
+                                </button>
+                              </form>
+                            </div>
+                          ) : null}
                         </div>
-                      </form>
+                      </div>
                     ) : null}
                     {item.reviewId ? (
                       <div className="mt-4 rounded-[1.25rem] bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">

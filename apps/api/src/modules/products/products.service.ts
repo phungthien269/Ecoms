@@ -11,6 +11,7 @@ import {
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { slugify } from "../../common/utils/slugify";
+import { FilesService } from "../files/files.service";
 import { FlashSalesService } from "../flashSales/flashSales.service";
 import { CreateProductDto } from "./dto/create-product.dto";
 import {
@@ -38,7 +39,8 @@ type ProductDetailRecord = Prisma.ProductGetPayload<{
 export class ProductsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly flashSalesService: FlashSalesService
+    private readonly flashSalesService: FlashSalesService,
+    private readonly filesService: FilesService
   ) {}
 
   async listPublic(query: ListProductsQueryDto) {
@@ -196,6 +198,7 @@ export class ProductsService {
 
     await this.ensureVariantSkusAvailable(payload.variants);
     const slug = await this.generateUniqueSlug(payload.name);
+    const resolvedImages = await this.resolveProductImages(ownerId, payload.images);
 
     const createData: Prisma.ProductCreateInput = {
       shop: {
@@ -229,9 +232,9 @@ export class ProductsService {
       widthCm: payload.widthCm,
       heightCm: payload.heightCm,
       tags: (payload.tags ?? []).map((tag) => tag.trim().toLowerCase()),
-      images: payload.images
+      images: resolvedImages
         ? {
-            create: payload.images.map((image, index) => ({
+            create: resolvedImages.map((image, index) => ({
               url: image.url,
               altText: image.altText,
               sortOrder: image.sortOrder ?? index
@@ -275,12 +278,16 @@ export class ProductsService {
     }
 
     await this.ensureVariantSkusAvailable(payload.variants, productId);
+    const resolvedImages =
+      payload.images !== undefined
+        ? await this.resolveProductImages(ownerId, payload.images)
+        : undefined;
 
     const imagesOperation =
-      payload.images !== undefined
+      resolvedImages !== undefined
         ? {
             deleteMany: {},
-            create: payload.images.map((image, index) => ({
+            create: resolvedImages.map((image, index) => ({
               url: image.url,
               altText: image.altText,
               sortOrder: image.sortOrder ?? index
@@ -587,6 +594,36 @@ export class ProductsService {
       imageUrl: variant.imageUrl,
       isDefault: hasExplicitDefault ? Boolean(variant.isDefault) : index === 0
     }));
+  }
+
+  private async resolveProductImages(
+    ownerId: string,
+    images: CreateProductDto["images"]
+  ) {
+    if (!images || images.length === 0) {
+      return [];
+    }
+
+    const assetIds = images
+      .map((image) => image.fileAssetId?.trim())
+      .filter((value): value is string => Boolean(value));
+    const assets = await this.filesService.requireOwnedReadyAssets(ownerId, assetIds);
+    const assetMap = new Map(assets.map((asset) => [asset.id, asset]));
+
+    return images.map((image) => {
+      const asset = image.fileAssetId ? assetMap.get(image.fileAssetId.trim()) : null;
+      const url = asset?.url ?? image.url?.trim();
+
+      if (!url) {
+        throw new ConflictException("Each product image requires a URL or ready file asset");
+      }
+
+      return {
+        url,
+        altText: image.altText,
+        sortOrder: image.sortOrder
+      };
+    });
   }
 
   private resolveRequestedStatus(

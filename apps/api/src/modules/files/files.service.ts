@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import type { FileAssetSummary } from "@ecoms/contracts";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service";
@@ -80,6 +80,60 @@ export class FilesService {
     });
 
     return this.serialize(updated);
+  }
+
+  async requireOwnedReadyAsset(userId: string, fileAssetId: string) {
+    const asset = await this.prisma.fileAsset.findFirst({
+      where: {
+        id: fileAssetId,
+        createdById: userId
+      }
+    });
+
+    if (!asset) {
+      throw new NotFoundException("File asset not found");
+    }
+
+    if (asset.status !== "READY") {
+      throw new ConflictException("File asset is not ready for reuse");
+    }
+
+    return asset;
+  }
+
+  async requireOwnedReadyAssets(userId: string, fileAssetIds: string[]) {
+    if (fileAssetIds.length === 0) {
+      return [];
+    }
+
+    const uniqueIds = [...new Set(fileAssetIds)];
+    const assets = await this.prisma.fileAsset.findMany({
+      where: {
+        id: {
+          in: uniqueIds
+        },
+        createdById: userId
+      }
+    });
+
+    if (assets.length !== uniqueIds.length) {
+      throw new NotFoundException("One or more file assets were not found");
+    }
+
+    const assetMap = new Map(assets.map((asset) => [asset.id, asset]));
+
+    return fileAssetIds.map((fileAssetId) => {
+      const asset = assetMap.get(fileAssetId);
+      if (!asset) {
+        throw new NotFoundException("One or more file assets were not found");
+      }
+
+      if (asset.status !== "READY") {
+        throw new ConflictException("One or more file assets are not ready for reuse");
+      }
+
+      return asset;
+    });
   }
 
   private buildObjectKey(folder: string | undefined, filename: string) {

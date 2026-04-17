@@ -10,6 +10,7 @@ import {
   type ChatConversationSummary,
   type ChatMessageSummary
 } from "@ecoms/contracts";
+import { FilesService } from "../files/files.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { RealtimeGateway } from "../realtime/realtime.gateway";
@@ -20,6 +21,7 @@ import { SendMessageDto } from "./dto/send-message.dto";
 export class ChatService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly filesService: FilesService,
     private readonly notificationsService: NotificationsService,
     private readonly realtimeGateway: RealtimeGateway
   ) {}
@@ -239,8 +241,13 @@ export class ChatService {
   }
 
   async sendMessage(userId: string, conversationId: string, payload: SendMessageDto) {
-    if (!payload.content.trim()) {
-      throw new BadRequestException("Message content cannot be empty");
+    const content = payload.content.trim();
+    const imageUrl = payload.imageFileAssetId
+      ? (await this.filesService.requireOwnedReadyAsset(userId, payload.imageFileAssetId)).url
+      : payload.imageUrl?.trim() || undefined;
+
+    if (!content && !imageUrl) {
+      throw new BadRequestException("Message content or image attachment is required");
     }
 
     const { conversation, participantRole } = await this.getAuthorizedConversation(userId, conversationId);
@@ -252,8 +259,8 @@ export class ChatService {
       data: {
         conversationId: conversation.id,
         senderId: userId,
-        content: payload.content.trim(),
-        imageUrl: payload.imageUrl?.trim() || undefined,
+        content,
+        imageUrl,
         productId: payload.productId || conversation.productId || undefined
       },
       include: {
@@ -277,7 +284,7 @@ export class ChatService {
     await this.prisma.chatConversation.update({
       where: { id: conversation.id },
       data: {
-        lastMessagePreview: payload.content.trim().slice(0, 160),
+        lastMessagePreview: content || "[image]",
         lastMessageAt: createdAt,
         buyerLastReadAt: participantRole === "buyer" ? createdAt : conversation.buyerLastReadAt,
         sellerLastReadAt: participantRole === "seller" ? createdAt : conversation.sellerLastReadAt
@@ -308,7 +315,7 @@ export class ChatService {
       userId: recipientUserId,
       category: NotificationCategory.CHAT,
       title: `New message in ${conversation.shop.name}`,
-      body: payload.content.trim().slice(0, 160),
+      body: content || "Sent an image attachment",
       linkUrl: `/chat/${conversation.id}`,
       metadata: {
         conversationId: conversation.id

@@ -23,8 +23,15 @@ describe("ReviewsService", () => {
   const notificationsService = {
     create: jest.fn()
   };
+  const filesService = {
+    requireOwnedReadyAssets: jest.fn()
+  };
 
-  const service = new ReviewsService(prisma as never, notificationsService as never);
+  const service = new ReviewsService(
+    prisma as never,
+    notificationsService as never,
+    filesService as never
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -54,6 +61,7 @@ describe("ReviewsService", () => {
         rating: 4.5
       }
     });
+    filesService.requireOwnedReadyAssets.mockResolvedValue([]);
     prisma.review.findMany.mockResolvedValue([]);
     prisma.product.findUnique.mockResolvedValue({
       id: "product-1",
@@ -167,5 +175,30 @@ describe("ReviewsService", () => {
     const result = await service.listSeller("seller-1");
     expect(result).toHaveLength(1);
     expect(result[0]?.product.slug).toBe("gaming-mouse-pro");
+  });
+
+  it("attaches ready file assets to review images", async () => {
+    filesService.requireOwnedReadyAssets.mockResolvedValue([
+      {
+        id: "asset-1",
+        url: "https://cdn.example.com/review-1.jpg"
+      }
+    ]);
+
+    await service.create("user-1", {
+      orderItemId: "order-item-1",
+      rating: 5,
+      comment: "Great product",
+      imageFileAssetIds: ["asset-1"]
+    });
+
+    expect(filesService.requireOwnedReadyAssets).toHaveBeenCalledWith("user-1", ["asset-1"]);
+    expect(prisma.review.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          imageUrls: ["https://cdn.example.com/review-1.jpg"]
+        })
+      })
+    );
   });
 });

@@ -11,5 +11,9 @@ export class SendMessageDto {
 
   @IsOptional()
   @IsString()
+  imageFileAssetId?: string;
+
+  @IsOptional()
+  @IsString()
   productId?: string;
 }

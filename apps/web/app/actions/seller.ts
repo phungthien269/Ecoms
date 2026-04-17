@@ -25,6 +25,7 @@ function buildProductPayload(formData: FormData) {
   const salePrice = Number(formData.get("salePrice") ?? "0");
   const stock = Number(formData.get("stock") ?? "0");
   const imageUrl = String(formData.get("imageUrl") ?? "").trim();
+  const imageFileAssetId = String(formData.get("imageFileAssetId") ?? "").trim();
   const variantName = String(formData.get("variantName") ?? "").trim() || "Default";
   const variantSku = String(formData.get("variantSku") ?? "").trim() || `${sku}-DEFAULT`;
 
@@ -46,11 +47,19 @@ function buildProductPayload(formData: FormData) {
     images: imageUrl
       ? [
           {
-            url: imageUrl,
+            url: imageUrl || undefined,
+            fileAssetId: imageFileAssetId || undefined,
             altText: String(formData.get("name") ?? "")
           }
         ]
-      : [],
+      : imageFileAssetId
+        ? [
+            {
+              fileAssetId: imageFileAssetId,
+              altText: String(formData.get("name") ?? "")
+            }
+          ]
+        : [],
     variants: [
       {
         sku: variantSku,
@@ -168,12 +177,45 @@ export async function requestSellerUploadIntentAction(formData: FormData) {
   const payload = (await response.json()) as {
     data: {
       asset: {
+        id: string;
         url: string;
       };
     };
   };
 
-  redirect(`/seller?media=prepared&mediaUrl=${encodeURIComponent(payload.data.asset.url)}`);
+  redirect(
+    `/seller?media=prepared&mediaAssetId=${encodeURIComponent(payload.data.asset.id)}&mediaUrl=${encodeURIComponent(payload.data.asset.url)}`
+  );
+}
+
+export async function completeSellerFileAssetAction(formData: FormData) {
+  const token = await getToken();
+  if (!token) {
+    redirect("/seller");
+  }
+
+  const fileAssetId = String(formData.get("fileAssetId") ?? "");
+  const mediaUrl = String(formData.get("mediaUrl") ?? "");
+
+  const response = await fetch(`${API_URL}/files/${fileAssetId}/complete`, {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      status: "READY"
+    }),
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    redirect("/seller?media=failed");
+  }
+
+  redirect(
+    `/seller?media=ready&mediaAssetId=${encodeURIComponent(fileAssetId)}&mediaUrl=${encodeURIComponent(mediaUrl)}`
+  );
 }
 
 export async function updateSellerOrderStatusAction(formData: FormData) {

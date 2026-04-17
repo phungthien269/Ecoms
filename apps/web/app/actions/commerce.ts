@@ -176,13 +176,15 @@ export async function createReviewAction(formData: FormData) {
   const orderId = String(formData.get("orderId"));
   const rating = Number(formData.get("rating") ?? "5");
   const comment = String(formData.get("comment") ?? "");
+  const imageFileAssetId = String(formData.get("imageFileAssetId") ?? "") || undefined;
 
   await authedMutation("/reviews", {
     method: "POST",
     body: JSON.stringify({
       orderItemId,
       rating,
-      comment
+      comment,
+      imageFileAssetIds: imageFileAssetId ? [imageFileAssetId] : undefined
     })
   });
 
@@ -214,11 +216,13 @@ export async function startChatConversationAction(formData: FormData) {
 export async function sendChatMessageAction(formData: FormData) {
   const conversationId = String(formData.get("conversationId") ?? "");
   const content = String(formData.get("content") ?? "");
+  const imageFileAssetId = String(formData.get("imageFileAssetId") ?? "") || undefined;
 
   await authedMutation(`/chat/conversations/${conversationId}/messages`, {
     method: "POST",
     body: JSON.stringify({
-      content
+      content,
+      imageFileAssetId
     })
   });
 
@@ -258,4 +262,48 @@ export async function createReportAction(formData: FormData) {
   });
 
   redirect(`${redirectTo}?report=submitted` as Route);
+}
+
+export async function requestAttachmentUploadIntentAction(formData: FormData) {
+  const redirectTo = String(formData.get("redirectTo") ?? "/");
+  const filename = String(formData.get("filename") ?? "");
+  const mimeType = String(formData.get("mimeType") ?? "image/jpeg");
+  const folder = String(formData.get("folder") ?? "attachments");
+
+  const response = (await authedMutation("/files/upload-intent", {
+    method: "POST",
+    body: JSON.stringify({
+      filename,
+      mimeType,
+      folder
+    })
+  })) as {
+    data: {
+      asset: {
+        id: string;
+        url: string;
+      };
+    };
+  };
+
+  redirect(
+    `${redirectTo}?attachment=prepared&attachmentAssetId=${encodeURIComponent(response.data.asset.id)}&attachmentUrl=${encodeURIComponent(response.data.asset.url)}` as Route
+  );
+}
+
+export async function completeAttachmentAssetAction(formData: FormData) {
+  const redirectTo = String(formData.get("redirectTo") ?? "/");
+  const fileAssetId = String(formData.get("fileAssetId") ?? "");
+  const attachmentUrl = String(formData.get("attachmentUrl") ?? "");
+
+  await authedMutation(`/files/${fileAssetId}/complete`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      status: "READY"
+    })
+  });
+
+  redirect(
+    `${redirectTo}?attachment=ready&attachmentAssetId=${encodeURIComponent(fileAssetId)}&attachmentUrl=${encodeURIComponent(attachmentUrl)}` as Route
+  );
 }
