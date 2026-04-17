@@ -9,6 +9,7 @@ describe("AdminDashboardService", () => {
     payment: { count: jest.fn() },
     review: { count: jest.fn() },
     flashSale: { count: jest.fn() },
+    banner: { count: jest.fn() },
     report: { count: jest.fn() }
   };
 
@@ -25,6 +26,7 @@ describe("AdminDashboardService", () => {
     prisma.order.count.mockResolvedValue(8);
     prisma.payment.count.mockResolvedValue(3);
     prisma.flashSale.count.mockResolvedValueOnce(4).mockResolvedValueOnce(1);
+    prisma.banner.count.mockResolvedValueOnce(3).mockResolvedValueOnce(2);
     prisma.report.count.mockResolvedValueOnce(7).mockResolvedValueOnce(2);
     prisma.review.count.mockResolvedValue(6);
     prisma.order.findMany.mockResolvedValue([]);
@@ -39,6 +41,8 @@ describe("AdminDashboardService", () => {
     expect(summary.stats.pendingShops).toBe(2);
     expect(summary.stats.pendingPayments).toBe(3);
     expect(summary.stats.totalFlashSales).toBe(4);
+    expect(summary.stats.totalBanners).toBe(3);
+    expect(summary.stats.activeBanners).toBe(2);
     expect(summary.stats.totalReports).toBe(7);
     expect(summary.stats.openReports).toBe(2);
     expect(summary.recentOrders).toEqual([]);

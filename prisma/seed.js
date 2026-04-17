@@ -19,6 +19,32 @@ async function upsertUser({ email, fullName, role, passwordHash }) {
   });
 }
 
+async function upsertBannerByTitle({ title, ...data }) {
+  const existing = await prisma.banner.findFirst({
+    where: {
+      title,
+      deletedAt: null
+    }
+  });
+
+  if (existing) {
+    return prisma.banner.update({
+      where: { id: existing.id },
+      data: {
+        title,
+        ...data
+      }
+    });
+  }
+
+  return prisma.banner.create({
+    data: {
+      title,
+      ...data
+    }
+  });
+}
+
 async function main() {
   const admin = await upsertUser({
     email: "admin@ecoms.local",
@@ -334,6 +360,36 @@ async function main() {
       }
     });
   }
+
+  await upsertBannerByTitle({
+    title: "Mega Mid-April electronics drop",
+    subtitle: "Homepage hero",
+    description: "Surface new deals, spotlight seeded catalog, and drive buyers directly into product discovery.",
+    imageUrl:
+      "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1600&q=80",
+    mobileImageUrl:
+      "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=900&q=80",
+    linkUrl: "/products",
+    placement: "HOME_HERO",
+    sortOrder: 0,
+    isActive: true,
+    createdByUserId: admin.id
+  });
+
+  await upsertBannerByTitle({
+    title: "Upgrade your setup for flash sale hour",
+    subtitle: "Campaign support",
+    description: "Send shoppers from homepage hero straight into the active flash-sale slice.",
+    imageUrl:
+      "https://images.unsplash.com/photo-1545239351-1141bd82e8a6?auto=format&fit=crop&w=1600&q=80",
+    mobileImageUrl:
+      "https://images.unsplash.com/photo-1545239351-1141bd82e8a6?auto=format&fit=crop&w=900&q=80",
+    linkUrl: "/products/demo-wireless-gaming-mouse",
+    placement: "HOME_HERO",
+    sortOrder: 1,
+    isActive: true,
+    createdByUserId: admin.id
+  });
 
   console.log("Seed completed", {
     adminId: admin.id,

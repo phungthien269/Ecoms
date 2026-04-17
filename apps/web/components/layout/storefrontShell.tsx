@@ -6,42 +6,63 @@ import { ProductCard } from "@/components/storefront/productCard";
 import type {
   CategoryNode,
   ProductCard as ProductCardType,
+  StorefrontBanner,
   StorefrontFlashSale
 } from "@/lib/storefrontTypes";
 
 export function StorefrontShell({
   categories,
   products,
-  flashSales
+  flashSales,
+  banners
 }: {
   categories: CategoryNode[];
   products: ProductCardType[];
   flashSales: StorefrontFlashSale[];
+  banners: StorefrontBanner[];
 }) {
+  const heroBanner = banners[0] ?? null;
+  const secondaryBanners = banners.slice(1, 4);
+
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#fff7f3_0%,#ffffff_28%,#fffaf5_100%)]">
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         <header className="overflow-hidden rounded-[2rem] bg-slate-950 text-slate-50 shadow-2xl shadow-orange-200/50">
           <div className="grid gap-8 px-6 py-10 lg:grid-cols-[1.3fr_0.7fr] lg:px-10">
-            <div className="space-y-6">
+            <div
+              className="space-y-6 rounded-[1.75rem] bg-cover bg-center p-6"
+              style={
+                heroBanner
+                  ? {
+                      backgroundImage: `linear-gradient(135deg, rgba(15,23,42,0.88), rgba(249,115,22,0.45)), url(${heroBanner.imageUrl})`
+                    }
+                  : undefined
+              }
+            >
               <div className="inline-flex rounded-full border border-orange-300/30 bg-orange-500/10 px-3 py-1 text-sm text-orange-200">
-                Ecoms marketplace storefront
+                {heroBanner ? "Live homepage banner" : "Ecoms marketplace storefront"}
               </div>
               <div className="space-y-3">
                 <h1 className="max-w-3xl text-4xl font-black tracking-tight sm:text-5xl">
-                  Shopee-inspired shopping flows with a cleaner storefront surface.
+                  {heroBanner?.title ??
+                    "Shopee-inspired shopping flows with a cleaner storefront surface."}
                 </h1>
                 <p className="max-w-2xl text-base text-slate-300 sm:text-lg">
-                  Browse the latest seeded products, jump into shop pages, and pressure-test the
-                  marketplace structure before checkout, voucher, and payment flows land.
+                  {heroBanner?.description ??
+                    "Browse the latest seeded products, jump into shop pages, and pressure-test the marketplace structure before checkout, voucher, and payment flows land."}
                 </p>
+                {heroBanner?.subtitle ? (
+                  <div className="text-sm font-semibold uppercase tracking-[0.24em] text-orange-200">
+                    {heroBanner.subtitle}
+                  </div>
+                ) : null}
               </div>
               <div className="flex flex-wrap gap-3">
                 <Link
-                  href={"/products" as Route}
+                  href={(heroBanner?.linkUrl || "/products") as Route}
                   className="rounded-full bg-orange-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-orange-600"
                 >
-                  Browse products
+                  {heroBanner?.linkUrl ? "Open campaign" : "Browse products"}
                 </Link>
                 <Link
                   href={"/categories/electronics" as Route}
@@ -53,21 +74,45 @@ export function StorefrontShell({
             </div>
             <div className="rounded-[1.5rem] bg-white/5 p-6 backdrop-blur">
               <div className="space-y-4">
-                <p className="text-xs uppercase tracking-[0.3em] text-orange-200">Live slices</p>
-                <div className="grid gap-3">
-                  {[
-                    "Auth + RBAC baseline",
-                    "Category, brand, shop, product APIs",
-                    "Product variants and publish guardrails"
-                  ].map((item) => (
-                    <div
-                      key={item}
-                      className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200"
-                    >
-                      {item}
-                    </div>
-                  ))}
-                </div>
+                <p className="text-xs uppercase tracking-[0.3em] text-orange-200">
+                  {secondaryBanners.length > 0 ? "Campaign stack" : "Live slices"}
+                </p>
+                {secondaryBanners.length > 0 ? (
+                  <div className="grid gap-3">
+                    {secondaryBanners.map((banner) => (
+                      <Link
+                        key={banner.id}
+                        href={(banner.linkUrl || "/products") as Route}
+                        className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200 transition hover:border-orange-300/40 hover:bg-white/10"
+                      >
+                        <div className="font-semibold text-white">{banner.title}</div>
+                        {banner.subtitle ? (
+                          <div className="mt-1 text-xs uppercase tracking-[0.18em] text-orange-200">
+                            {banner.subtitle}
+                          </div>
+                        ) : null}
+                        {banner.description ? (
+                          <div className="mt-2 text-sm text-slate-300">{banner.description}</div>
+                        ) : null}
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid gap-3">
+                    {[
+                      "Auth + RBAC baseline",
+                      "Category, brand, shop, product APIs",
+                      "Product variants and publish guardrails"
+                    ].map((item) => (
+                      <div
+                        key={item}
+                        className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200"
+                      >
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>

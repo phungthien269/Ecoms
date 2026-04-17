@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { validateEnv } from "./config/env";
 import { AdminDashboardModule } from "./modules/adminDashboard/adminDashboard.module";
 import { AuthModule } from "./modules/auth/auth.module";
+import { BannersModule } from "./modules/banners/banners.module";
 import { BrandsModule } from "./modules/brands/brands.module";
 import { CartModule } from "./modules/cart/cart.module";
 import { CategoriesModule } from "./modules/categories/categories.module";
@@ -36,6 +37,7 @@ import { WishlistModule } from "./modules/wishlist/wishlist.module";
     AdminDashboardModule,
     HealthModule,
     AuthModule,
+    BannersModule,
     UsersModule,
     RbacModule,
     CartModule,

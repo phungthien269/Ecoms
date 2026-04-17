@@ -6,6 +6,7 @@ import type {
   ProductReview,
   ProductListResponse,
   ShopPageData,
+  StorefrontBanner,
   StorefrontFlashSale
 } from "./storefrontTypes";
 
@@ -76,6 +77,10 @@ export async function getShop(slug: string): Promise<ShopPageData | null> {
 
 export async function getActiveFlashSales(): Promise<StorefrontFlashSale[]> {
   return (await requestJson<StorefrontFlashSale[]>("/flash-sales/active")) ?? [];
+}
+
+export async function getHomeBanners(): Promise<StorefrontBanner[]> {
+  return (await requestJson<StorefrontBanner[]>("/banners?placement=HOME_HERO")) ?? [];
 }
 
 export function findCategoryBySlug(

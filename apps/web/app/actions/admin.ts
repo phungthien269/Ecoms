@@ -225,6 +225,69 @@ export async function createAdminFlashSaleAction(formData: FormData) {
   redirect("/admin?flashSale=created");
 }
 
+export async function createAdminBannerAction(formData: FormData) {
+  const token = await getToken();
+  if (!token) {
+    redirect("/admin");
+  }
+
+  const response = await fetch(`${API_URL}/banners/admin`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      title: String(formData.get("title") ?? ""),
+      subtitle: String(formData.get("subtitle") ?? "") || undefined,
+      description: String(formData.get("description") ?? "") || undefined,
+      imageUrl: String(formData.get("imageUrl") ?? ""),
+      mobileImageUrl: String(formData.get("mobileImageUrl") ?? "") || undefined,
+      linkUrl: String(formData.get("linkUrl") ?? "") || undefined,
+      placement: String(formData.get("placement") ?? "HOME_HERO"),
+      sortOrder: Number(formData.get("sortOrder") ?? "0") || 0,
+      isActive: String(formData.get("isActive") ?? "true") === "true",
+      startsAt: String(formData.get("startsAt") ?? "") || undefined,
+      endsAt: String(formData.get("endsAt") ?? "") || undefined
+    }),
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    redirect("/admin?banners=failed");
+  }
+
+  redirect("/admin?banners=created");
+}
+
+export async function updateAdminBannerAction(formData: FormData) {
+  const token = await getToken();
+  if (!token) {
+    redirect("/admin");
+  }
+
+  const bannerId = String(formData.get("bannerId") ?? "");
+
+  const response = await fetch(`${API_URL}/banners/admin/${bannerId}`, {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      isActive: String(formData.get("isActive") ?? "true") === "true",
+      sortOrder: Number(formData.get("sortOrder") ?? "0") || 0
+    }),
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    redirect("/admin?banners=failed");
+  }
+
+  redirect("/admin?banners=updated");
+}
+
 export async function updateAdminReportStatusAction(formData: FormData) {
   const token = await getToken();
   if (!token) {

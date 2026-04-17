@@ -162,3 +162,20 @@ export interface StorefrontFlashSale {
     imageUrl: string | null;
   }>;
 }
+
+export interface StorefrontBanner {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  description: string | null;
+  imageUrl: string;
+  mobileImageUrl: string | null;
+  linkUrl: string | null;
+  placement: string;
+  sortOrder: number;
+  isActive: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}

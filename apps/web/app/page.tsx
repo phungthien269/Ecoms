@@ -1,13 +1,19 @@
 import { StorefrontShell } from "@/components/layout/storefrontShell";
-import { getActiveFlashSales, getCategoryTree, getProducts } from "@/lib/storefrontApi";
+import {
+  getActiveFlashSales,
+  getCategoryTree,
+  getHomeBanners,
+  getProducts
+} from "@/lib/storefrontApi";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [categories, products, flashSales] = await Promise.all([
+  const [categories, products, flashSales, banners] = await Promise.all([
     getCategoryTree(),
     getProducts(),
-    getActiveFlashSales()
+    getActiveFlashSales(),
+    getHomeBanners()
   ]);
 
   return (
@@ -15,6 +21,7 @@ export default async function HomePage() {
       categories={categories}
       products={products.items}
       flashSales={flashSales}
+      banners={banners}
     />
   );
 }

@@ -306,6 +306,8 @@ export interface AdminDashboardData {
     pendingPayments: number;
     totalFlashSales: number;
     activeFlashSales: number;
+    totalBanners: number;
+    activeBanners: number;
     totalReports: number;
     openReports: number;
     totalReviews: number;
@@ -555,6 +557,23 @@ export interface AdminReportItem {
     | null;
 }
 
+export interface AdminBannerItem {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  description: string | null;
+  imageUrl: string;
+  mobileImageUrl: string | null;
+  linkUrl: string | null;
+  placement: string;
+  sortOrder: number;
+  isActive: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AppliedVoucherSummary {
   id: string;
   code: string;
@@ -716,6 +735,10 @@ export async function getAdminFlashSales() {
 
 export async function getAdminReports() {
   return (await requestAuthedJson<AdminReportItem[]>("/reports/admin")) ?? [];
+}
+
+export async function getAdminBanners() {
+  return (await requestAuthedJson<AdminBannerItem[]>("/banners/admin")) ?? [];
 }
 
 export async function getSellerVouchers() {

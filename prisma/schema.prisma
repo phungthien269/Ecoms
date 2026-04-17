@@ -101,6 +101,10 @@ enum FlashSaleStatus {
   CANCELLED
 }
 
+enum BannerPlacement {
+  HOME_HERO
+}
+
 model User {
   id                 String              @id @default(cuid())
   email              String              @unique
@@ -126,6 +130,7 @@ model User {
   reports            Report[]           @relation("ReportReporter")
   resolvedReports    Report[]           @relation("ReportResolver")
   fileAssets         FileAsset[]        @relation("FileAssetCreator")
+  banners            Banner[]
 }
 
 model Shop {
@@ -406,6 +411,29 @@ model FlashSale {
   items       FlashSaleItem[]
 
   @@index([status, startsAt, endsAt])
+}
+
+model Banner {
+  id              String          @id @default(cuid())
+  title           String
+  subtitle        String?
+  description     String?
+  imageUrl        String
+  mobileImageUrl  String?
+  linkUrl         String?
+  placement       BannerPlacement @default(HOME_HERO)
+  sortOrder       Int             @default(0)
+  isActive        Boolean         @default(true)
+  startsAt        DateTime?
+  endsAt          DateTime?
+  createdByUserId String
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  deletedAt       DateTime?
+  createdByUser   User            @relation(fields: [createdByUserId], references: [id])
+
+  @@index([placement, isActive, startsAt, endsAt, sortOrder])
+  @@index([createdByUserId, createdAt])
 }
 
 model FlashSaleItem {
