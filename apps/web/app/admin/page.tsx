@@ -555,6 +555,11 @@ export default async function AdminPage() {
                           ? `${report.target.product.name} review`
                           : report.targetId}
                     </div>
+                    {"status" in (report.target ?? {}) && report.target?.status ? (
+                      <div className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                        Current target status: {report.target.status}
+                      </div>
+                    ) : null}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {["IN_REVIEW", "RESOLVED", "DISMISSED"].map((status) => (
@@ -570,6 +575,62 @@ export default async function AdminPage() {
                         </button>
                       </form>
                     ))}
+                    {report.targetType === "PRODUCT" ? (
+                      <>
+                        <form action={updateAdminReportStatusAction}>
+                          <input type="hidden" name="reportId" value={report.id} />
+                          <input type="hidden" name="status" value="RESOLVED" />
+                          <input type="hidden" name="moderationAction" value="BAN_PRODUCT" />
+                          <input type="hidden" name="resolvedNote" value="Admin banned the reported product" />
+                          <button
+                            type="submit"
+                            className="rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 transition hover:border-red-300"
+                          >
+                            Ban product + resolve
+                          </button>
+                        </form>
+                        <form action={updateAdminReportStatusAction}>
+                          <input type="hidden" name="reportId" value={report.id} />
+                          <input type="hidden" name="status" value="RESOLVED" />
+                          <input type="hidden" name="moderationAction" value="ACTIVATE_PRODUCT" />
+                          <input type="hidden" name="resolvedNote" value="Admin restored the reported product" />
+                          <button
+                            type="submit"
+                            className="rounded-full border border-emerald-200 px-4 py-2 text-sm font-semibold text-emerald-600 transition hover:border-emerald-300"
+                          >
+                            Restore product + resolve
+                          </button>
+                        </form>
+                      </>
+                    ) : null}
+                    {report.targetType === "SHOP" ? (
+                      <>
+                        <form action={updateAdminReportStatusAction}>
+                          <input type="hidden" name="reportId" value={report.id} />
+                          <input type="hidden" name="status" value="RESOLVED" />
+                          <input type="hidden" name="moderationAction" value="SUSPEND_SHOP" />
+                          <input type="hidden" name="resolvedNote" value="Admin suspended the reported shop" />
+                          <button
+                            type="submit"
+                            className="rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 transition hover:border-red-300"
+                          >
+                            Suspend shop + resolve
+                          </button>
+                        </form>
+                        <form action={updateAdminReportStatusAction}>
+                          <input type="hidden" name="reportId" value={report.id} />
+                          <input type="hidden" name="status" value="RESOLVED" />
+                          <input type="hidden" name="moderationAction" value="ACTIVATE_SHOP" />
+                          <input type="hidden" name="resolvedNote" value="Admin restored the reported shop" />
+                          <button
+                            type="submit"
+                            className="rounded-full border border-emerald-200 px-4 py-2 text-sm font-semibold text-emerald-600 transition hover:border-emerald-300"
+                          >
+                            Restore shop + resolve
+                          </button>
+                        </form>
+                      </>
+                    ) : null}
                   </div>
                 </div>
               </div>

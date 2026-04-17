@@ -4,10 +4,12 @@ import { ReportsService } from "../src/modules/reports/reports.service";
 describe("ReportsService", () => {
   const prisma = {
     product: {
-      findFirst: jest.fn()
+      findFirst: jest.fn(),
+      update: jest.fn()
     },
     shop: {
-      findFirst: jest.fn()
+      findFirst: jest.fn(),
+      update: jest.fn()
     },
     review: {
       findUnique: jest.fn()
@@ -85,9 +87,12 @@ describe("ReportsService", () => {
   it("updates report status and notifies the reporter", async () => {
     prisma.report.findUnique.mockResolvedValue({
       id: "report-1",
+      targetType: "PRODUCT",
       reporter: {
         id: "buyer-1"
-      }
+      },
+      product: null,
+      shop: null
     });
     prisma.report.update.mockResolvedValue({
       id: "report-1",
@@ -103,6 +108,48 @@ describe("ReportsService", () => {
 
     expect(result.status).toBe("RESOLVED");
     expect(notificationsService.create).toHaveBeenCalled();
+  });
+
+  it("can ban a reported product while resolving the report", async () => {
+    prisma.report.findUnique.mockResolvedValue({
+      id: "report-1",
+      targetType: "PRODUCT",
+      reporter: {
+        id: "buyer-1"
+      },
+      product: {
+        id: "product-1",
+        name: "Gaming Mouse Pro",
+        shop: {
+          ownerId: "seller-1",
+          name: "Demo Shop"
+        }
+      },
+      shop: null
+    });
+    prisma.product.update.mockResolvedValue({
+      id: "product-1",
+      status: "BANNED"
+    });
+    prisma.report.update.mockResolvedValue({
+      id: "report-1",
+      status: "RESOLVED",
+      resolvedNote: "Handled by admin | Target action: product banned",
+      resolvedAt: new Date("2026-04-18T01:00:00.000Z")
+    });
+
+    const result = await service.updateStatus("admin-1", "report-1", {
+      status: "RESOLVED",
+      moderationAction: "BAN_PRODUCT",
+      resolvedNote: "Handled by admin"
+    });
+
+    expect(prisma.product.update).toHaveBeenCalledWith({
+      where: { id: "product-1" },
+      data: { status: "BANNED" }
+    });
+    expect(result.resolvedNote).toContain("Target action: product banned");
+    expect(notificationsService.create).toHaveBeenCalledTimes(2);
   });
 
   it("fails when target does not exist", async () => {

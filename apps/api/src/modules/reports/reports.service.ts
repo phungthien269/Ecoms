@@ -1,6 +1,7 @@
 import {
   ConflictException,
   Injectable,
+  BadRequestException,
   NotFoundException
 } from "@nestjs/common";
 import {
@@ -10,7 +11,10 @@ import {
 import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateReportDto } from "./dto/create-report.dto";
-import { UpdateReportStatusDto } from "./dto/update-report-status.dto";
+import {
+  ReportModerationAction,
+  UpdateReportStatusDto
+} from "./dto/update-report-status.dto";
 
 @Injectable()
 export class ReportsService {
@@ -110,14 +114,17 @@ export class ReportsService {
           select: {
             id: true,
             name: true,
-            slug: true
+            slug: true,
+            status: true
           }
         },
         shop: {
           select: {
             id: true,
             name: true,
-            slug: true
+            slug: true,
+            status: true,
+            ownerId: true
           }
         },
         review: {
@@ -166,6 +173,25 @@ export class ReportsService {
           select: {
             id: true
           }
+        },
+        product: {
+          select: {
+            id: true,
+            name: true,
+            shop: {
+              select: {
+                ownerId: true,
+                name: true
+              }
+            }
+          }
+        },
+        shop: {
+          select: {
+            id: true,
+            name: true,
+            ownerId: true
+          }
         }
       }
     });
@@ -174,11 +200,13 @@ export class ReportsService {
       throw new NotFoundException("Report not found");
     }
 
+    const moderationResult = await this.applyModerationAction(report, payload.moderationAction);
+
     const updated = await this.prisma.report.update({
       where: { id: reportId },
       data: {
         status: payload.status,
-        resolvedNote: payload.resolvedNote?.trim() || undefined,
+        resolvedNote: this.buildResolvedNote(payload.resolvedNote, moderationResult.note),
         resolvedAt:
           payload.status === "RESOLVED" || payload.status === "DISMISSED"
             ? new Date()
@@ -198,12 +226,142 @@ export class ReportsService {
       linkUrl: "/notifications"
     });
 
+    if (moderationResult.ownerNotification) {
+      await this.notificationsService.create(moderationResult.ownerNotification);
+    }
+
     return {
       id: updated.id,
       status: updated.status,
       resolvedNote: updated.resolvedNote,
       resolvedAt: updated.resolvedAt?.toISOString() ?? null
     };
+  }
+
+  private async applyModerationAction(
+    report: {
+      targetType: string;
+      product: {
+        id: string;
+        name: string;
+        shop: { ownerId: string; name: string };
+      } | null;
+      shop: {
+        id: string;
+        name: string;
+        ownerId: string;
+      } | null;
+    },
+    moderationAction: ReportModerationAction | undefined
+  ) {
+    if (!moderationAction || moderationAction === ReportModerationAction.NONE) {
+      return {
+        note: null,
+        ownerNotification: null
+      };
+    }
+
+    if (moderationAction === ReportModerationAction.BAN_PRODUCT) {
+      if (!report.product) {
+        throw new BadRequestException("This report does not target a product");
+      }
+
+      await this.prisma.product.update({
+        where: { id: report.product.id },
+        data: { status: "BANNED" }
+      });
+
+      return {
+        note: `Target action: product banned`,
+        ownerNotification: {
+          userId: report.product.shop.ownerId,
+          category: NotificationCategory.SYSTEM,
+          title: "A product from your shop was banned",
+          body: `${report.product.name} was banned after moderation review.`,
+          linkUrl: "/seller"
+        }
+      };
+    }
+
+    if (moderationAction === ReportModerationAction.ACTIVATE_PRODUCT) {
+      if (!report.product) {
+        throw new BadRequestException("This report does not target a product");
+      }
+
+      await this.prisma.product.update({
+        where: { id: report.product.id },
+        data: { status: "ACTIVE" }
+      });
+
+      return {
+        note: `Target action: product activated`,
+        ownerNotification: {
+          userId: report.product.shop.ownerId,
+          category: NotificationCategory.SYSTEM,
+          title: "A product from your shop was restored",
+          body: `${report.product.name} was restored after moderation review.`,
+          linkUrl: "/seller"
+        }
+      };
+    }
+
+    if (moderationAction === ReportModerationAction.SUSPEND_SHOP) {
+      if (!report.shop) {
+        throw new BadRequestException("This report does not target a shop");
+      }
+
+      await this.prisma.shop.update({
+        where: { id: report.shop.id },
+        data: { status: "SUSPENDED" }
+      });
+
+      return {
+        note: `Target action: shop suspended`,
+        ownerNotification: {
+          userId: report.shop.ownerId,
+          category: NotificationCategory.SYSTEM,
+          title: "Your shop was suspended",
+          body: `${report.shop.name} was suspended after moderation review.`,
+          linkUrl: "/seller"
+        }
+      };
+    }
+
+    if (moderationAction === ReportModerationAction.ACTIVATE_SHOP) {
+      if (!report.shop) {
+        throw new BadRequestException("This report does not target a shop");
+      }
+
+      await this.prisma.shop.update({
+        where: { id: report.shop.id },
+        data: { status: "ACTIVE" }
+      });
+
+      return {
+        note: `Target action: shop activated`,
+        ownerNotification: {
+          userId: report.shop.ownerId,
+          category: NotificationCategory.SYSTEM,
+          title: "Your shop was restored",
+          body: `${report.shop.name} was restored after moderation review.`,
+          linkUrl: "/seller"
+        }
+      };
+    }
+
+    return {
+      note: null,
+      ownerNotification: null
+    };
+  }
+
+  private buildResolvedNote(resolvedNote: string | undefined, actionNote: string | null) {
+    const note = resolvedNote?.trim() || "";
+    if (note && actionNote) {
+      return `${note} | ${actionNote}`;
+    }
+
+    return note || actionNote || undefined;
   }
 
   private async resolveTarget(targetType: ReportTargetType, targetId: string) {

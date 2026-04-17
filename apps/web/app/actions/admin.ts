@@ -233,6 +233,7 @@ export async function updateAdminReportStatusAction(formData: FormData) {
 
   const reportId = String(formData.get("reportId") ?? "");
   const status = String(formData.get("status") ?? "");
+  const moderationAction = String(formData.get("moderationAction") ?? "") || undefined;
   const resolvedNote = String(formData.get("resolvedNote") ?? "") || undefined;
 
   const response = await fetch(`${API_URL}/reports/admin/${reportId}/status`, {
@@ -243,6 +244,7 @@ export async function updateAdminReportStatusAction(formData: FormData) {
     },
     body: JSON.stringify({
       status,
+      moderationAction,
       resolvedNote
     }),
     cache: "no-store"

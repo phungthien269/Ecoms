@@ -543,6 +543,8 @@ export interface AdminReportItem {
         id: string;
         name?: string;
         slug?: string;
+        status?: string;
+        ownerId?: string;
         comment?: string;
         product?: {
           id: string;
