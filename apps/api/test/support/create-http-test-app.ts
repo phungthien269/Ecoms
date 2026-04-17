@@ -7,7 +7,9 @@ import { HttpExceptionFilter } from "../../src/common/filters/http-exception.fil
 import { ResponseInterceptor } from "../../src/common/interceptors/response.interceptor";
 import { RequestContextMiddleware } from "../../src/common/middleware/request-context.middleware";
 import { JwtAuthGuard } from "../../src/common/guards/jwt-auth.guard";
+import { MemoryRateLimitStore } from "../../src/modules/rateLimit/memory-rate-limit.store";
 import { RateLimitGuard } from "../../src/modules/rateLimit/rate-limit.guard";
+import { RedisRateLimitStore } from "../../src/modules/rateLimit/redis-rate-limit.store";
 import { RateLimitService } from "../../src/modules/rateLimit/rate-limit.service";
 import { RolesGuard } from "../../src/modules/rbac/guards/roles.guard";
 import { TestJwtAuthGuard } from "./test-auth.guard";
@@ -29,6 +31,8 @@ export async function createHttpTestApp({
       ...providers,
       Reflector,
       RolesGuard,
+      MemoryRateLimitStore,
+      RedisRateLimitStore,
       RateLimitGuard,
       RateLimitService,
       ResponseInterceptor,

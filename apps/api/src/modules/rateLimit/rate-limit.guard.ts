@@ -29,7 +29,7 @@ export class RateLimitGuard implements CanActivate {
     private readonly configService: ConfigService
   ) {}
 
-  canActivate(context: ExecutionContext) {
+  async canActivate(context: ExecutionContext) {
     const rule = this.reflector.getAllAndOverride<RateLimitRule | undefined>(
       RATE_LIMIT_RULE_KEY,
       [context.getHandler(), context.getClass()]
@@ -44,7 +44,7 @@ export class RateLimitGuard implements CanActivate {
     const identity = request.user?.sub ?? request.ip ?? "anonymous";
     const key = `${rule.name}:${identity}`;
     const resolvedRule = this.resolveRule(rule);
-    const result = this.rateLimitService.consume(
+    const result = await this.rateLimitService.consume(
       key,
       resolvedRule.maxRequests,
       resolvedRule.windowMs
