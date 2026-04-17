@@ -10,48 +10,69 @@ async function getToken() {
   return cookieStore.get("ecoms_access_token")?.value;
 }
 
+function toOptionalNumber(value: FormDataEntryValue | null) {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) {
+    return undefined;
+  }
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function buildProductPayload(formData: FormData) {
+  const sku = String(formData.get("sku") ?? "");
+  const salePrice = Number(formData.get("salePrice") ?? "0");
+  const stock = Number(formData.get("stock") ?? "0");
+  const imageUrl = String(formData.get("imageUrl") ?? "").trim();
+  const variantName = String(formData.get("variantName") ?? "").trim() || "Default";
+  const variantSku = String(formData.get("variantSku") ?? "").trim() || `${sku}-DEFAULT`;
+
+  return {
+    name: String(formData.get("name") ?? ""),
+    sku,
+    description: String(formData.get("description") ?? ""),
+    categoryId: String(formData.get("categoryId") ?? ""),
+    brandId: String(formData.get("brandId") ?? "") || undefined,
+    originalPrice: Number(formData.get("originalPrice") ?? "0"),
+    salePrice,
+    stock,
+    weightGrams: toOptionalNumber(formData.get("weightGrams")),
+    status: String(formData.get("status") ?? "DRAFT"),
+    tags: String(formData.get("tags") ?? "")
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter(Boolean),
+    images: imageUrl
+      ? [
+          {
+            url: imageUrl,
+            altText: String(formData.get("name") ?? "")
+          }
+        ]
+      : [],
+    variants: [
+      {
+        sku: variantSku,
+        name: variantName,
+        attributes: {
+          type: variantName
+        },
+        price: toOptionalNumber(formData.get("variantPrice")) ?? salePrice,
+        stock: toOptionalNumber(formData.get("variantStock")) ?? stock,
+        isDefault: true
+      }
+    ]
+  };
+}
+
 export async function createSellerProductAction(formData: FormData) {
   const token = await getToken();
   if (!token) {
     redirect("/seller");
   }
 
-  const payload = {
-    name: String(formData.get("name")),
-    sku: String(formData.get("sku")),
-    description: String(formData.get("description")),
-    categoryId: String(formData.get("categoryId")),
-    brandId: String(formData.get("brandId") ?? "") || undefined,
-    originalPrice: Number(formData.get("originalPrice")),
-    salePrice: Number(formData.get("salePrice")),
-    stock: Number(formData.get("stock")),
-    weightGrams: Number(formData.get("weightGrams") ?? "0") || undefined,
-    status: String(formData.get("status") ?? "DRAFT"),
-    tags: String(formData.get("tags") ?? "")
-      .split(",")
-      .map((tag) => tag.trim())
-      .filter(Boolean),
-    images: [
-      {
-        url:
-          String(formData.get("imageUrl") ?? "") ||
-          "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=900&q=80",
-        altText: String(formData.get("name"))
-      }
-    ],
-    variants: [
-      {
-        sku: String(formData.get("variantSku") || `${String(formData.get("sku"))}-DEFAULT`),
-        name: String(formData.get("variantName") || "Default"),
-        attributes: {
-          type: String(formData.get("variantName") || "Default")
-        },
-        price: Number(formData.get("variantPrice") ?? formData.get("salePrice")),
-        stock: Number(formData.get("variantStock") ?? formData.get("stock")),
-        isDefault: true
-      }
-    ]
-  };
+  const payload = buildProductPayload(formData);
 
   const response = await fetch(`${API_URL}/products`, {
     method: "POST",
@@ -68,6 +89,91 @@ export async function createSellerProductAction(formData: FormData) {
   }
 
   redirect("/seller?create=success");
+}
+
+export async function updateSellerProductAction(formData: FormData) {
+  const token = await getToken();
+  if (!token) {
+    redirect("/seller");
+  }
+
+  const productId = String(formData.get("productId") ?? "");
+  const payload = buildProductPayload(formData);
+
+  const response = await fetch(`${API_URL}/products/${productId}`, {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify(payload),
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    redirect("/seller?update=failed");
+  }
+
+  redirect("/seller?update=success");
+}
+
+export async function deleteSellerProductAction(formData: FormData) {
+  const token = await getToken();
+  if (!token) {
+    redirect("/seller");
+  }
+
+  const productId = String(formData.get("productId") ?? "");
+
+  const response = await fetch(`${API_URL}/products/${productId}`, {
+    method: "DELETE",
+    headers: {
+      authorization: `Bearer ${token}`
+    },
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    redirect("/seller?delete=failed");
+  }
+
+  redirect("/seller?delete=success");
+}
+
+export async function requestSellerUploadIntentAction(formData: FormData) {
+  const token = await getToken();
+  if (!token) {
+    redirect("/seller");
+  }
+
+  const response = await fetch(`${API_URL}/files/upload-intent`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      filename: String(formData.get("filename") ?? ""),
+      mimeType: String(formData.get("mimeType") ?? "image/jpeg"),
+      sizeBytes: toOptionalNumber(formData.get("sizeBytes")),
+      folder: String(formData.get("folder") ?? "products")
+    }),
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    redirect("/seller?media=failed");
+  }
+
+  const payload = (await response.json()) as {
+    data: {
+      asset: {
+        url: string;
+      };
+    };
+  };
+
+  redirect(`/seller?media=prepared&mediaUrl=${encodeURIComponent(payload.data.asset.url)}`);
 }
 
 export async function updateSellerOrderStatusAction(formData: FormData) {

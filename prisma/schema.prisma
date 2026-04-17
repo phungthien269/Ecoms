@@ -87,6 +87,12 @@ enum ReportStatus {
   DISMISSED
 }
 
+enum FileAssetStatus {
+  PENDING
+  READY
+  FAILED
+}
+
 enum FlashSaleStatus {
   DRAFT
   SCHEDULED
@@ -119,6 +125,7 @@ model User {
   notifications      Notification[]
   reports            Report[]           @relation("ReportReporter")
   resolvedReports    Report[]           @relation("ReportResolver")
+  fileAssets         FileAsset[]        @relation("FileAssetCreator")
 }
 
 model Shop {
@@ -495,6 +502,27 @@ model Payment {
   @@index([userId, createdAt])
   @@index([orderId])
   @@index([status, createdAt])
+}
+
+model FileAsset {
+  id           String          @id @default(cuid())
+  createdById  String
+  driver       String
+  bucket       String?
+  objectKey    String
+  originalName String
+  mimeType     String
+  sizeBytes    Int?
+  url          String
+  status       FileAssetStatus @default(PENDING)
+  metadata     Json?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  createdBy    User            @relation("FileAssetCreator", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([createdById, createdAt])
+  @@index([status, createdAt])
+  @@unique([driver, objectKey])
 }
 
 model Report {

@@ -226,6 +226,19 @@ export interface SellerReviewItem {
   };
 }
 
+export interface SellerFileAssetItem {
+  id: string;
+  driver: string;
+  bucket: string | null;
+  objectKey: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number | null;
+  url: string;
+  status: string;
+  createdAt: string;
+}
+
 export interface NotificationsResponse {
   items: Array<{
     id: string;
@@ -621,14 +634,30 @@ export async function getSellerProducts() {
         name: string;
         slug: string;
         sku: string;
+        description: string;
+        categoryId: string;
+        brandId: string | null;
         status: string;
+        originalPrice: string;
         salePrice: string;
         stock: number;
+        weightGrams: number | null;
+        tags: string[];
         images: Array<{ id: string; url: string }>;
-        variants: Array<{ id: string; name: string; stock: number }>;
+        variants: Array<{
+          id: string;
+          sku: string;
+          name: string;
+          stock: number;
+          price: string | null;
+        }>;
       }>
     >("/products/me")) ?? []
   );
+}
+
+export async function getSellerFiles() {
+  return (await requestAuthedJson<SellerFileAssetItem[]>("/files/me")) ?? [];
 }
 
 export async function getSellerOrders() {

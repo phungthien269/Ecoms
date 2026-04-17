@@ -79,6 +79,12 @@ export enum ReportStatus {
   DISMISSED = "DISMISSED"
 }
 
+export enum FileAssetStatus {
+  PENDING = "PENDING",
+  READY = "READY",
+  FAILED = "FAILED"
+}
+
 export enum FlashSaleStatus {
   DRAFT = "DRAFT",
   SCHEDULED = "SCHEDULED",
@@ -373,5 +379,18 @@ export interface ReportSummary {
   status: ReportStatus;
   resolvedNote: string | null;
   resolvedAt: string | null;
+  createdAt: string;
+}
+
+export interface FileAssetSummary {
+  id: string;
+  driver: string;
+  bucket: string | null;
+  objectKey: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number | null;
+  url: string;
+  status: FileAssetStatus;
   createdAt: string;
 }
