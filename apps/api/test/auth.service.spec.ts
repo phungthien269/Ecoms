@@ -13,7 +13,8 @@ describe("AuthService", () => {
   const prisma = {
     user: {
       findUnique: jest.fn(),
-      create: jest.fn()
+      create: jest.fn(),
+      update: jest.fn()
     }
   };
 
@@ -21,8 +22,17 @@ describe("AuthService", () => {
     signAsync: jest.fn().mockResolvedValue("signed-token"),
     verifyAsync: jest.fn()
   } as unknown as JwtService;
+  const configService = {
+    get: jest.fn((key: string, fallback?: string) => {
+      if (key === "FRONTEND_URL") {
+        return "http://localhost:3000";
+      }
 
-  const service = new AuthService(prisma as never, jwtService);
+      return fallback;
+    })
+  };
+
+  const service = new AuthService(prisma as never, jwtService, configService as never);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -98,5 +108,78 @@ describe("AuthService", () => {
         password: "wrong-password"
       })
     ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it("creates a customer account for a verified Google profile", async () => {
+    prisma.user.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+    prisma.user.create.mockResolvedValue({
+      id: "user-google-1",
+      email: "buyer@example.com",
+      googleSubject: "google-subject-1",
+      fullName: "Google Buyer",
+      phoneNumber: null,
+      role: UserRole.CUSTOMER,
+      isActive: true,
+      deletedAt: null
+    });
+
+    const result = await service.loginWithGoogleProfile({
+      subject: "google-subject-1",
+      email: "buyer@example.com",
+      fullName: "Google Buyer",
+      emailVerified: true
+    });
+
+    expect(prisma.user.create).toHaveBeenCalledWith({
+      data: {
+        email: "buyer@example.com",
+        googleSubject: "google-subject-1",
+        fullName: "Google Buyer",
+        role: UserRole.CUSTOMER
+      }
+    });
+    expect(result.accessToken).toBe("signed-token");
+  });
+
+  it("links a verified Google profile to an existing email", async () => {
+    prisma.user.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: "user-existing-1",
+        email: "seller@example.com",
+        googleSubject: null,
+        fullName: "Seller One",
+        phoneNumber: null,
+        role: UserRole.SELLER,
+        isActive: true,
+        deletedAt: null
+      });
+    prisma.user.update.mockResolvedValue({
+      id: "user-existing-1",
+      email: "seller@example.com",
+      googleSubject: "google-subject-2",
+      fullName: "Seller One",
+      phoneNumber: null,
+      role: UserRole.SELLER,
+      isActive: true,
+      deletedAt: null
+    });
+
+    const result = await service.loginWithGoogleProfile({
+      subject: "google-subject-2",
+      email: "seller@example.com",
+      fullName: "Seller One",
+      emailVerified: true
+    });
+
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user-existing-1" },
+      data: {
+        googleSubject: "google-subject-2"
+      }
+    });
+    expect(result.user.role).toBe(UserRole.SELLER);
   });
 });

@@ -1,7 +1,14 @@
-import { Module } from "@nestjs/common";
+import {
+  MiddlewareConsumer,
+  Module,
+  NestModule,
+  RequestMethod
+} from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { resolve } from "node:path";
 import { validateEnv } from "./config/env";
+import { RequestContextMiddleware } from "./common/middleware/request-context.middleware";
+import { RequestLoggingMiddleware } from "./common/middleware/request-logging.middleware";
 import { AdminDashboardModule } from "./modules/adminDashboard/adminDashboard.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { BannersModule } from "./modules/banners/banners.module";
@@ -19,6 +26,7 @@ import { PaymentsModule } from "./modules/payments/payments.module";
 import { PrismaModule } from "./modules/prisma/prisma.module";
 import { ProductsModule } from "./modules/products/products.module";
 import { RbacModule } from "./modules/rbac/rbac.module";
+import { RateLimitModule } from "./modules/rateLimit/rate-limit.module";
 import { ReportsModule } from "./modules/reports/reports.module";
 import { ReviewsModule } from "./modules/reviews/reviews.module";
 import { ShopsModule } from "./modules/shops/shops.module";
@@ -34,6 +42,7 @@ import { WishlistModule } from "./modules/wishlist/wishlist.module";
       validate: validateEnv
     }),
     PrismaModule,
+    RateLimitModule,
     AdminDashboardModule,
     HealthModule,
     AuthModule,
@@ -58,4 +67,10 @@ import { WishlistModule } from "./modules/wishlist/wishlist.module";
     ReviewsModule
   ]
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(RequestContextMiddleware, RequestLoggingMiddleware)
+      .forRoutes({ path: "*", method: RequestMethod.ALL });
+  }
+}

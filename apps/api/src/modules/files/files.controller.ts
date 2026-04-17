@@ -2,6 +2,8 @@ import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/co
 import { UserRole } from "@ecoms/contracts";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { RateLimit } from "../rateLimit/rate-limit.decorator";
+import { RateLimitGuard } from "../rateLimit/rate-limit.guard";
 import { Roles } from "../rbac/decorators/roles.decorator";
 import { RolesGuard } from "../rbac/guards/roles.guard";
 import { CompleteFileAssetDto } from "./dto/complete-file-asset.dto";
@@ -20,6 +22,10 @@ export class FilesController {
   }
 
   @Post("upload-intent")
+  @UseGuards(RateLimitGuard)
+  @RateLimit({
+    name: "files.upload_intent"
+  })
   @Roles(UserRole.CUSTOMER, UserRole.SELLER, UserRole.ADMIN, UserRole.SUPER_ADMIN)
   createUploadIntent(@CurrentUser("sub") userId: string, @Body() payload: CreateUploadIntentDto) {
     return this.filesService.createUploadIntent(userId, payload);

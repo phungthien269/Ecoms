@@ -1,6 +1,8 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { RateLimit } from "../rateLimit/rate-limit.decorator";
+import { RateLimitGuard } from "../rateLimit/rate-limit.guard";
 import { CreateConversationDto } from "./dto/create-conversation.dto";
 import { SendMessageDto } from "./dto/send-message.dto";
 import { ChatService } from "./chat.service";
@@ -32,6 +34,10 @@ export class ChatController {
   }
 
   @Post("conversations/:conversationId/messages")
+  @UseGuards(RateLimitGuard)
+  @RateLimit({
+    name: "chat.send_message"
+  })
   sendMessage(
     @CurrentUser("sub") userId: string,
     @Param("conversationId") conversationId: string,

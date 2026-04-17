@@ -15,6 +15,10 @@ export function AppShell({
   unreadNotificationsCount: number;
   unreadChatCount: number;
 }) {
+  const googleAuthEnabled = process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true";
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
+  const googleAuthHref = `${apiUrl}/auth/google/start?redirectTo=%2Fcart`;
+
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#fff7f3_0%,#ffffff_28%,#fffaf5_100%)]">
       {session ? <RealtimeBridge token={session.accessToken} /> : null}
@@ -100,6 +104,14 @@ export function AppShell({
                     Admin demo
                   </button>
                 </form>
+                {googleAuthEnabled ? (
+                  <Link
+                    href={googleAuthHref as Route}
+                    className="rounded-full border border-orange-200 px-4 py-2 text-sm font-semibold text-orange-700 transition hover:border-orange-400 hover:bg-orange-50"
+                  >
+                    Google sign in
+                  </Link>
+                ) : null}
               </div>
             )}
           </div>
