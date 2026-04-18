@@ -19,6 +19,7 @@ import {
 import { Prisma } from "@prisma/client";
 import { MailerService } from "../mailer/mailer.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import { OrderStatusHistoryService } from "../orderStatusHistory/order-status-history.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { VouchersService } from "../vouchers/vouchers.service";
 import { CheckoutPreviewDto } from "./dto/checkout-preview.dto";
@@ -63,7 +64,8 @@ export class CheckoutService {
     private readonly prisma: PrismaService,
     private readonly vouchersService: VouchersService,
     private readonly notificationsService: NotificationsService,
-    private readonly mailerService: MailerService
+    private readonly mailerService: MailerService,
+    private readonly orderStatusHistoryService: OrderStatusHistoryService
   ) {}
 
   async preview(userId: string, payload: CheckoutPreviewDto): Promise<CheckoutPreview> {
@@ -141,6 +143,26 @@ export class CheckoutService {
             }
           }
         });
+
+        await this.orderStatusHistoryService.record(
+          {
+            orderId: order.id,
+            status:
+              payload.paymentMethod === PaymentMethod.COD
+                ? OrderStatus.CONFIRMED
+                : OrderStatus.PENDING,
+            actorType: "CHECKOUT",
+            actorUserId: userId,
+            note:
+              payload.paymentMethod === PaymentMethod.COD
+                ? "Order placed with cash on delivery"
+                : "Order placed and waiting for payment confirmation",
+            metadata: {
+              paymentMethod: payload.paymentMethod
+            }
+          },
+          tx
+        );
 
         const paymentStatus =
           payload.paymentMethod === PaymentMethod.COD

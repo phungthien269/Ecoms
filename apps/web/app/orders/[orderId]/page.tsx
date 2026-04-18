@@ -3,6 +3,7 @@ import {
   completeOrderAction,
   confirmPaymentAction,
   createReviewAction,
+  requestReturnAction,
   simulatePaymentWebhookAction
 } from "@/app/actions/commerce";
 import { formatPrice } from "@/components/commerce/price";
@@ -134,6 +135,7 @@ export default async function OrderDetailPage({
                 </button>
               </form>
             ) : null}
+
           </div>
         </div>
 
@@ -172,6 +174,48 @@ export default async function OrderDetailPage({
                   This order left the normal completion track with status <span className="font-semibold text-slate-950">{order.status}</span>.
                 </div>
               ) : null}
+              {order.returnWindow.deliveredAt ? (
+                <div className="mt-4 rounded-[1.5rem] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  Delivered {new Date(order.returnWindow.deliveredAt).toLocaleString("vi-VN")}
+                  {order.returnWindow.expiresAt ? (
+                    <span>
+                      {" "}
+                      • Return window closes {new Date(order.returnWindow.expiresAt).toLocaleString("vi-VN")}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+            </section>
+
+            <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="text-xl font-bold text-slate-950">Status timeline</h2>
+              <div className="mt-4 space-y-3">
+                {order.statusTimeline.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="rounded-[1.5rem] border border-slate-100 bg-slate-50 px-4 py-4"
+                  >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <div className="text-sm font-semibold uppercase tracking-[0.2em] text-orange-500">
+                          {entry.status.replaceAll("_", " ")}
+                        </div>
+                        <div className="mt-1 text-sm text-slate-500">
+                          {entry.actorUser
+                            ? `${entry.actorUser.fullName} • ${entry.actorType}`
+                            : entry.actorType}
+                        </div>
+                        {entry.note ? (
+                          <div className="mt-2 text-sm text-slate-700">{entry.note}</div>
+                        ) : null}
+                      </div>
+                      <div className="text-sm text-slate-500">
+                        {new Date(entry.createdAt).toLocaleString("vi-VN")}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </section>
 
             <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
@@ -258,6 +302,35 @@ export default async function OrderDetailPage({
                 </div>
               </div>
             </section>
+
+            {order.returnWindow.canRequest ? (
+              <section className="rounded-[2rem] border border-amber-200 bg-amber-50 p-6 shadow-sm">
+                <h2 className="text-xl font-bold text-slate-950">Request return</h2>
+                <p className="mt-2 text-sm text-slate-600">
+                  Use this within 7 days after delivery if the item arrived damaged, wrong, or incomplete.
+                </p>
+                <form action={requestReturnAction} className="mt-4 space-y-3">
+                  <input type="hidden" name="orderId" value={order.id} />
+                  <input
+                    name="reason"
+                    placeholder="Reason for return"
+                    className="w-full rounded-[1.2rem] border border-amber-200 bg-white px-4 py-3 text-sm text-slate-700"
+                  />
+                  <textarea
+                    name="details"
+                    rows={3}
+                    placeholder="Extra details for the seller"
+                    className="w-full rounded-[1.2rem] border border-amber-200 bg-white px-4 py-3 text-sm text-slate-700"
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-full bg-amber-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-amber-600"
+                  >
+                    Submit return request
+                  </button>
+                </form>
+              </section>
+            ) : null}
           </div>
 
           <aside className="space-y-6">
@@ -355,6 +428,10 @@ function getOrderFlashMessage(searchParams: Record<string, string | string[] | u
 
   if (status === "completed") {
     return "Order marked as completed.";
+  }
+
+  if (status === "return_requested") {
+    return "Return request submitted. Seller can now inspect and process the request.";
   }
 
   return null;

@@ -188,6 +188,22 @@ export async function completeOrderAction(formData: FormData) {
   redirect(`/orders/${orderId}?status=completed`);
 }
 
+export async function requestReturnAction(formData: FormData) {
+  const orderId = String(formData.get("orderId"));
+  const reason = String(formData.get("reason") ?? "");
+  const details = String(formData.get("details") ?? "") || undefined;
+
+  await authedMutation(`/orders/${orderId}/return-request`, {
+    method: "POST",
+    body: JSON.stringify({
+      reason,
+      details
+    })
+  });
+
+  redirect(`/orders/${orderId}?status=return_requested` as Route);
+}
+
 export async function addToWishlistAction(formData: FormData) {
   const productId = String(formData.get("productId"));
 
@@ -196,6 +212,46 @@ export async function addToWishlistAction(formData: FormData) {
   });
 
   redirect(`/products/${String(formData.get("productSlug"))}?wishlist=added`);
+}
+
+export async function createAddressAction(formData: FormData) {
+  await authedMutation("/addresses", {
+    method: "POST",
+    body: JSON.stringify(extractAddressPayload(formData))
+  });
+
+  redirect("/account/addresses?status=created" as Route);
+}
+
+export async function updateAddressAction(formData: FormData) {
+  const addressId = String(formData.get("addressId") ?? "");
+
+  await authedMutation(`/addresses/${addressId}`, {
+    method: "PATCH",
+    body: JSON.stringify(extractAddressPayload(formData))
+  });
+
+  redirect("/account/addresses?status=updated" as Route);
+}
+
+export async function setDefaultAddressAction(formData: FormData) {
+  const addressId = String(formData.get("addressId") ?? "");
+
+  await authedMutation(`/addresses/${addressId}/default`, {
+    method: "POST"
+  });
+
+  redirect("/account/addresses?status=default" as Route);
+}
+
+export async function deleteAddressAction(formData: FormData) {
+  const addressId = String(formData.get("addressId") ?? "");
+
+  await authedMutation(`/addresses/${addressId}`, {
+    method: "DELETE"
+  });
+
+  redirect("/account/addresses?status=deleted" as Route);
 }
 
 export async function removeFromWishlistAction(formData: FormData) {
@@ -299,4 +355,19 @@ export async function createReportAction(formData: FormData) {
   });
 
   redirect(`${redirectTo}?report=submitted` as Route);
+}
+
+function extractAddressPayload(formData: FormData) {
+  return {
+    label: String(formData.get("label") ?? ""),
+    recipientName: String(formData.get("recipientName") ?? ""),
+    phoneNumber: String(formData.get("phoneNumber") ?? ""),
+    addressLine1: String(formData.get("addressLine1") ?? ""),
+    addressLine2: String(formData.get("addressLine2") ?? "") || undefined,
+    ward: String(formData.get("ward") ?? "") || undefined,
+    district: String(formData.get("district") ?? ""),
+    province: String(formData.get("province") ?? ""),
+    regionCode: String(formData.get("regionCode") ?? ""),
+    isDefault: String(formData.get("isDefault") ?? "") === "true"
+  };
 }

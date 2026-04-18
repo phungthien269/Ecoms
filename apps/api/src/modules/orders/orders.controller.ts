@@ -4,6 +4,7 @@ import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { Roles } from "../rbac/decorators/roles.decorator";
 import { RolesGuard } from "../rbac/guards/roles.guard";
+import { CreateReturnRequestDto } from "./dto/create-return-request.dto";
 import { UpdateAdminOrderStatusDto } from "./dto/update-admin-order-status.dto";
 import { UpdateSellerOrderStatusDto } from "./dto/update-seller-order-status.dto";
 import { OrdersService } from "./orders.service";
@@ -59,6 +60,15 @@ export class OrdersController {
   @Post(":orderId/complete")
   complete(@CurrentUser("sub") userId: string, @Param("orderId") orderId: string) {
     return this.ordersService.complete(userId, orderId);
+  }
+
+  @Post(":orderId/return-request")
+  requestReturn(
+    @CurrentUser("sub") userId: string,
+    @Param("orderId") orderId: string,
+    @Body() payload: CreateReturnRequestDto
+  ) {
+    return this.ordersService.requestReturn(userId, orderId, payload);
   }
 
   @Patch("seller/me/:orderId/status")

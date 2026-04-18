@@ -166,6 +166,14 @@ export interface CheckoutShippingAddress {
   regionCode: string;
 }
 
+export interface SavedAddressSummary extends CheckoutShippingAddress {
+  id: string;
+  label: string;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CheckoutShopVoucherInput {
   shopId: string;
   code: string;
@@ -224,6 +232,26 @@ export interface OrderSummary {
   discountTotal: string;
   grandTotal: string;
   placedAt: string;
+}
+
+export interface OrderStatusTimelineEvent {
+  id: string;
+  status: OrderStatus;
+  actorType: string;
+  actorUser: {
+    id: string;
+    fullName: string;
+    role: UserRole;
+  } | null;
+  note: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface OrderReturnWindowSummary {
+  canRequest: boolean;
+  deliveredAt: string | null;
+  expiresAt: string | null;
 }
 
 export interface ApiSuccessResponse<T> {

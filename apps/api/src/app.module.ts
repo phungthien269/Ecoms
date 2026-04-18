@@ -10,6 +10,7 @@ import { validateEnv } from "./config/env";
 import { RequestContextMiddleware } from "./common/middleware/request-context.middleware";
 import { RequestLoggingMiddleware } from "./common/middleware/request-logging.middleware";
 import { AdminDashboardModule } from "./modules/adminDashboard/adminDashboard.module";
+import { AddressesModule } from "./modules/addresses/addresses.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { BannersModule } from "./modules/banners/banners.module";
 import { BrandsModule } from "./modules/brands/brands.module";
@@ -43,6 +44,7 @@ import { WishlistModule } from "./modules/wishlist/wishlist.module";
     }),
     PrismaModule,
     RateLimitModule,
+    AddressesModule,
     AdminDashboardModule,
     HealthModule,
     AuthModule,

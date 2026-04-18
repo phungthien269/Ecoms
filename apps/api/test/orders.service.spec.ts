@@ -4,6 +4,7 @@ import { OrdersService } from "../src/modules/orders/orders.service";
 
 describe("OrdersService", () => {
   const prisma = {
+    $transaction: jest.fn(async (callback: (tx: typeof prisma) => unknown) => callback(prisma)),
     order: {
       findFirst: jest.fn(),
       update: jest.fn(),
@@ -23,11 +24,17 @@ describe("OrdersService", () => {
   const mailerService = {
     sendSafely: jest.fn()
   };
+  const orderStatusHistoryService = {
+    record: jest.fn(),
+    listForOrder: jest.fn(),
+    getLatestStatusTimestamp: jest.fn()
+  };
 
   const service = new OrdersService(
     prisma as never,
     notificationsService as never,
-    mailerService as never
+    mailerService as never,
+    orderStatusHistoryService as never
   );
 
   beforeEach(() => {
@@ -53,6 +60,13 @@ describe("OrdersService", () => {
     const result = await service.cancel("user-1", "order-1");
     expect(result.status).toBe(OrderStatus.CANCELLED);
     expect(notificationsService.create).toHaveBeenCalled();
+    expect(orderStatusHistoryService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: "order-1",
+        status: OrderStatus.CANCELLED
+      }),
+      prisma
+    );
   });
 
   it("blocks cancelling shipped orders", async () => {
@@ -89,6 +103,13 @@ describe("OrdersService", () => {
 
     const result = await service.complete("user-1", "order-1");
     expect(result.status).toBe(OrderStatus.COMPLETED);
+    expect(orderStatusHistoryService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: "order-1",
+        status: OrderStatus.COMPLETED
+      }),
+      prisma
+    );
     expect(mailerService.sendSafely).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "buyer@example.com",
@@ -162,5 +183,82 @@ describe("OrdersService", () => {
 
     const result = await service.updateAdminStatus("order-1", OrderStatus.REFUNDED);
     expect(result.status).toBe(OrderStatus.REFUNDED);
+  });
+
+  it("allows buyer to request return within 7 days after delivery", async () => {
+    prisma.order.findFirst.mockResolvedValue({
+      id: "order-1",
+      userId: "user-1",
+      shopId: "shop-1",
+      orderNumber: "ORD-1",
+      status: OrderStatus.DELIVERED,
+      updatedAt: new Date("2026-04-18T06:00:00.000Z")
+    });
+    prisma.order.update.mockResolvedValue({
+      id: "order-1",
+      status: OrderStatus.RETURN_REQUESTED
+    });
+    prisma.shop.findUnique.mockResolvedValue({
+      ownerId: "seller-1"
+    });
+    orderStatusHistoryService.listForOrder.mockResolvedValue([
+      {
+        id: "hist-1",
+        status: OrderStatus.DELIVERED,
+        actorType: "SELLER",
+        actorUser: null,
+        note: null,
+        metadata: null,
+        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+      }
+    ]);
+
+    const result = await service.requestReturn("user-1", "order-1", {
+      reason: "Wrong size",
+      details: "Need exchange"
+    });
+
+    expect(result.status).toBe(OrderStatus.RETURN_REQUESTED);
+    expect(orderStatusHistoryService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: "order-1",
+        status: OrderStatus.RETURN_REQUESTED,
+        note: "Wrong size"
+      }),
+      prisma
+    );
+    expect(notificationsService.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "seller-1"
+      })
+    );
+  });
+
+  it("blocks return requests after the 7 day window", async () => {
+    prisma.order.findFirst.mockResolvedValue({
+      id: "order-1",
+      userId: "user-1",
+      shopId: "shop-1",
+      orderNumber: "ORD-1",
+      status: OrderStatus.COMPLETED,
+      updatedAt: new Date("2026-04-18T06:00:00.000Z")
+    });
+    orderStatusHistoryService.listForOrder.mockResolvedValue([
+      {
+        id: "hist-1",
+        status: OrderStatus.DELIVERED,
+        actorType: "SELLER",
+        actorUser: null,
+        note: null,
+        metadata: null,
+        createdAt: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString()
+      }
+    ]);
+
+    await expect(
+      service.requestReturn("user-1", "order-1", {
+        reason: "Late damage"
+      })
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 });

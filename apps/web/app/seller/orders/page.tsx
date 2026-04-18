@@ -12,7 +12,8 @@ const sellerTransitions: Record<string, string[]> = {
   PENDING: ["CONFIRMED"],
   CONFIRMED: ["PROCESSING"],
   PROCESSING: ["SHIPPING"],
-  SHIPPING: ["DELIVERED", "DELIVERY_FAILED"]
+  SHIPPING: ["DELIVERED", "DELIVERY_FAILED"],
+  RETURN_REQUESTED: ["RETURNED"]
 };
 
 export default async function SellerOrdersPage() {
@@ -121,6 +122,11 @@ export default async function SellerOrdersPage() {
                         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-500">
                           Fulfillment
                         </p>
+                        {order.status === "RETURN_REQUESTED" ? (
+                          <p className="rounded-[1.2rem] bg-white px-3 py-2 text-sm text-amber-700">
+                            Buyer submitted a return request. Inspect the case, then mark the package as returned once received.
+                          </p>
+                        ) : null}
                         {nextStatuses.length > 0 ? (
                           nextStatuses.map((status) => (
                             <form key={status} action={updateSellerOrderStatusAction}>

@@ -16,6 +16,7 @@ describe("OrdersController (http)", () => {
     getOwnDetail: jest.fn(),
     cancel: jest.fn(),
     complete: jest.fn(),
+    requestReturn: jest.fn(),
     updateSellerStatus: jest.fn()
   } satisfies Partial<OrdersService>;
 
@@ -93,5 +94,29 @@ describe("OrdersController (http)", () => {
     expect(response.status).toBe(400);
     expect(response.body.success).toBe(false);
     expect(ordersService.updateAdminStatus).not.toHaveBeenCalled();
+  });
+
+  it("allows buyer to submit a return request through http layer", async () => {
+    ordersService.requestReturn.mockResolvedValue({
+      id: "order-1",
+      status: OrderStatus.RETURN_REQUESTED
+    });
+
+    const response = await request(app.getHttpServer())
+      .post("/api/orders/order-1/return-request")
+      .set("x-test-user-id", "buyer-1")
+      .set("x-test-user-role", UserRole.CUSTOMER)
+      .send({
+        reason: "Wrong size",
+        details: "Need seller support"
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.status).toBe(OrderStatus.RETURN_REQUESTED);
+    expect(ordersService.requestReturn).toHaveBeenCalledWith("buyer-1", "order-1", {
+      reason: "Wrong size",
+      details: "Need seller support"
+    });
   });
 });

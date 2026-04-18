@@ -60,11 +60,45 @@ async function main() {
     passwordHash: "$2a$12$eixZaYVK1fsbw1ZfbX3OXePaWxn96p36uJpqG8Q3G.NB0I6CLlcG6"
   });
 
-  await upsertUser({
+  const buyer = await upsertUser({
     email: "buyer@ecoms.local",
     fullName: "Demo Buyer",
     role: "CUSTOMER",
     passwordHash: "$2a$12$eixZaYVK1fsbw1ZfbX3OXePaWxn96p36uJpqG8Q3G.NB0I6CLlcG6"
+  });
+
+  await prisma.userAddress.deleteMany({
+    where: {
+      userId: buyer.id
+    }
+  });
+
+  await prisma.userAddress.createMany({
+    data: [
+      {
+        userId: buyer.id,
+        label: "Home",
+        recipientName: "Demo Buyer",
+        phoneNumber: "0900000000",
+        addressLine1: "123 Demo Street",
+        district: "District 1",
+        province: "Ho Chi Minh City",
+        regionCode: "HCM",
+        isDefault: true
+      },
+      {
+        userId: buyer.id,
+        label: "Office",
+        recipientName: "Demo Buyer",
+        phoneNumber: "0900000001",
+        addressLine1: "456 Work Avenue",
+        ward: "Ward 6",
+        district: "District 3",
+        province: "Ho Chi Minh City",
+        regionCode: "HCM",
+        isDefault: false
+      }
+    ]
   });
 
   const electronics = await prisma.category.upsert({

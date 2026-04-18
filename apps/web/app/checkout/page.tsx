@@ -1,7 +1,10 @@
+import type { Route } from "next";
+import Link from "next/link";
 import { placeOrderAction } from "@/app/actions/commerce";
 import { formatPrice } from "@/components/commerce/price";
 import { EmptyState } from "@/components/storefront/emptyState";
 import {
+  getAddresses,
   getCart,
   getCheckoutFreeshipVouchers,
   getCheckoutPlatformVouchers,
@@ -17,6 +20,8 @@ const defaultCheckoutPayload = {
     recipientName: "Demo Buyer",
     phoneNumber: "0900000000",
     addressLine1: "123 Demo Street",
+    addressLine2: undefined,
+    ward: undefined,
     district: "District 1",
     province: "Ho Chi Minh City",
     regionCode: "HCM"
@@ -48,38 +53,57 @@ export default async function CheckoutPage({
 }) {
   const session = await getDemoSession();
   const resolvedSearchParams = (await searchParams) ?? {};
-  const [cart, platformVouchers, freeshipVouchers] = await Promise.all([
+  const [cart, platformVouchers, freeshipVouchers, savedAddresses] = await Promise.all([
     getCart(),
     getCheckoutPlatformVouchers(),
-    getCheckoutFreeshipVouchers()
+    getCheckoutFreeshipVouchers(),
+    getAddresses()
   ]);
+  const selectedAddressId = getOptionalQueryValue(resolvedSearchParams.addressId);
+  const selectedSavedAddress =
+    savedAddresses.find((address) => address.id === selectedAddressId) ??
+    savedAddresses.find((address) => address.isDefault) ??
+    savedAddresses[0];
+  const shippingFallback = selectedSavedAddress
+    ? {
+        recipientName: selectedSavedAddress.recipientName,
+        phoneNumber: selectedSavedAddress.phoneNumber,
+        addressLine1: selectedSavedAddress.addressLine1,
+        addressLine2: selectedSavedAddress.addressLine2 ?? undefined,
+        ward: selectedSavedAddress.ward ?? undefined,
+        district: selectedSavedAddress.district,
+        province: selectedSavedAddress.province,
+        regionCode: selectedSavedAddress.regionCode
+      }
+    : defaultCheckoutPayload.shippingAddress;
 
   const shippingAddress = {
     recipientName: getQueryValue(
       resolvedSearchParams.recipientName,
-      defaultCheckoutPayload.shippingAddress.recipientName
+      shippingFallback.recipientName
     ),
     phoneNumber: getQueryValue(
       resolvedSearchParams.phoneNumber,
-      defaultCheckoutPayload.shippingAddress.phoneNumber
+      shippingFallback.phoneNumber
     ),
     addressLine1: getQueryValue(
       resolvedSearchParams.addressLine1,
-      defaultCheckoutPayload.shippingAddress.addressLine1
+      shippingFallback.addressLine1
     ),
-    addressLine2: getOptionalQueryValue(resolvedSearchParams.addressLine2),
-    ward: getOptionalQueryValue(resolvedSearchParams.ward),
+    addressLine2:
+      getOptionalQueryValue(resolvedSearchParams.addressLine2) ?? shippingFallback.addressLine2,
+    ward: getOptionalQueryValue(resolvedSearchParams.ward) ?? shippingFallback.ward,
     district: getQueryValue(
       resolvedSearchParams.district,
-      defaultCheckoutPayload.shippingAddress.district
+      shippingFallback.district
     ),
     province: getQueryValue(
       resolvedSearchParams.province,
-      defaultCheckoutPayload.shippingAddress.province
+      shippingFallback.province
     ),
     regionCode: getQueryValue(
       resolvedSearchParams.regionCode,
-      defaultCheckoutPayload.shippingAddress.regionCode
+      shippingFallback.regionCode
     )
   };
   const selectedPaymentMethod = getQueryValue(
@@ -148,8 +172,45 @@ export default async function CheckoutPage({
                 <div>
                   <h2 className="text-xl font-bold text-slate-950">Shipping address</h2>
                   <p className="mt-1 text-sm text-slate-500">
-                    Defaults are pre-filled for the local buyer demo session.
+                    Saved addresses prefill checkout. Edits here do not overwrite the saved address book.
                   </p>
+                </div>
+                {savedAddresses.length > 0 ? (
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    {savedAddresses.map((address) => (
+                      <Link
+                        key={address.id}
+                        href={`/checkout?addressId=${address.id}` as Route}
+                        className={`rounded-[1.5rem] border p-4 text-sm transition ${
+                          address.id === selectedSavedAddress?.id
+                            ? "border-orange-300 bg-orange-50 text-orange-700"
+                            : "border-slate-200 bg-slate-50 text-slate-600 hover:border-orange-200"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-slate-950">{address.label}</span>
+                          {address.isDefault ? (
+                            <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-600">
+                              Default
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="mt-2">{address.recipientName}</div>
+                        <div>{address.phoneNumber}</div>
+                        <div className="mt-1 line-clamp-2">
+                          {[address.addressLine1, address.district, address.province].join(", ")}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                ) : null}
+                <div className="text-sm">
+                  <Link
+                    href={"/account/addresses" as Route}
+                    className="font-semibold text-orange-600 hover:text-orange-700"
+                  >
+                    Manage saved addresses
+                  </Link>
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">

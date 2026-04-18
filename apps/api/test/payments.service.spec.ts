@@ -24,6 +24,9 @@ describe("PaymentsService", () => {
   const notificationsService = {
     create: jest.fn()
   };
+  const orderStatusHistoryService = {
+    record: jest.fn()
+  };
   const configService = {
     get: jest.fn().mockImplementation((key: string, fallback?: unknown) => {
       if (key === "PAYMENT_WEBHOOK_SECRET") {
@@ -37,12 +40,15 @@ describe("PaymentsService", () => {
   const service = new PaymentsService(
     prisma as never,
     notificationsService as never,
-    configService as never
+    configService as never,
+    orderStatusHistoryService as never
   );
 
   beforeEach(() => {
     jest.clearAllMocks();
-    prisma.$transaction.mockResolvedValue([]);
+    prisma.$transaction.mockImplementation(async (callback: (tx: typeof prisma) => unknown) =>
+      callback(prisma)
+    );
   });
 
   it("confirms a pending non-COD payment and updates the order", async () => {
@@ -69,6 +75,13 @@ describe("PaymentsService", () => {
     const result = await service.confirm("user-1", "payment-1");
 
     expect(prisma.$transaction).toHaveBeenCalled();
+    expect(orderStatusHistoryService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: "order-1",
+        status: OrderStatus.CONFIRMED
+      }),
+      prisma
+    );
     expect(notificationsService.create).toHaveBeenCalledTimes(2);
     expect(result).toEqual({
       paymentId: "payment-1",
@@ -168,6 +181,13 @@ describe("PaymentsService", () => {
     );
 
     expect(prisma.$transaction).toHaveBeenCalled();
+    expect(orderStatusHistoryService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: "order-3",
+        status: OrderStatus.CANCELLED
+      }),
+      prisma
+    );
     expect(result).toEqual({
       paymentId: "payment-3",
       orderId: "order-3",

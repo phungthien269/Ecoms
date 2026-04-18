@@ -7,6 +7,7 @@ import {
 } from "@ecoms/contracts";
 import { MailerService } from "../mailer/mailer.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import { OrderStatusHistoryService } from "../orderStatusHistory/order-status-history.service";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
@@ -14,7 +15,8 @@ export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
-    private readonly mailerService: MailerService
+    private readonly mailerService: MailerService,
+    private readonly orderStatusHistoryService: OrderStatusHistoryService
   ) {}
 
   async listOwn(userId: string) {
@@ -151,56 +153,11 @@ export class OrdersService {
       throw new NotFoundException("Order not found");
     }
 
+    const statusTimeline = await this.orderStatusHistoryService.listForOrder(order.id);
     return {
-      id: order.id,
-      orderNumber: order.orderNumber,
-      status: order.status,
-      paymentMethod: order.paymentMethod,
-      shippingAddress: {
-        recipientName: order.shippingRecipientName,
-        phoneNumber: order.shippingPhoneNumber,
-        addressLine1: order.shippingAddressLine1,
-        addressLine2: order.shippingAddressLine2,
-        ward: order.shippingWard,
-        district: order.shippingDistrict,
-        province: order.shippingProvince,
-        regionCode: order.shippingRegionCode
-      },
-      totals: {
-        itemsSubtotal: order.itemsSubtotal.toString(),
-        shippingFee: order.shippingFee.toString(),
-        discountTotal: order.discountTotal.toString(),
-        grandTotal: order.grandTotal.toString()
-      },
-      shop: order.shop,
-      note: order.note,
-      appliedVoucherCodes: order.appliedVoucherCodes,
-      placedAt: order.placedAt.toISOString(),
-      items: order.items.map((item) => ({
-        id: item.id,
-        productId: item.productId,
-        productVariantId: item.productVariantId,
-        productName: item.productName,
-        productSlug: item.productSlug,
-        productSku: item.productSku,
-        variantName: item.variantName,
-        variantSku: item.variantSku,
-        variantAttributes: item.variantAttributes,
-        quantity: item.quantity,
-        reviewId: item.review?.id ?? null,
-        unitPrice: item.unitPrice.toString(),
-        subtotal: item.subtotal.toString()
-      })),
-      payments: order.payments.map((payment) => ({
-        id: payment.id,
-        method: payment.method,
-        status: payment.status,
-        amount: payment.amount.toString(),
-        referenceCode: payment.referenceCode,
-        expiresAt: payment.expiresAt?.toISOString() ?? null,
-        paidAt: payment.paidAt?.toISOString() ?? null,
-        metadata: payment.metadata
-      }))
+      ...this.serializeOrderDetail(order),
+      statusTimeline,
+      returnWindow: this.buildReturnWindow(order.status as OrderStatus, order.updatedAt, statusTimeline)
     };
   }
 
@@ -216,15 +173,30 @@ export class OrdersService {
       throw new NotFoundException("Order not found");
     }
 
-    if ([OrderStatus.SHIPPING, OrderStatus.DELIVERED, OrderStatus.COMPLETED].includes(order.status as OrderStatus)) {
+    if (![OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PROCESSING].includes(order.status as OrderStatus)) {
       throw new ConflictException("Orders can only be cancelled before shipping starts");
     }
 
-    const updated = await this.prisma.order.update({
-      where: { id: order.id },
-      data: {
-        status: OrderStatus.CANCELLED
-      }
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const nextOrder = await tx.order.update({
+        where: { id: order.id },
+        data: {
+          status: OrderStatus.CANCELLED
+        }
+      });
+
+      await this.orderStatusHistoryService.record(
+        {
+          orderId: order.id,
+          status: OrderStatus.CANCELLED,
+          actorType: "CUSTOMER",
+          actorUserId: userId,
+          note: "Buyer cancelled the order before shipping"
+        },
+        tx
+      );
+
+      return nextOrder;
     });
 
     await this.notificationsService.create({
@@ -257,11 +229,26 @@ export class OrdersService {
       throw new ConflictException("Only delivered orders can be marked complete");
     }
 
-    const updated = await this.prisma.order.update({
-      where: { id: order.id },
-      data: {
-        status: OrderStatus.COMPLETED
-      }
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const nextOrder = await tx.order.update({
+        where: { id: order.id },
+        data: {
+          status: OrderStatus.COMPLETED
+        }
+      });
+
+      await this.orderStatusHistoryService.record(
+        {
+          orderId: order.id,
+          status: OrderStatus.COMPLETED,
+          actorType: "CUSTOMER",
+          actorUserId: userId,
+          note: "Buyer confirmed delivery and completed the order"
+        },
+        tx
+      );
+
+      return nextOrder;
     });
 
     const seller = await this.prisma.shop.findUnique({
@@ -294,6 +281,83 @@ export class OrdersService {
         html: `<p>Hello ${buyer.fullName},</p><p>Your order ${order.orderNumber} has been marked completed.</p><p>You can now leave a review for the purchased items.</p>`,
         text: `Hello ${buyer.fullName}, your order ${order.orderNumber} has been marked completed. You can now leave a review for the purchased items.`,
         tags: ["order_completed"]
+      });
+    }
+
+    return {
+      id: updated.id,
+      status: updated.status
+    };
+  }
+
+  async requestReturn(
+    userId: string,
+    orderId: string,
+    payload: {
+      reason: string;
+      details?: string;
+    }
+  ) {
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        userId
+      }
+    });
+
+    if (!order) {
+      throw new NotFoundException("Order not found");
+    }
+
+    if (![OrderStatus.DELIVERED, OrderStatus.COMPLETED].includes(order.status as OrderStatus)) {
+      throw new ConflictException("Return requests are only allowed after delivery");
+    }
+
+    const statusTimeline = await this.orderStatusHistoryService.listForOrder(order.id);
+    const returnWindow = this.buildReturnWindow(order.status as OrderStatus, order.updatedAt, statusTimeline);
+    if (!returnWindow.canRequest) {
+      throw new ConflictException("Return window has expired");
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const nextOrder = await tx.order.update({
+        where: { id: order.id },
+        data: {
+          status: OrderStatus.RETURN_REQUESTED
+        }
+      });
+
+      await this.orderStatusHistoryService.record(
+        {
+          orderId: order.id,
+          status: OrderStatus.RETURN_REQUESTED,
+          actorType: "CUSTOMER",
+          actorUserId: userId,
+          note: payload.reason,
+          metadata: payload.details
+            ? {
+                details: payload.details
+              }
+            : undefined
+        },
+        tx
+      );
+
+      return nextOrder;
+    });
+
+    const seller = await this.prisma.shop.findUnique({
+      where: { id: order.shopId },
+      select: { ownerId: true }
+    });
+
+    if (seller) {
+      await this.notificationsService.create({
+        userId: seller.ownerId,
+        category: NotificationCategory.ORDER_STATUS,
+        title: "Buyer requested a return",
+        body: `${order.orderNumber} has a new return request.`,
+        linkUrl: "/seller/orders"
       });
     }
 
@@ -417,56 +481,13 @@ export class OrdersService {
       throw new NotFoundException("Order not found");
     }
 
+    const statusTimeline = await this.orderStatusHistoryService.listForOrder(order.id);
     return {
-      id: order.id,
-      orderNumber: order.orderNumber,
-      status: order.status,
-      paymentMethod: order.paymentMethod,
-      shippingAddress: {
-        recipientName: order.shippingRecipientName,
-        phoneNumber: order.shippingPhoneNumber,
-        addressLine1: order.shippingAddressLine1,
-        addressLine2: order.shippingAddressLine2,
-        ward: order.shippingWard,
-        district: order.shippingDistrict,
-        province: order.shippingProvince,
-        regionCode: order.shippingRegionCode
-      },
-      totals: {
-        itemsSubtotal: order.itemsSubtotal.toString(),
-        shippingFee: order.shippingFee.toString(),
-        discountTotal: order.discountTotal.toString(),
-        grandTotal: order.grandTotal.toString()
-      },
-      shop: order.shop,
+      ...this.serializeOrderDetail(order),
       customer: order.user,
-      note: order.note,
-      appliedVoucherCodes: order.appliedVoucherCodes,
-      placedAt: order.placedAt.toISOString(),
-      items: order.items.map((item) => ({
-        id: item.id,
-        productId: item.productId,
-        productVariantId: item.productVariantId,
-        productName: item.productName,
-        productSlug: item.productSlug,
-        productSku: item.productSku,
-        variantName: item.variantName,
-        variantSku: item.variantSku,
-        variantAttributes: item.variantAttributes,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice.toString(),
-        subtotal: item.subtotal.toString()
-      })),
-      payments: order.payments.map((payment) => ({
-        id: payment.id,
-        method: payment.method,
-        status: payment.status,
-        amount: payment.amount.toString(),
-        referenceCode: payment.referenceCode,
-        expiresAt: payment.expiresAt?.toISOString() ?? null,
-        paidAt: payment.paidAt?.toISOString() ?? null,
-        metadata: payment.metadata
-      }))
+      shop: order.shop,
+      statusTimeline,
+      returnWindow: this.buildReturnWindow(order.status as OrderStatus, order.updatedAt, statusTimeline)
     };
   }
 
@@ -494,11 +515,26 @@ export class OrdersService {
       this.assertOrderReadyForConfirmation(order.paymentMethod as PaymentMethod, order.payments);
     }
 
-    const updated = await this.prisma.order.update({
-      where: { id: order.id },
-      data: {
-        status: nextStatus
-      }
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const nextOrder = await tx.order.update({
+        where: { id: order.id },
+        data: {
+          status: nextStatus
+        }
+      });
+
+      await this.orderStatusHistoryService.record(
+        {
+          orderId: order.id,
+          status: nextStatus,
+          actorType: "SELLER",
+          actorUserId: userId,
+          note: this.getSellerTransitionNote(nextStatus)
+        },
+        tx
+      );
+
+      return nextOrder;
     });
 
     await this.notificationsService.create({
@@ -535,11 +571,25 @@ export class OrdersService {
       throw new ConflictException("Admin can only set terminal moderation statuses");
     }
 
-    const updated = await this.prisma.order.update({
-      where: { id: orderId },
-      data: {
-        status: nextStatus
-      }
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const nextOrder = await tx.order.update({
+        where: { id: orderId },
+        data: {
+          status: nextStatus
+        }
+      });
+
+      await this.orderStatusHistoryService.record(
+        {
+          orderId,
+          status: nextStatus,
+          actorType: "ADMIN",
+          note: `Admin updated order status to ${nextStatus.replaceAll("_", " ").toLowerCase()}`
+        },
+        tx
+      );
+
+      return nextOrder;
     });
 
     await this.notificationsService.create({
@@ -561,7 +611,8 @@ export class OrdersService {
       [OrderStatus.PENDING]: [OrderStatus.CONFIRMED],
       [OrderStatus.CONFIRMED]: [OrderStatus.PROCESSING],
       [OrderStatus.PROCESSING]: [OrderStatus.SHIPPING],
-      [OrderStatus.SHIPPING]: [OrderStatus.DELIVERED, OrderStatus.DELIVERY_FAILED]
+      [OrderStatus.SHIPPING]: [OrderStatus.DELIVERED, OrderStatus.DELIVERY_FAILED],
+      [OrderStatus.RETURN_REQUESTED]: [OrderStatus.RETURNED]
     };
 
     const nextStatuses = allowedTransitions[currentStatus] ?? [];
@@ -581,6 +632,153 @@ export class OrdersService {
     const hasPaidPayment = payments.some((payment) => payment.status === PaymentStatus.PAID);
     if (!hasPaidPayment) {
       throw new ConflictException("Order cannot be confirmed before payment is completed");
+    }
+  }
+
+  private serializeOrderDetail(order: {
+    id: string;
+    orderNumber: string;
+    status: string;
+    paymentMethod: string;
+    shippingRecipientName: string;
+    shippingPhoneNumber: string;
+    shippingAddressLine1: string;
+    shippingAddressLine2: string | null;
+    shippingWard: string | null;
+    shippingDistrict: string;
+    shippingProvince: string;
+    shippingRegionCode: string;
+    itemsSubtotal: { toString(): string };
+    shippingFee: { toString(): string };
+    discountTotal: { toString(): string };
+    grandTotal: { toString(): string };
+    note: string | null;
+    appliedVoucherCodes: string[];
+    placedAt: Date;
+    shop: { id: string; name: string; slug: string };
+    items: Array<{
+      id: string;
+      productId: string;
+      productVariantId: string | null;
+      productName: string;
+      productSlug: string;
+      productSku: string;
+      variantName: string | null;
+      variantSku: string | null;
+      variantAttributes: unknown;
+      quantity: number;
+      unitPrice: { toString(): string };
+      subtotal: { toString(): string };
+      review?: { id: string } | null;
+    }>;
+    payments: Array<{
+      id: string;
+      method: string;
+      status: string;
+      amount: { toString(): string };
+      referenceCode: string;
+      expiresAt: Date | null;
+      paidAt: Date | null;
+      metadata: unknown;
+    }>;
+  }) {
+    return {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      status: order.status,
+      paymentMethod: order.paymentMethod,
+      shippingAddress: {
+        recipientName: order.shippingRecipientName,
+        phoneNumber: order.shippingPhoneNumber,
+        addressLine1: order.shippingAddressLine1,
+        addressLine2: order.shippingAddressLine2,
+        ward: order.shippingWard,
+        district: order.shippingDistrict,
+        province: order.shippingProvince,
+        regionCode: order.shippingRegionCode
+      },
+      totals: {
+        itemsSubtotal: order.itemsSubtotal.toString(),
+        shippingFee: order.shippingFee.toString(),
+        discountTotal: order.discountTotal.toString(),
+        grandTotal: order.grandTotal.toString()
+      },
+      shop: order.shop,
+      note: order.note,
+      appliedVoucherCodes: order.appliedVoucherCodes,
+      placedAt: order.placedAt.toISOString(),
+      items: order.items.map((item) => ({
+        id: item.id,
+        productId: item.productId,
+        productVariantId: item.productVariantId,
+        productName: item.productName,
+        productSlug: item.productSlug,
+        productSku: item.productSku,
+        variantName: item.variantName,
+        variantSku: item.variantSku,
+        variantAttributes: item.variantAttributes as Record<string, string> | null,
+        quantity: item.quantity,
+        reviewId: item.review?.id ?? null,
+        unitPrice: item.unitPrice.toString(),
+        subtotal: item.subtotal.toString()
+      })),
+      payments: order.payments.map((payment) => ({
+        id: payment.id,
+        method: payment.method,
+        status: payment.status,
+        amount: payment.amount.toString(),
+        referenceCode: payment.referenceCode,
+        expiresAt: payment.expiresAt?.toISOString() ?? null,
+        paidAt: payment.paidAt?.toISOString() ?? null,
+        metadata: (payment.metadata as Record<string, unknown> | null) ?? null
+      }))
+    };
+  }
+
+  private buildReturnWindow(
+    currentStatus: OrderStatus,
+    orderUpdatedAt: Date,
+    statusTimeline: Array<{ status: string; createdAt: string }>
+  ) {
+    const deliveredEntry = [...statusTimeline]
+      .reverse()
+      .find((entry) => entry.status === OrderStatus.DELIVERED);
+    const deliveredAt = deliveredEntry?.createdAt ?? null;
+    const deliveredDate =
+      deliveredAt
+        ? new Date(deliveredAt)
+        : [OrderStatus.DELIVERED, OrderStatus.COMPLETED].includes(currentStatus)
+          ? orderUpdatedAt
+          : null;
+    const expiresAt = deliveredDate ? new Date(deliveredDate.getTime() + 7 * 24 * 60 * 60 * 1000) : null;
+    const canRequest =
+      Boolean(deliveredDate) &&
+      [OrderStatus.DELIVERED, OrderStatus.COMPLETED].includes(currentStatus) &&
+      Boolean(expiresAt && expiresAt.getTime() >= Date.now());
+
+    return {
+      canRequest,
+      deliveredAt: deliveredDate?.toISOString() ?? null,
+      expiresAt: expiresAt?.toISOString() ?? null
+    };
+  }
+
+  private getSellerTransitionNote(nextStatus: OrderStatus) {
+    switch (nextStatus) {
+      case OrderStatus.CONFIRMED:
+        return "Seller confirmed the order";
+      case OrderStatus.PROCESSING:
+        return "Seller started preparing the package";
+      case OrderStatus.SHIPPING:
+        return "Seller handed the order to shipping";
+      case OrderStatus.DELIVERED:
+        return "Seller marked the shipment as delivered";
+      case OrderStatus.DELIVERY_FAILED:
+        return "Seller marked the delivery as failed";
+      case OrderStatus.RETURNED:
+        return "Seller marked the returned package as received";
+      default:
+        return `Seller updated order status to ${nextStatus.replaceAll("_", " ").toLowerCase()}`;
     }
   }
 }

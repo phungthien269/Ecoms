@@ -88,12 +88,16 @@ describe("CheckoutService", () => {
   const mailerService = {
     sendSafely: jest.fn()
   };
+  const orderStatusHistoryService = {
+    record: jest.fn()
+  };
 
   const service = new CheckoutService(
     prisma as never,
     vouchersService as never,
     notificationsService as never,
-    mailerService as never
+    mailerService as never,
+    orderStatusHistoryService as never
   );
 
   beforeEach(() => {
@@ -190,6 +194,13 @@ describe("CheckoutService", () => {
         method: PaymentMethod.COD
       })
     });
+    expect(orderStatusHistoryService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: "order-1",
+        status: "CONFIRMED"
+      }),
+      prisma
+    );
     expect(prisma.cartItem.deleteMany).toHaveBeenCalledWith({
       where: { userId: "user-1" }
     });

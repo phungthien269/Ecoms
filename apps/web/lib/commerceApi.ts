@@ -83,6 +83,22 @@ export interface CheckoutPreview {
   };
 }
 
+export interface SavedAddressItem {
+  id: string;
+  label: string;
+  recipientName: string;
+  phoneNumber: string;
+  addressLine1: string;
+  addressLine2: string | null;
+  ward: string | null;
+  district: string;
+  province: string;
+  regionCode: string;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface OrderListItem {
   id: string;
   orderNumber: string;
@@ -153,6 +169,24 @@ export interface OrderDetail extends OrderListItem {
     paidAt: string | null;
     metadata: Record<string, unknown> | null;
   }>;
+  statusTimeline: Array<{
+    id: string;
+    status: string;
+    actorType: string;
+    actorUser: {
+      id: string;
+      fullName: string;
+      role: string;
+    } | null;
+    note: string | null;
+    metadata: Record<string, unknown> | null;
+    createdAt: string;
+  }>;
+  returnWindow: {
+    canRequest: boolean;
+    deliveredAt: string | null;
+    expiresAt: string | null;
+  };
 }
 
 export interface SellerOrderListItem extends OrderListItem {
@@ -628,6 +662,10 @@ export async function getCheckoutPreview(previewPayload: Record<string, unknown>
     method: "POST",
     body: JSON.stringify(previewPayload)
   });
+}
+
+export async function getAddresses() {
+  return (await requestAuthedJson<SavedAddressItem[]>("/addresses")) ?? [];
 }
 
 export async function getSellerShop() {

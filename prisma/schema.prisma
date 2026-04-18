@@ -118,6 +118,7 @@ model User {
   updatedAt          DateTime            @updatedAt
   deletedAt          DateTime?
   shop               Shop?
+  addresses          UserAddress[]
   cartItems          CartItem[]
   orders             Order[]
   payments           Payment[]
@@ -131,7 +132,30 @@ model User {
   reports            Report[]           @relation("ReportReporter")
   resolvedReports    Report[]           @relation("ReportResolver")
   fileAssets         FileAsset[]        @relation("FileAssetCreator")
+  orderStatusEvents  OrderStatusHistory[] @relation("OrderStatusActor")
   banners            Banner[]
+}
+
+model UserAddress {
+  id                String   @id @default(cuid())
+  userId            String
+  label             String
+  recipientName     String
+  phoneNumber       String
+  addressLine1      String
+  addressLine2      String?
+  ward              String?
+  district          String
+  province          String
+  regionCode        String
+  isDefault         Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  deletedAt         DateTime?
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isDefault, updatedAt])
+  @@index([userId, deletedAt, updatedAt])
 }
 
 model Shop {
@@ -291,9 +315,27 @@ model Order {
   shop                  Shop          @relation(fields: [shopId], references: [id])
   items                 OrderItem[]
   payments              Payment[]
+  statusHistory         OrderStatusHistory[]
 
   @@index([userId, createdAt])
   @@index([shopId, createdAt])
+}
+
+model OrderStatusHistory {
+  id          String      @id @default(cuid())
+  orderId     String
+  status      OrderStatus
+  actorType   String
+  actorUserId String?
+  note        String?
+  metadata    Json?
+  createdAt   DateTime    @default(now())
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  actorUser   User?       @relation("OrderStatusActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([orderId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([status, createdAt])
 }
 
 model ChatConversation {

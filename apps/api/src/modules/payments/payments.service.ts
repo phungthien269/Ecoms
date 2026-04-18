@@ -15,6 +15,7 @@ import {
 import { Prisma } from "@prisma/client";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { NotificationsService } from "../notifications/notifications.service";
+import { OrderStatusHistoryService } from "../orderStatusHistory/order-status-history.service";
 import { PrismaService } from "../prisma/prisma.service";
 import type { MockPaymentWebhookDto } from "./dto/mock-payment-webhook.dto";
 
@@ -29,7 +30,8 @@ export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
+    private readonly orderStatusHistoryService: OrderStatusHistoryService
   ) {}
 
   async confirm(userId: string, paymentId: string) {
@@ -122,19 +124,22 @@ export class PaymentsService {
     const currentOrderStatus = payment.order.status as OrderStatus;
 
     if (nextStatus === PaymentStatus.PAID && payment.expiresAt && payment.expiresAt < input.occurredAt) {
-      await this.prisma.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: PaymentStatus.EXPIRED,
-          metadata: {
-            ...(payment.metadata as Record<string, unknown> | null),
-            expiredAt: input.occurredAt.toISOString(),
-            flow: "payment_expired_before_confirmation"
+      await this.prisma.$transaction(async (tx) => {
+        await tx.payment.update({
+          where: { id: payment.id },
+          data: {
+            status: PaymentStatus.EXPIRED,
+            metadata: {
+              ...(payment.metadata as Record<string, unknown> | null),
+              expiredAt: input.occurredAt.toISOString(),
+              flow: "payment_expired_before_confirmation"
+            }
           }
-        }
+        });
+
+        await this.syncOrderForFailedPayment(tx, payment.orderId, currentOrderStatus, input.occurredAt);
       });
 
-      await this.syncOrderForFailedPayment(payment.orderId, currentOrderStatus);
       throw new ConflictException("Payment has expired");
     }
 
@@ -147,8 +152,8 @@ export class PaymentsService {
           ? OrderStatus.CANCELLED
           : currentOrderStatus;
 
-    await this.prisma.$transaction([
-      this.prisma.payment.update({
+    await this.prisma.$transaction(async (tx) => {
+      await tx.payment.update({
         where: { id: payment.id },
         data: {
           status: nextStatus,
@@ -160,14 +165,33 @@ export class PaymentsService {
             paymentStatus: nextStatus
           }
         }
-      }),
-      this.prisma.order.update({
+      });
+      await tx.order.update({
         where: { id: payment.orderId },
         data: {
           status: orderStatus
         }
-      })
-    ]);
+      });
+
+      if (orderStatus !== currentOrderStatus) {
+        await this.orderStatusHistoryService.record(
+          {
+            orderId: payment.orderId,
+            status: orderStatus,
+            actorType: input.source === "mock_webhook" ? "PAYMENT_GATEWAY" : "BUYER",
+            actorUserId: input.source === "mock_webhook" ? null : payment.userId,
+            note: this.buildOrderTransitionNote(nextStatus, orderStatus),
+            metadata: {
+              paymentId: payment.id,
+              paymentStatus: nextStatus,
+              paymentMethod: payment.method,
+              ...input.metadata
+            }
+          },
+          tx
+        );
+      }
+    });
 
     await this.emitPaymentNotifications(payment, nextStatus, orderStatus);
 
@@ -223,17 +247,35 @@ export class PaymentsService {
     }
   }
 
-  private async syncOrderForFailedPayment(orderId: string, currentOrderStatus: OrderStatus) {
+  private async syncOrderForFailedPayment(
+    client: Prisma.TransactionClient,
+    orderId: string,
+    currentOrderStatus: OrderStatus,
+    occurredAt: Date
+  ) {
     if (currentOrderStatus !== OrderStatus.PENDING) {
       return;
     }
 
-    await this.prisma.order.update({
+    await client.order.update({
       where: { id: orderId },
       data: {
         status: OrderStatus.CANCELLED
       }
     });
+
+    await this.orderStatusHistoryService.record(
+      {
+        orderId,
+        status: OrderStatus.CANCELLED,
+        actorType: "PAYMENT_GATEWAY",
+        note: "Order auto-cancelled because payment expired before confirmation",
+        metadata: {
+          occurredAt: occurredAt.toISOString()
+        }
+      },
+      client
+    );
   }
 
   private mapWebhookEventToStatus(event: PaymentWebhookEvent) {
@@ -279,5 +321,17 @@ export class PaymentsService {
     return createHmac("sha256", secret ?? "change_me_payment_webhook")
       .update(normalized)
       .digest("hex");
+  }
+
+  private buildOrderTransitionNote(paymentStatus: PaymentStatus, orderStatus: OrderStatus) {
+    if (paymentStatus === PaymentStatus.PAID && orderStatus === OrderStatus.CONFIRMED) {
+      return "Payment confirmed and order moved to confirmed";
+    }
+
+    if ([PaymentStatus.FAILED, PaymentStatus.EXPIRED].includes(paymentStatus) && orderStatus === OrderStatus.CANCELLED) {
+      return "Order cancelled because payment did not complete";
+    }
+
+    return `Order status updated after payment transition to ${paymentStatus}`;
   }
 }
