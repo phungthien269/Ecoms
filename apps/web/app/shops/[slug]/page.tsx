@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import type { Route } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { createReportAction } from "@/app/actions/commerce";
 import { EmptyState } from "@/components/storefront/emptyState";
+import { buildMetadata, truncateDescription } from "@/lib/seo";
 import { getShop } from "@/lib/storefrontApi";
 
 function formatPrice(value: string) {
@@ -14,6 +17,34 @@ function formatPrice(value: string) {
 
 export const dynamic = "force-dynamic";
 
+export async function generateMetadata({
+  params
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const shop = await getShop(slug);
+
+  if (!shop) {
+    return buildMetadata({
+      title: "Shop not found",
+      description: "The requested shop could not be loaded from the marketplace.",
+      path: `/shops/${slug}`
+    });
+  }
+
+  return buildMetadata({
+    title: shop.name,
+    description: truncateDescription(
+      shop.description ??
+        `Browse ${shop.name} on the marketplace, discover active listings, and compare pricing across the seller catalog.`
+    ),
+    path: `/shops/${shop.slug}`,
+    imageUrl: shop.bannerUrl ?? shop.logoUrl,
+    keywords: ["shop", "seller", shop.name, "marketplace"]
+  });
+}
+
 export default async function ShopDetailPage({
   params
 }: {
@@ -23,14 +54,7 @@ export default async function ShopDetailPage({
   const shop = await getShop(slug);
 
   if (!shop) {
-    return (
-      <main className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
-        <EmptyState
-          title="Shop not available"
-          description="The shop page is wired, but the requested shop could not be loaded from the API."
-        />
-      </main>
-    );
+    notFound();
   }
 
   return (

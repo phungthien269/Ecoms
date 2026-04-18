@@ -145,6 +145,17 @@ export interface ShopPageData {
   }>;
 }
 
+export interface ShopIndexItem {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  logoUrl: string | null;
+  bannerUrl: string | null;
+  productCount: number;
+  updatedAt: string;
+}
+
 export interface StorefrontFlashSale {
   id: string;
   name: string;

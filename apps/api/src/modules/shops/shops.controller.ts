@@ -13,6 +13,11 @@ import { ShopsService } from "./shops.service";
 export class ShopsController {
   constructor(private readonly shopsService: ShopsService) {}
 
+  @Get()
+  listPublic() {
+    return this.shopsService.listPublic();
+  }
+
   @Get("me")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SELLER, UserRole.ADMIN, UserRole.SUPER_ADMIN)

@@ -5,6 +5,7 @@ import type {
   ProductCard,
   ProductReview,
   ProductListResponse,
+  ShopIndexItem,
   ShopPageData,
   StorefrontBanner,
   StorefrontFlashSale
@@ -73,6 +74,10 @@ export async function getProductReviews(productIdOrSlug: string): Promise<Produc
 
 export async function getShop(slug: string): Promise<ShopPageData | null> {
   return requestJson<ShopPageData>(`/shops/${slug}`);
+}
+
+export async function getPublicShops(): Promise<ShopIndexItem[]> {
+  return (await requestJson<ShopIndexItem[]>("/shops")) ?? [];
 }
 
 export async function getActiveFlashSales(): Promise<StorefrontFlashSale[]> {

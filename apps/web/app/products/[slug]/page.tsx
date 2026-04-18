@@ -1,5 +1,7 @@
+import type { Metadata } from "next";
 import type { Route } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import {
   addToCartAction,
   addToWishlistAction,
@@ -8,9 +10,39 @@ import {
 } from "@/app/actions/commerce";
 import { formatPrice } from "@/components/commerce/price";
 import { EmptyState } from "@/components/storefront/emptyState";
+import { buildMetadata, truncateDescription } from "@/lib/seo";
 import { getProduct, getProductReviews } from "@/lib/storefrontApi";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const product = await getProduct(slug);
+
+  if (!product) {
+    return buildMetadata({
+      title: "Product not found",
+      description: "The requested product could not be loaded from the marketplace.",
+      path: `/products/${slug}`
+    });
+  }
+
+  const currentPrice = product.flashSale?.flashPrice ?? product.salePrice;
+
+  return buildMetadata({
+    title: product.name,
+    description: truncateDescription(
+      `${product.description} Price from ${formatPrice(currentPrice)}. ${product.soldCount} sold, rating ${product.ratingAverage}/5.`
+    ),
+    path: `/products/${product.slug}`,
+    imageUrl: product.images[0]?.url ?? null,
+    keywords: ["product", product.name, product.sku, ...product.tags].slice(0, 10)
+  });
+}
 
 export default async function ProductDetailPage({
   params
@@ -21,14 +53,7 @@ export default async function ProductDetailPage({
   const [product, reviews] = await Promise.all([getProduct(slug), getProductReviews(slug)]);
 
   if (!product) {
-    return (
-      <main className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
-        <EmptyState
-          title="Product not available"
-          description="The product detail page is wired, but the requested item could not be loaded from the API."
-        />
-      </main>
-    );
+    notFound();
   }
 
   const defaultVariant = product.variants.find((variant) => variant.isDefault) ?? product.variants[0];

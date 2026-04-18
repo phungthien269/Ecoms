@@ -1,12 +1,34 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/appShell";
 import { getChatConversations, getNotifications } from "@/lib/commerceApi";
+import { getSiteUrl } from "@/lib/seo";
 import { getDemoSession } from "@/lib/session";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Ecoms Marketplace",
-  description: "Shopee-inspired marketplace built with Next.js and NestJS."
+  metadataBase: getSiteUrl(),
+  title: {
+    default: "Ecoms Marketplace",
+    template: "%s | Ecoms Marketplace"
+  },
+  description: "Shopee-inspired marketplace built with Next.js and NestJS.",
+  applicationName: "Ecoms Marketplace",
+  alternates: {
+    canonical: "/"
+  },
+  openGraph: {
+    title: "Ecoms Marketplace",
+    description: "Shopee-inspired marketplace built with Next.js and NestJS.",
+    url: "/",
+    siteName: "Ecoms Marketplace",
+    type: "website",
+    locale: "vi_VN"
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Ecoms Marketplace",
+    description: "Shopee-inspired marketplace built with Next.js and NestJS."
+  }
 };
 
 export default async function RootLayout({

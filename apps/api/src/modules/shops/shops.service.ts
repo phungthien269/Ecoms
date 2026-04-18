@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException
 } from "@nestjs/common";
-import { ShopStatus, UserRole } from "@ecoms/contracts";
+import { ProductStatus, ShopStatus, UserRole } from "@ecoms/contracts";
 import { PrismaService } from "../prisma/prisma.service";
 import { slugify } from "../../common/utils/slugify";
 import { CreateShopDto } from "./dto/create-shop.dto";
@@ -13,6 +13,47 @@ import { UpdateShopStatusDto } from "./dto/update-shop-status.dto";
 @Injectable()
 export class ShopsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async listPublic() {
+    const shops = await this.prisma.shop.findMany({
+      where: {
+        deletedAt: null,
+        status: ShopStatus.ACTIVE
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        logoUrl: true,
+        bannerUrl: true,
+        updatedAt: true,
+        _count: {
+          select: {
+            products: {
+              where: {
+                deletedAt: null,
+                status: ProductStatus.ACTIVE
+              }
+            }
+          }
+        }
+      },
+      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+      take: 500
+    });
+
+    return shops.map((shop) => ({
+      id: shop.id,
+      name: shop.name,
+      slug: shop.slug,
+      description: shop.description,
+      logoUrl: shop.logoUrl,
+      bannerUrl: shop.bannerUrl,
+      productCount: shop._count.products,
+      updatedAt: shop.updatedAt.toISOString()
+    }));
+  }
 
   async getPublicShop(shopIdOrSlug: string) {
     const shop = await this.prisma.shop.findFirst({
