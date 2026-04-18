@@ -220,6 +220,67 @@ export interface SellerOrderDetail extends Omit<OrderDetail, "shop"> {
   };
 }
 
+export interface SellerDashboardData {
+  shop: {
+    id: string;
+    name: string;
+    slug: string;
+    status: string;
+  };
+  stats: {
+    totalProducts: number;
+    activeProducts: number;
+    draftProducts: number;
+    lowStockProducts: number;
+    openOrders: number;
+    returnRequests: number;
+    completedOrders: number;
+    activeVouchers: number;
+    unreadConversations: number;
+    totalReviews: number;
+    averageRating: string;
+  };
+  revenue: {
+    completedRevenue: string;
+    openOrderValue: string;
+    recentPerformance: Array<{
+      date: string;
+      revenue: string;
+      orders: number;
+    }>;
+  };
+  topProducts: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    soldCount: number;
+    stock: number;
+    salePrice: string;
+    status: string;
+    imageUrl: string | null;
+  }>;
+  lowStockProducts: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    stock: number;
+    status: string;
+    imageUrl: string | null;
+  }>;
+  attentionOrders: Array<{
+    id: string;
+    orderNumber: string;
+    status: string;
+    grandTotal: string;
+    placedAt: string;
+    customer: {
+      id: string;
+      fullName: string;
+      email: string;
+    };
+  }>;
+}
+
 export interface WishlistItem {
   id: string;
   createdAt: string;
@@ -747,6 +808,10 @@ export async function getSellerProducts() {
       }>
     >("/products/me")) ?? []
   );
+}
+
+export async function getSellerDashboard() {
+  return requestAuthedJson<SellerDashboardData>("/seller/dashboard");
 }
 
 export async function getSellerFiles() {

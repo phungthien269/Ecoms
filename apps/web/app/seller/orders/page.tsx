@@ -122,6 +122,12 @@ export default async function SellerOrdersPage() {
                         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-500">
                           Fulfillment
                         </p>
+                        <Link
+                          href={`/seller/orders/${order.id}` as Route}
+                          className="block rounded-full border border-slate-200 bg-white px-4 py-3 text-center text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+                        >
+                          Open detail
+                        </Link>
                         {order.status === "RETURN_REQUESTED" ? (
                           <p className="rounded-[1.2rem] bg-white px-3 py-2 text-sm text-amber-700">
                             Buyer submitted a return request. Inspect the case, then mark the package as returned once received.

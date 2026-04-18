@@ -37,6 +37,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     {
       url: new URL("/products", siteUrl).toString(),
       lastModified: new Date()
+    },
+    {
+      url: new URL("/shops", siteUrl).toString(),
+      lastModified: new Date()
     }
   ];
 

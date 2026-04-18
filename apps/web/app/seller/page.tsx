@@ -12,6 +12,7 @@ import { UploadAssetField } from "@/components/media/uploadAssetField";
 import { EmptyState } from "@/components/storefront/emptyState";
 import { flattenCategories } from "@/lib/catalog";
 import {
+  getSellerDashboard,
   getSellerFiles,
   getSellerProducts,
   getSellerShop,
@@ -24,8 +25,9 @@ export const dynamic = "force-dynamic";
 
 export default async function SellerPage() {
   const session = await getDemoSession();
-  const [shop, products, categories, brands, vouchers, files] = await Promise.all([
+  const [shop, dashboard, products, categories, brands, vouchers, files] = await Promise.all([
     getSellerShop(),
+    getSellerDashboard(),
     getSellerProducts(),
     getCategoryTree(),
     getBrands(),
@@ -87,6 +89,204 @@ export default async function SellerPage() {
 
         <div className="mt-8 grid gap-6 xl:grid-cols-[1fr_420px]">
           <div className="space-y-6">
+            {dashboard ? (
+              <>
+                <section className="grid gap-4 md:grid-cols-2 2xl:grid-cols-5">
+                  {[
+                    { label: "Open orders", value: dashboard.stats.openOrders },
+                    { label: "Completed orders", value: dashboard.stats.completedOrders },
+                    { label: "Unread chats", value: dashboard.stats.unreadConversations },
+                    { label: "Low stock", value: dashboard.stats.lowStockProducts },
+                    { label: "Active vouchers", value: dashboard.stats.activeVouchers },
+                    { label: "Products", value: dashboard.stats.totalProducts },
+                    { label: "Active products", value: dashboard.stats.activeProducts },
+                    { label: "Draft products", value: dashboard.stats.draftProducts },
+                    { label: "Return requests", value: dashboard.stats.returnRequests },
+                    { label: "Reviews", value: dashboard.stats.totalReviews }
+                  ].map((item) => (
+                    <div key={item.label} className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
+                      <div className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
+                        {item.label}
+                      </div>
+                      <div className="mt-3 text-3xl font-black text-slate-950">{item.value}</div>
+                    </div>
+                  ))}
+                </section>
+
+                <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+                  <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                      <div>
+                        <h2 className="text-xl font-bold text-slate-950">Revenue snapshot</h2>
+                        <p className="mt-1 text-sm text-slate-500">
+                          Completed GMV stays conservative. Open order value shows pipeline still in fulfillment.
+                        </p>
+                      </div>
+                      <div className="rounded-full bg-orange-50 px-4 py-2 text-sm font-semibold text-orange-600">
+                        Rating {dashboard.stats.averageRating}/5
+                      </div>
+                    </div>
+                    <div className="mt-5 grid gap-4 md:grid-cols-2">
+                      <div className="rounded-[1.5rem] bg-slate-950 p-5 text-white">
+                        <div className="text-sm uppercase tracking-[0.18em] text-slate-400">
+                          Completed revenue
+                        </div>
+                        <div className="mt-3 text-3xl font-black">
+                          {formatPrice(dashboard.revenue.completedRevenue)}
+                        </div>
+                      </div>
+                      <div className="rounded-[1.5rem] bg-orange-50 p-5">
+                        <div className="text-sm uppercase tracking-[0.18em] text-orange-500">
+                          Open order value
+                        </div>
+                        <div className="mt-3 text-3xl font-black text-slate-950">
+                          {formatPrice(dashboard.revenue.openOrderValue)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
+                      {dashboard.revenue.recentPerformance.map((entry) => (
+                        <div key={entry.date} className="rounded-[1.25rem] border border-slate-100 bg-slate-50 p-4">
+                          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                            {new Date(entry.date).toLocaleDateString("vi-VN", {
+                              day: "2-digit",
+                              month: "2-digit"
+                            })}
+                          </div>
+                          <div className="mt-2 text-sm font-bold text-slate-950">
+                            {formatPrice(entry.revenue)}
+                          </div>
+                          <div className="mt-1 text-xs text-slate-500">{entry.orders} order(s)</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <h2 className="text-xl font-bold text-slate-950">Orders needing attention</h2>
+                        <p className="mt-1 text-sm text-slate-500">
+                          Pending confirmations and active return requests stay surfaced here.
+                        </p>
+                      </div>
+                      <Link
+                        href={"/seller/orders" as Route}
+                        className="text-sm font-semibold text-orange-600 transition hover:text-orange-700"
+                      >
+                        Open queue
+                      </Link>
+                    </div>
+                    <div className="mt-4 space-y-3">
+                      {dashboard.attentionOrders.length > 0 ? (
+                        dashboard.attentionOrders.map((order) => (
+                          <Link
+                            key={order.id}
+                            href={`/seller/orders/${order.id}` as Route}
+                            className="block rounded-[1.5rem] bg-slate-50 p-4 transition hover:-translate-y-0.5 hover:shadow-sm"
+                          >
+                            <div className="flex items-start justify-between gap-4">
+                              <div>
+                                <div className="font-semibold text-slate-950">{order.orderNumber}</div>
+                                <div className="mt-1 text-sm text-slate-500">
+                                  {order.customer.fullName} • {order.status}
+                                </div>
+                              </div>
+                              <div className="text-right text-sm font-semibold text-orange-600">
+                                {formatPrice(order.grandTotal)}
+                              </div>
+                            </div>
+                            <div className="mt-2 text-xs text-slate-400">
+                              {new Date(order.placedAt).toLocaleString("vi-VN")}
+                            </div>
+                          </Link>
+                        ))
+                      ) : (
+                        <EmptyState
+                          title="No urgent seller actions"
+                          description="New pending and return-requested orders will surface here."
+                        />
+                      )}
+                    </div>
+                  </div>
+                </section>
+
+                <section className="grid gap-6 xl:grid-cols-[1fr_1fr]">
+                  <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="flex items-center justify-between gap-4">
+                      <h2 className="text-xl font-bold text-slate-950">Top products</h2>
+                      <div className="rounded-full bg-orange-50 px-4 py-2 text-sm font-semibold text-orange-600">
+                        By sold count
+                      </div>
+                    </div>
+                    <div className="mt-4 space-y-3">
+                      {dashboard.topProducts.map((product) => (
+                        <Link
+                          key={product.id}
+                          href={`/products/${product.slug}` as Route}
+                          className="flex items-center gap-4 rounded-[1.5rem] bg-slate-50 p-4 transition hover:-translate-y-0.5 hover:shadow-sm"
+                        >
+                          <div className="h-16 w-16 overflow-hidden rounded-2xl bg-slate-100">
+                            {product.imageUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={product.imageUrl} alt={product.name} className="h-full w-full object-cover" />
+                            ) : null}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate font-semibold text-slate-950">{product.name}</div>
+                            <div className="mt-1 text-sm text-slate-500">
+                              {product.soldCount} sold • {product.status}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-semibold text-orange-600">
+                              {formatPrice(product.salePrice)}
+                            </div>
+                            <div className="mt-1 text-xs text-slate-400">{product.stock} left</div>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="flex items-center justify-between gap-4">
+                      <h2 className="text-xl font-bold text-slate-950">Low-stock watchlist</h2>
+                      <div className="rounded-full bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
+                        Threshold ≤ 5
+                      </div>
+                    </div>
+                    <div className="mt-4 space-y-3">
+                      {dashboard.lowStockProducts.length > 0 ? (
+                        dashboard.lowStockProducts.map((product) => (
+                          <div key={product.id} className="flex items-center gap-4 rounded-[1.5rem] bg-slate-50 p-4">
+                            <div className="h-16 w-16 overflow-hidden rounded-2xl bg-slate-100">
+                              {product.imageUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={product.imageUrl} alt={product.name} className="h-full w-full object-cover" />
+                              ) : null}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate font-semibold text-slate-950">{product.name}</div>
+                              <div className="mt-1 text-sm text-slate-500">{product.status}</div>
+                            </div>
+                            <div className="rounded-full bg-white px-3 py-2 text-sm font-semibold text-red-600">
+                              {product.stock} left
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <EmptyState
+                          title="No low-stock products"
+                          description="Active and draft listings are currently above the watch threshold."
+                        />
+                      )}
+                    </div>
+                  </div>
+                </section>
+              </>
+            ) : null}
+
             <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex items-center justify-between gap-4">
                 <div>
