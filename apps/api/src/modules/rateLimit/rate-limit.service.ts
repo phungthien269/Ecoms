@@ -44,6 +44,53 @@ export class RateLimitService {
     return this.memoryStore.consume(key, maxRequests, windowMs);
   }
 
+  async getDiagnostics() {
+    const preferred = this.preferredStore;
+
+    if (preferred === "redis") {
+      if (!this.redisStore.isConfigured()) {
+        return {
+          preferredStore: preferred,
+          activeStore: "memory",
+          configured: false,
+          healthy: false,
+          fallbackActive: true,
+          message: "Redis store preferred but REDIS_URL is not configured"
+        };
+      }
+
+      try {
+        const ping = await this.redisStore.ping();
+        return {
+          preferredStore: preferred,
+          activeStore: ping.healthy ? "redis" : "memory",
+          configured: ping.configured,
+          healthy: ping.healthy,
+          fallbackActive: !ping.healthy,
+          message: ping.message
+        };
+      } catch (error) {
+        return {
+          preferredStore: preferred,
+          activeStore: "memory",
+          configured: true,
+          healthy: false,
+          fallbackActive: true,
+          message: `Redis unavailable: ${this.toMessage(error)}`
+        };
+      }
+    }
+
+    return {
+      preferredStore: preferred,
+      activeStore: "memory",
+      configured: true,
+      healthy: true,
+      fallbackActive: false,
+      message: "Memory rate limit store active"
+    };
+  }
+
   private resolveStore(): RateLimitStore | "redis" {
     if (this.preferredStore === "redis" && this.redisStore.isConfigured()) {
       return "redis";

@@ -58,6 +58,51 @@ export class RealtimeStateService {
     return this.memoryStore.getOnlineUserIds(userIds);
   }
 
+  async getDiagnostics() {
+    if (this.preferredStore === "redis") {
+      if (!this.redisStore.isConfigured()) {
+        return {
+          preferredStore: "redis",
+          activeStore: "memory",
+          configured: false,
+          healthy: false,
+          fallbackActive: true,
+          message: "Redis presence store preferred but REDIS_URL is not configured"
+        };
+      }
+
+      try {
+        const ping = await this.redisStore.ping();
+        return {
+          preferredStore: "redis",
+          activeStore: ping.healthy ? "redis" : "memory",
+          configured: ping.configured,
+          healthy: ping.healthy,
+          fallbackActive: !ping.healthy,
+          message: ping.message
+        };
+      } catch (error) {
+        return {
+          preferredStore: "redis",
+          activeStore: "memory",
+          configured: true,
+          healthy: false,
+          fallbackActive: true,
+          message: `Redis unavailable: ${this.toMessage(error)}`
+        };
+      }
+    }
+
+    return {
+      preferredStore: "memory",
+      activeStore: "memory",
+      configured: true,
+      healthy: true,
+      fallbackActive: false,
+      message: "Memory realtime state store active"
+    };
+  }
+
   private shouldUseRedis() {
     return this.preferredStore === "redis" && this.redisStore.isConfigured();
   }

@@ -149,6 +149,55 @@ export class FilesService {
     });
   }
 
+  getDiagnostics() {
+    const driver = this.configService.get<string>("MEDIA_DRIVER") ?? "s3";
+
+    if (driver === "local") {
+      return {
+        driver,
+        configured: true,
+        healthy: true,
+        message: "Local media driver active",
+        publicBaseUrl:
+          this.configService.get<string>("MEDIA_PUBLIC_BASE_URL") ?? "http://localhost:4000/uploads"
+      };
+    }
+
+    if (driver === "cloudinary") {
+      const configured = Boolean(
+        this.configService.get<string>("CLOUDINARY_CLOUD_NAME") &&
+          this.configService.get<string>("CLOUDINARY_API_KEY") &&
+          this.configService.get<string>("CLOUDINARY_API_SECRET")
+      );
+
+      return {
+        driver,
+        configured,
+        healthy: configured,
+        message: configured
+          ? "Cloudinary signed upload config is ready"
+          : "Cloudinary driver selected but one or more credentials are missing",
+        publicBaseUrl: this.configService.get<string>("MEDIA_PUBLIC_BASE_URL") ?? null
+      };
+    }
+
+    const configured = Boolean(
+      this.configService.get<string>("S3_BUCKET") &&
+        this.configService.get<string>("S3_REGION")
+    );
+
+    return {
+      driver,
+      configured,
+      healthy: configured,
+      message: configured
+        ? "S3 upload config is ready"
+        : "S3 driver selected but bucket/region config is incomplete",
+      publicBaseUrl: this.configService.get<string>("MEDIA_PUBLIC_BASE_URL") ?? null,
+      endpoint: this.configService.get<string>("S3_ENDPOINT") ?? null
+    };
+  }
+
   private async buildUploadInstruction(
     driver: string,
     objectKey: string,

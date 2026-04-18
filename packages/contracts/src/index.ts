@@ -272,9 +272,25 @@ export interface ApiErrorResponse {
 export type ApiResponse<T> = ApiSuccessResponse<T> | ApiErrorResponse;
 
 export interface HealthStatus {
-  status: "ok";
+  status: "ok" | "degraded";
   timestamp: string;
   service: string;
+}
+
+export interface DependencyHealthEntry {
+  key: string;
+  label: string;
+  status: "ok" | "degraded" | "fail";
+  message: string;
+  details?: Record<string, unknown>;
+}
+
+export interface ReadinessStatus {
+  status: "ok" | "degraded" | "fail";
+  timestamp: string;
+  service: string;
+  ready: boolean;
+  checks: DependencyHealthEntry[];
 }
 
 export interface VoucherSummary {

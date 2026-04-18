@@ -411,6 +411,20 @@ export interface AdminUserItem {
   } | null;
 }
 
+export interface SystemDiagnosticsData {
+  status: "ok" | "degraded" | "fail";
+  timestamp: string;
+  service: string;
+  ready: boolean;
+  checks: Array<{
+    key: string;
+    label: string;
+    status: "ok" | "degraded" | "fail";
+    message: string;
+    details?: Record<string, unknown>;
+  }>;
+}
+
 export interface AdminReviewItem {
   id: string;
   rating: number;
@@ -761,6 +775,10 @@ export async function getAdminDashboard() {
 
 export async function getAdminUsers() {
   return (await requestAuthedJson<AdminUserItem[]>("/users/admin")) ?? [];
+}
+
+export async function getSystemDiagnostics() {
+  return requestAuthedJson<SystemDiagnosticsData>("/health/diagnostics");
 }
 
 export async function getAdminReviews() {

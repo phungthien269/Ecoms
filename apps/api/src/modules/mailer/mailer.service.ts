@@ -9,6 +9,16 @@ interface SendEmailInput {
   tags?: string[];
 }
 
+interface MailerDiagnostics {
+  driver: string;
+  configured: boolean;
+  healthy: boolean;
+  message: string;
+  fromEmail: string;
+  fromName: string;
+  replyTo: string | null;
+}
+
 @Injectable()
 export class MailerService {
   constructor(private readonly configService: ConfigService) {}
@@ -59,6 +69,38 @@ export class MailerService {
         driver: this.configService.get<string>("MAIL_DRIVER", "console")
       };
     }
+  }
+
+  getDiagnostics(): MailerDiagnostics {
+    const driver = this.configService.get<string>("MAIL_DRIVER", "console");
+    const fromEmail = this.configService.get<string>("MAIL_FROM_EMAIL", "no-reply@ecoms.local");
+    const fromName = this.configService.get<string>("MAIL_FROM_NAME", "Ecoms");
+    const replyTo = this.configService.get<string>("MAIL_REPLY_TO_EMAIL") ?? null;
+
+    if (driver === "resend") {
+      const hasApiKey = Boolean(this.configService.get<string>("RESEND_API_KEY"));
+      return {
+        driver,
+        configured: hasApiKey,
+        healthy: hasApiKey,
+        message: hasApiKey
+          ? "Resend driver configured"
+          : "MAIL_DRIVER=resend but RESEND_API_KEY is missing",
+        fromEmail,
+        fromName,
+        replyTo
+      };
+    }
+
+    return {
+      driver,
+      configured: true,
+      healthy: true,
+      message: "Console mail driver active",
+      fromEmail,
+      fromName,
+      replyTo
+    };
   }
 
   private async sendWithResend(input: SendEmailInput) {

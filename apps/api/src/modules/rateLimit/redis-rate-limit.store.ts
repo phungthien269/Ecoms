@@ -29,6 +29,24 @@ export class RedisRateLimitStore implements RateLimitStore, OnModuleDestroy {
     return Boolean(this.client);
   }
 
+  async ping() {
+    if (!this.client) {
+      return {
+        configured: false,
+        healthy: false,
+        message: "Redis URL not configured"
+      };
+    }
+
+    await this.ensureConnected();
+    const response = await this.client.ping();
+    return {
+      configured: true,
+      healthy: response === "PONG",
+      message: response === "PONG" ? "Redis reachable" : `Unexpected redis ping response: ${response}`
+    };
+  }
+
   async consume(
     key: string,
     maxRequests: number,
