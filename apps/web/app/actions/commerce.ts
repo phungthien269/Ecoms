@@ -584,19 +584,36 @@ export async function startChatConversationAction(formData: FormData) {
   const productId = String(formData.get("productId") ?? "") || undefined;
   const initialMessage =
     String(formData.get("initialMessage") ?? "") || "Hi, I'd like to ask about this product.";
+  const redirectTo = String(formData.get("redirectTo") ?? "/chat");
 
-  const response = (await authedMutation("/chat/conversations", {
-    method: "POST",
-    body: JSON.stringify({
-      shopId,
-      productId,
-      initialMessage
-    })
-  })) as {
+  let response: {
     data: {
       id: string;
     };
   };
+
+  try {
+    response = (await authedMutation("/chat/conversations", {
+      method: "POST",
+      body: JSON.stringify({
+        shopId,
+        productId,
+        initialMessage
+      })
+    })) as {
+      data: {
+        id: string;
+      };
+    };
+  } catch (error) {
+    redirect(
+      buildFlashHref(redirectTo, {}, {
+        scope: "Chat",
+        status: "error",
+        message: error instanceof Error ? error.message : "Failed to open conversation."
+      }) as Route
+    );
+  }
 
   redirect(`/chat/${response.data.id}` as Route);
 }
@@ -605,14 +622,23 @@ export async function sendChatMessageAction(formData: FormData) {
   const conversationId = String(formData.get("conversationId") ?? "");
   const content = String(formData.get("content") ?? "");
   const imageFileAssetId = String(formData.get("imageFileAssetId") ?? "") || undefined;
-
-  await authedMutation(`/chat/conversations/${conversationId}/messages`, {
-    method: "POST",
-    body: JSON.stringify({
-      content,
-      imageFileAssetId
-    })
-  });
+  try {
+    await authedMutation(`/chat/conversations/${conversationId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({
+        content,
+        imageFileAssetId
+      })
+    });
+  } catch (error) {
+    redirect(
+      buildFlashHref(`/chat/${conversationId}`, {}, {
+        scope: "Chat",
+        status: "error",
+        message: error instanceof Error ? error.message : "Failed to send message."
+      }) as Route
+    );
+  }
 
   redirect(`/chat/${conversationId}` as Route);
 }
@@ -620,20 +646,51 @@ export async function sendChatMessageAction(formData: FormData) {
 export async function markNotificationReadAction(formData: FormData) {
   const notificationId = String(formData.get("notificationId") ?? "");
   const redirectTo = String(formData.get("redirectTo") ?? "/notifications");
+  try {
+    await authedMutation(`/notifications/${notificationId}/read`, {
+      method: "PATCH"
+    });
+  } catch (error) {
+    redirect(
+      buildFlashHref(redirectTo, {}, {
+        scope: "Notifications",
+        status: "error",
+        message: error instanceof Error ? error.message : "Failed to mark notification as read."
+      }) as Route
+    );
+  }
 
-  await authedMutation(`/notifications/${notificationId}/read`, {
-    method: "PATCH"
-  });
-
-  redirect(redirectTo as Route);
+  redirect(
+    buildFlashHref(redirectTo, {}, {
+      scope: "Notifications",
+      status: "success",
+      message: "Notification marked as read."
+    }) as Route
+  );
 }
 
 export async function markAllNotificationsReadAction() {
-  await authedMutation("/notifications/read-all", {
-    method: "PATCH"
-  });
+  try {
+    await authedMutation("/notifications/read-all", {
+      method: "PATCH"
+    });
+  } catch (error) {
+    redirect(
+      buildFlashHref("/notifications", {}, {
+        scope: "Notifications",
+        status: "error",
+        message: error instanceof Error ? error.message : "Failed to mark all notifications as read."
+      }) as Route
+    );
+  }
 
-  redirect("/notifications" as Route);
+  redirect(
+    buildFlashHref("/notifications", {}, {
+      scope: "Notifications",
+      status: "success",
+      message: "All notifications marked as read."
+    }) as Route
+  );
 }
 
 export async function createReportAction(formData: FormData) {

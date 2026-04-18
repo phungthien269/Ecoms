@@ -4,14 +4,21 @@ import {
   markAllNotificationsReadAction,
   markNotificationReadAction
 } from "@/app/actions/commerce";
+import { FlashBanner } from "@/components/layout/flashBanner";
 import { EmptyState } from "@/components/storefront/emptyState";
 import { getNotifications } from "@/lib/commerceApi";
+import { readFlash } from "@/lib/feedback";
 import { getDemoSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-export default async function NotificationsPage() {
+export default async function NotificationsPage({
+  searchParams
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await getDemoSession();
+  const flash = readFlash((await searchParams) ?? {});
   const notifications = await getNotifications();
 
   if (!session) {
@@ -28,6 +35,9 @@ export default async function NotificationsPage() {
   return (
     <main className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-6">
+          <FlashBanner {...flash} />
+        </div>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-2">
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-orange-500">

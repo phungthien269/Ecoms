@@ -1,18 +1,23 @@
 import { sendChatMessageAction } from "@/app/actions/commerce";
+import { FlashBanner } from "@/components/layout/flashBanner";
 import { UploadAssetField } from "@/components/media/uploadAssetField";
 import { EmptyState } from "@/components/storefront/emptyState";
 import { getChatConversations, getChatMessages } from "@/lib/commerceApi";
+import { readFlash } from "@/lib/feedback";
 import { getDemoSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function ChatConversationPage({
-  params
+  params,
+  searchParams
 }: {
   params: Promise<{ conversationId: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await getDemoSession();
   const { conversationId } = await params;
+  const flash = readFlash((await searchParams) ?? {});
   const [conversations, messages] = await Promise.all([
     getChatConversations(),
     getChatMessages(conversationId)
@@ -44,6 +49,9 @@ export default async function ChatConversationPage({
   return (
     <main className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-6">
+          <FlashBanner {...flash} />
+        </div>
         <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
           <div className="space-y-2 border-b border-slate-100 pb-4">
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-orange-500">

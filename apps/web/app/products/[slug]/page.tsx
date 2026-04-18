@@ -215,6 +215,7 @@ export default async function ProductDetailPage({
             <form action={startChatConversationAction} className="rounded-[1.5rem] border border-slate-200 p-5">
               <input type="hidden" name="shopId" value={product.shopId} />
               <input type="hidden" name="productId" value={product.id} />
+              <input type="hidden" name="redirectTo" value={`/products/${product.slug}`} />
               <input
                 type="hidden"
                 name="initialMessage"

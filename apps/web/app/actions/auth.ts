@@ -3,6 +3,7 @@
 import type { Route } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { buildFlashHref, readActionErrorMessage } from "@/lib/feedback";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
 
@@ -20,7 +21,17 @@ async function loginWithCredentials(email: string, password: string, redirectTo:
   });
 
   if (!response.ok) {
-    redirect(redirectTo as Route);
+    redirect(
+      buildFlashHref(
+        redirectTo,
+        {},
+        {
+          scope: "Authentication",
+          status: "error",
+          message: await readActionErrorMessage(response, "Demo login failed.")
+        }
+      ) as Route
+    );
   }
 
   const payload = (await response.json()) as {
@@ -50,7 +61,13 @@ async function loginWithCredentials(email: string, password: string, redirectTo:
     path: "/"
   });
 
-  redirect(redirectTo as Route);
+  redirect(
+    buildFlashHref(redirectTo, {}, {
+      scope: "Authentication",
+      status: "success",
+      message: "Demo session started."
+    }) as Route
+  );
 }
 
 export async function loginBuyerDemo() {
@@ -74,5 +91,11 @@ export async function logoutDemo() {
   cookieStore.delete("ecoms_access_token");
   cookieStore.delete("ecoms_user_email");
   cookieStore.delete("ecoms_user_role");
-  redirect("/" as Route);
+  redirect(
+    buildFlashHref("/", {}, {
+      scope: "Authentication",
+      status: "success",
+      message: "Logged out."
+    }) as Route
+  );
 }
