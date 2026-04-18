@@ -474,6 +474,24 @@ describe("OrdersService", () => {
         userId: "seller-1"
       })
     );
+    expect(auditLogsService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorUserId: "user-1",
+        actorRole: "CUSTOMER",
+        action: "orders.customer.update_shipping",
+        entityId: "order-1",
+        metadata: expect.objectContaining({
+          changedFields: expect.arrayContaining([
+            expect.objectContaining({
+              key: "addressLine1",
+              previousValue: "123 Demo Street",
+              nextValue: "456 New Street"
+            })
+          ])
+        })
+      }),
+      prisma
+    );
   });
 
   it("blocks buyer shipping updates after seller has handled the order", async () => {
@@ -519,5 +537,114 @@ describe("OrdersService", () => {
         regionCode: "HCM"
       })
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it("returns latest shipping update summary for seller detail", async () => {
+    prisma.order.findFirst.mockResolvedValue({
+      id: "order-1",
+      orderNumber: "ORD-1",
+      status: OrderStatus.CONFIRMED,
+      paymentMethod: "COD",
+      shippingRecipientName: "Buyer Demo",
+      shippingPhoneNumber: "0900000000",
+      shippingAddressLine1: "456 New Street",
+      shippingAddressLine2: null,
+      shippingWard: null,
+      shippingDistrict: "District 3",
+      shippingProvince: "Ho Chi Minh City",
+      shippingRegionCode: "HCM",
+      itemsSubtotal: { toString: () => "100000" },
+      shippingFee: { toString: () => "20000" },
+      discountTotal: { toString: () => "0" },
+      grandTotal: { toString: () => "120000" },
+      note: "Call before delivery",
+      appliedVoucherCodes: [],
+      placedAt: new Date("2026-04-18T00:00:00.000Z"),
+      updatedAt: new Date("2026-04-18T00:00:00.000Z"),
+      user: {
+        id: "user-1",
+        fullName: "Buyer Demo",
+        email: "buyer@example.com",
+        phoneNumber: "0900000000"
+      },
+      shop: {
+        id: "shop-1",
+        name: "Demo Shop",
+        slug: "demo-shop",
+        status: "ACTIVE"
+      },
+      items: [],
+      payments: []
+    });
+    orderStatusHistoryService.listForOrder.mockResolvedValue([
+      {
+        id: "hist-1",
+        status: OrderStatus.CONFIRMED,
+        actorType: "CUSTOMER",
+        actorUser: {
+          id: "user-1",
+          fullName: "Buyer Demo",
+          role: "CUSTOMER"
+        },
+        note: "Buyer updated shipping details before seller handling",
+        metadata: {
+          previousAddress: {
+            recipientName: "Buyer Demo",
+            phoneNumber: "0900000000",
+            addressLine1: "123 Demo Street",
+            addressLine2: null,
+            ward: null,
+            district: "District 1",
+            province: "Ho Chi Minh City",
+            regionCode: "HCM",
+            note: "Old note"
+          },
+          nextAddress: {
+            recipientName: "Buyer Demo",
+            phoneNumber: "0900000000",
+            addressLine1: "456 New Street",
+            addressLine2: null,
+            ward: null,
+            district: "District 3",
+            province: "Ho Chi Minh City",
+            regionCode: "HCM",
+            note: "Call before delivery"
+          },
+          changedFields: [
+            {
+              key: "addressLine1",
+              label: "Address line 1",
+              previousValue: "123 Demo Street",
+              nextValue: "456 New Street"
+            },
+            {
+              key: "district",
+              label: "District",
+              previousValue: "District 1",
+              nextValue: "District 3"
+            }
+          ]
+        },
+        createdAt: new Date("2026-04-18T03:00:00.000Z").toISOString()
+      }
+    ]);
+
+    const result = await service.getSellerOrderDetail("seller-1", "order-1");
+
+    expect(result.latestShippingUpdate).toMatchObject({
+      updatedAt: "2026-04-18T03:00:00.000Z",
+      changedFields: [
+        expect.objectContaining({
+          key: "addressLine1",
+          previousValue: "123 Demo Street",
+          nextValue: "456 New Street"
+        }),
+        expect.objectContaining({
+          key: "district",
+          previousValue: "District 1",
+          nextValue: "District 3"
+        })
+      ]
+    });
   });
 });

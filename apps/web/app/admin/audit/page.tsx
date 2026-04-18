@@ -8,6 +8,45 @@ import { getDemoSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
+function readShippingFields(
+  value: unknown
+): Array<{
+  key: string;
+  label: string;
+  previousValue: string | null;
+  nextValue: string | null;
+}> {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") {
+      return [];
+    }
+
+    const field = item as Record<string, unknown>;
+    if (typeof field.key !== "string" || typeof field.label !== "string") {
+      return [];
+    }
+
+    return [
+      {
+        key: field.key,
+        label: field.label,
+        previousValue:
+          field.previousValue === null || typeof field.previousValue === "string"
+            ? field.previousValue
+            : String(field.previousValue ?? ""),
+        nextValue:
+          field.nextValue === null || typeof field.nextValue === "string"
+            ? field.nextValue
+            : String(field.nextValue ?? "")
+      }
+    ];
+  });
+}
+
 export default async function AdminAuditPage({
   searchParams
 }: {
@@ -90,6 +129,7 @@ export default async function AdminAuditPage({
             className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700"
           >
             <option value="">All actor roles</option>
+            <option value="CUSTOMER">CUSTOMER</option>
             <option value="ADMIN">ADMIN</option>
             <option value="SUPER_ADMIN">SUPER_ADMIN</option>
           </select>
@@ -123,6 +163,40 @@ export default async function AdminAuditPage({
                       {typeof item.metadata?.requestId === "string" ? (
                         <div className="mt-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
                           Request {item.metadata.requestId}
+                        </div>
+                      ) : null}
+                      {item.action === "orders.customer.update_shipping" ? (
+                        <div className="mt-3 rounded-[1.25rem] bg-white p-4">
+                          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                            Shipping change
+                          </div>
+                          <div className="mt-3 space-y-3">
+                            {readShippingFields(item.metadata?.changedFields).map((field) => (
+                              <div key={field.key} className="rounded-[1rem] bg-slate-50 px-3 py-3">
+                                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                                  {field.label}
+                                </div>
+                                <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
+                                  <div>
+                                    <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                                      Before
+                                    </div>
+                                    <div className="mt-1 text-slate-500">
+                                      {field.previousValue || "Empty"}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                                      After
+                                    </div>
+                                    <div className="mt-1 font-semibold text-slate-950">
+                                      {field.nextValue || "Empty"}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       ) : null}
                       {item.metadata ? (

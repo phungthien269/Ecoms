@@ -2,6 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from "@nestjs/common
 import {
   NotificationCategory,
   OrderStatus,
+  type OrderShippingChangeField,
   PaymentMethod,
   PaymentStatus
 } from "@ecoms/contracts";
@@ -233,6 +234,7 @@ export class OrdersService {
     return {
       ...this.serializeOrderDetail(order),
       statusTimeline,
+      latestShippingUpdate: this.extractLatestShippingUpdate(statusTimeline),
       returnWindow: this.buildReturnWindow(order.status as OrderStatus, order.updatedAt, statusTimeline),
       shippingUpdateWindow: {
         canEdit: shippingEditable,
@@ -301,6 +303,18 @@ export class OrdersService {
       regionCode: order.shippingRegionCode,
       note: order.note
     };
+    const nextAddress = {
+      recipientName: payload.recipientName,
+      phoneNumber: payload.phoneNumber,
+      addressLine1: payload.addressLine1,
+      addressLine2: payload.addressLine2 ?? null,
+      ward: payload.ward ?? null,
+      district: payload.district,
+      province: payload.province,
+      regionCode: payload.regionCode,
+      note: payload.note?.trim() || null
+    };
+    const changedFields = this.buildShippingChangedFields(previousAddress, nextAddress);
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const nextOrder = await tx.order.update({
@@ -327,17 +341,26 @@ export class OrdersService {
           note: "Buyer updated shipping details before seller handling",
           metadata: {
             previousAddress,
-            nextAddress: {
-              recipientName: payload.recipientName,
-              phoneNumber: payload.phoneNumber,
-              addressLine1: payload.addressLine1,
-              addressLine2: payload.addressLine2 ?? null,
-              ward: payload.ward ?? null,
-              district: payload.district,
-              province: payload.province,
-              regionCode: payload.regionCode,
-              note: payload.note?.trim() || null
-            }
+            nextAddress,
+            changedFields
+          }
+        },
+        tx
+      );
+
+      await this.auditLogsService.record(
+        {
+          actorUserId: userId,
+          actorRole: "CUSTOMER",
+          action: "orders.customer.update_shipping",
+          entityType: "ORDER",
+          entityId: order.id,
+          summary: `Buyer updated shipping details for ${order.orderNumber}`,
+          metadata: {
+            orderNumber: order.orderNumber,
+            previousAddress,
+            nextAddress,
+            changedFields
           }
         },
         tx
@@ -701,6 +724,7 @@ export class OrdersService {
       customer: order.user,
       shop: order.shop,
       statusTimeline,
+      latestShippingUpdate: this.extractLatestShippingUpdate(statusTimeline),
       returnWindow: this.buildReturnWindow(order.status as OrderStatus, order.updatedAt, statusTimeline),
       shippingUpdateWindow: {
         canEdit: this.canCustomerEditShipping(order.status as OrderStatus, statusTimeline),
@@ -1058,6 +1082,138 @@ export class OrdersService {
     );
 
     return !sellerHasHandled;
+  }
+
+  private extractLatestShippingUpdate(
+    statusTimeline: Array<{
+      status: string;
+      actorType: string;
+      actorUser: {
+        id: string;
+        fullName: string;
+        role: string;
+      } | null;
+      note: string | null;
+      metadata: Record<string, unknown> | null;
+      createdAt: string;
+    }>
+  ) {
+    const latestEntry = [...statusTimeline]
+      .reverse()
+      .find(
+        (entry) =>
+          entry.actorType === "CUSTOMER" &&
+          this.hasShippingUpdateMetadata(entry.metadata)
+      );
+
+    if (!latestEntry || !latestEntry.metadata) {
+      return null;
+    }
+
+    const metadata = latestEntry.metadata;
+
+    return {
+      updatedAt: latestEntry.createdAt,
+      actorType: latestEntry.actorType,
+      actorUser: latestEntry.actorUser
+        ? {
+            id: latestEntry.actorUser.id,
+            fullName: latestEntry.actorUser.fullName,
+            role: latestEntry.actorUser.role
+          }
+        : null,
+      note: latestEntry.note,
+      changedFields: this.readChangedFields(metadata.changedFields),
+      previousAddress: this.readAddressSnapshot(metadata.previousAddress),
+      nextAddress: this.readAddressSnapshot(metadata.nextAddress)
+    };
+  }
+
+  private hasShippingUpdateMetadata(metadata: Record<string, unknown> | null) {
+    if (!metadata) {
+      return false;
+    }
+
+    return (
+      typeof metadata.previousAddress === "object" &&
+      metadata.previousAddress !== null &&
+      typeof metadata.nextAddress === "object" &&
+      metadata.nextAddress !== null
+    );
+  }
+
+  private readChangedFields(value: unknown): OrderShippingChangeField[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value.flatMap((item) => {
+      if (!item || typeof item !== "object") {
+        return [];
+      }
+
+      const field = item as Record<string, unknown>;
+      if (
+        typeof field.key !== "string" ||
+        typeof field.label !== "string"
+      ) {
+        return [];
+      }
+
+      return [
+        {
+          key: field.key as OrderShippingChangeField["key"],
+          label: field.label,
+          previousValue:
+            field.previousValue === null || typeof field.previousValue === "string"
+              ? field.previousValue
+              : String(field.previousValue ?? ""),
+          nextValue:
+            field.nextValue === null || typeof field.nextValue === "string"
+              ? field.nextValue
+              : String(field.nextValue ?? "")
+        }
+      ];
+    });
+  }
+
+  private readAddressSnapshot(value: unknown) {
+    if (!value || typeof value !== "object") {
+      return {};
+    }
+
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, item]) => [
+        key,
+        item === null || typeof item === "string" ? item : String(item ?? "")
+      ])
+    );
+  }
+
+  private buildShippingChangedFields(
+    previousAddress: Record<string, string | null>,
+    nextAddress: Record<string, string | null>
+  ): OrderShippingChangeField[] {
+    const fieldLabels: Record<OrderShippingChangeField["key"], string> = {
+      recipientName: "Recipient name",
+      phoneNumber: "Phone number",
+      addressLine1: "Address line 1",
+      addressLine2: "Address line 2",
+      ward: "Ward",
+      district: "District",
+      province: "Province",
+      regionCode: "Region code",
+      note: "Delivery note"
+    };
+
+    return (Object.keys(fieldLabels) as OrderShippingChangeField["key"][])
+      .filter((key) => (previousAddress[key] ?? null) !== (nextAddress[key] ?? null))
+      .map((key) => ({
+        key,
+        label: fieldLabels[key],
+        previousValue: previousAddress[key] ?? null,
+        nextValue: nextAddress[key] ?? null
+      }));
   }
 
   private getSellerTransitionNote(nextStatus: OrderStatus) {

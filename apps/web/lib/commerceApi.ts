@@ -201,6 +201,24 @@ export interface OrderDetail extends OrderListItem {
     canEdit: boolean;
     lockedReason: string | null;
   };
+  latestShippingUpdate: {
+    updatedAt: string;
+    actorType: string;
+    actorUser: {
+      id: string;
+      fullName: string;
+      role: string;
+    } | null;
+    note: string | null;
+    changedFields: Array<{
+      key: string;
+      label: string;
+      previousValue: string | null;
+      nextValue: string | null;
+    }>;
+    previousAddress: Record<string, string | null>;
+    nextAddress: Record<string, string | null>;
+  } | null;
   autoCompleteWindow: {
     canAutoComplete: boolean;
     deliveredAt: string | null;

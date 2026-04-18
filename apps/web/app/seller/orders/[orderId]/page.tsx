@@ -43,6 +43,7 @@ export default async function SellerOrderDetailPage({
 
   const nextStatuses = sellerTransitions[order.status] ?? [];
   const latestPayment = order.payments[0] ?? null;
+  const latestShippingUpdate = order.latestShippingUpdate;
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -171,6 +172,45 @@ export default async function SellerOrderDetailPage({
                   {order.shippingAddress.regionCode}
                 </div>
               </div>
+              {latestShippingUpdate ? (
+                <div className="mt-5 rounded-[1.5rem] border border-orange-200 bg-orange-50 p-4">
+                  <div className="flex flex-col gap-1">
+                    <div className="text-sm font-semibold text-slate-950">
+                      Buyer changed delivery details
+                    </div>
+                    <div className="text-xs uppercase tracking-[0.16em] text-orange-600">
+                      {new Date(latestShippingUpdate.updatedAt).toLocaleString("vi-VN")}
+                    </div>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    {latestShippingUpdate.changedFields.map((field) => (
+                      <div key={field.key} className="rounded-[1rem] bg-white px-3 py-3">
+                        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                          {field.label}
+                        </div>
+                        <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
+                          <div>
+                            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                              Before
+                            </div>
+                            <div className="mt-1 text-slate-500">
+                              {field.previousValue || "Empty"}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                              After
+                            </div>
+                            <div className="mt-1 font-semibold text-slate-950">
+                              {field.nextValue || "Empty"}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </section>
 
             <section className="rounded-[2rem] border border-orange-100 bg-orange-50 p-6 shadow-sm">

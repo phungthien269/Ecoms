@@ -266,6 +266,36 @@ export interface OrderShippingUpdateWindowSummary {
   lockedReason: string | null;
 }
 
+export interface OrderShippingChangeField {
+  key:
+    | "recipientName"
+    | "phoneNumber"
+    | "addressLine1"
+    | "addressLine2"
+    | "ward"
+    | "district"
+    | "province"
+    | "regionCode"
+    | "note";
+  label: string;
+  previousValue: string | null;
+  nextValue: string | null;
+}
+
+export interface OrderShippingUpdateSummary {
+  updatedAt: string;
+  actorType: string;
+  actorUser: {
+    id: string;
+    fullName: string;
+    role: UserRole;
+  } | null;
+  note: string | null;
+  changedFields: OrderShippingChangeField[];
+  previousAddress: Record<string, string | null>;
+  nextAddress: Record<string, string | null>;
+}
+
 export interface ApiSuccessResponse<T> {
   success: true;
   data: T;
