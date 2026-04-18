@@ -3,8 +3,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { updateSellerOrderStatusAction } from "@/app/actions/seller";
 import { formatPrice } from "@/components/commerce/price";
+import { FlashBanner } from "@/components/layout/flashBanner";
 import { EmptyState } from "@/components/storefront/emptyState";
 import { getSellerOrder } from "@/lib/commerceApi";
+import { readFlash } from "@/lib/feedback";
 import { getDemoSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -18,12 +20,15 @@ const sellerTransitions: Record<string, string[]> = {
 };
 
 export default async function SellerOrderDetailPage({
-  params
+  params,
+  searchParams
 }: {
   params: Promise<{ orderId: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await getDemoSession();
   const { orderId } = await params;
+  const flash = readFlash((await searchParams) ?? {});
 
   if (!session || session.role !== "SELLER") {
     return (
@@ -48,6 +53,9 @@ export default async function SellerOrderDetailPage({
   return (
     <main className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-6">
+          <FlashBanner {...flash} />
+        </div>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-2">
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-orange-500">
@@ -241,6 +249,7 @@ export default async function SellerOrderDetailPage({
                     <form key={status} action={updateSellerOrderStatusAction}>
                       <input type="hidden" name="orderId" value={order.id} />
                       <input type="hidden" name="status" value={status} />
+                      <input type="hidden" name="redirectTo" value={`/seller/orders/${order.id}`} />
                       <button
                         type="submit"
                         className="w-full rounded-full bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"

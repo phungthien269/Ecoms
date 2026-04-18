@@ -4,6 +4,7 @@ import type { Route } from "next";
 import { createHmac } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { buildFlashHref, readActionErrorMessage } from "@/lib/feedback";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
 
@@ -15,7 +16,13 @@ async function getToken() {
 async function authedMutation(path: string, init: RequestInit) {
   const token = await getToken();
   if (!token) {
-    redirect("/?auth=required");
+    redirect(
+      buildFlashHref("/", {}, {
+        scope: "Authentication",
+        status: "error",
+        message: "Please sign in to continue."
+      }) as Route
+    );
   }
 
   const response = await fetch(`${API_URL}${path}`, {
@@ -29,8 +36,7 @@ async function authedMutation(path: string, init: RequestInit) {
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || "Request failed");
+    throw new Error(await readActionErrorMessage(response, "Request failed."));
   }
 
   return response.json();
@@ -40,39 +46,86 @@ export async function addToCartAction(formData: FormData) {
   const productId = String(formData.get("productId"));
   const productVariantId = String(formData.get("productVariantId") ?? "");
   const quantity = Number(formData.get("quantity") ?? "1");
+  const redirectTo = String(formData.get("redirectTo") ?? "/cart");
 
-  await authedMutation("/cart/items", {
-    method: "POST",
-    body: JSON.stringify({
-      productId,
-      productVariantId: productVariantId || undefined,
-      quantity
-    })
-  });
+  try {
+    await authedMutation("/cart/items", {
+      method: "POST",
+      body: JSON.stringify({
+        productId,
+        productVariantId: productVariantId || undefined,
+        quantity
+      })
+    });
+  } catch (error) {
+    redirect(
+      buildFlashHref(redirectTo, {}, {
+        scope: "Cart",
+        status: "error",
+        message: error instanceof Error ? error.message : "Failed to add item to cart."
+      }) as Route
+    );
+  }
 
-  redirect("/cart?added=1");
+  redirect(
+    buildFlashHref("/cart", {}, {
+      scope: "Cart",
+      status: "success",
+      message: "Item added to cart."
+    }) as Route
+  );
 }
 
 export async function updateCartItemAction(formData: FormData) {
   const cartItemId = String(formData.get("cartItemId"));
   const quantity = Number(formData.get("quantity") ?? "1");
+  try {
+    await authedMutation(`/cart/items/${cartItemId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ quantity })
+    });
+  } catch (error) {
+    redirect(
+      buildFlashHref("/cart", {}, {
+        scope: "Cart",
+        status: "error",
+        message: error instanceof Error ? error.message : "Failed to update cart item."
+      }) as Route
+    );
+  }
 
-  await authedMutation(`/cart/items/${cartItemId}`, {
-    method: "PATCH",
-    body: JSON.stringify({ quantity })
-  });
-
-  redirect("/cart");
+  redirect(
+    buildFlashHref("/cart", {}, {
+      scope: "Cart",
+      status: "success",
+      message: "Cart item updated."
+    }) as Route
+  );
 }
 
 export async function removeCartItemAction(formData: FormData) {
   const cartItemId = String(formData.get("cartItemId"));
+  try {
+    await authedMutation(`/cart/items/${cartItemId}`, {
+      method: "DELETE"
+    });
+  } catch (error) {
+    redirect(
+      buildFlashHref("/cart", {}, {
+        scope: "Cart",
+        status: "error",
+        message: error instanceof Error ? error.message : "Failed to remove cart item."
+      }) as Route
+    );
+  }
 
-  await authedMutation(`/cart/items/${cartItemId}`, {
-    method: "DELETE"
-  });
-
-  redirect("/cart");
+  redirect(
+    buildFlashHref("/cart", {}, {
+      scope: "Cart",
+      status: "success",
+      message: "Cart item removed."
+    }) as Route
+  );
 }
 
 export async function placeOrderAction(formData: FormData) {
@@ -109,27 +162,65 @@ export async function placeOrderAction(formData: FormData) {
     }
   };
 
-  const response = (await authedMutation("/checkout/place-order", {
-    method: "POST",
-    body: JSON.stringify(payload)
-  })) as {
+  let response: {
     data: {
       orders: Array<{ id: string }>;
     };
   };
 
-  redirect(`/orders/${response.data.orders[0]?.id ?? ""}?placed=1`);
+  try {
+    response = (await authedMutation("/checkout/place-order", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    })) as {
+      data: {
+        orders: Array<{ id: string }>;
+      };
+    };
+  } catch (error) {
+    redirect(
+      buildFlashHref("/checkout", {}, {
+        scope: "Checkout",
+        status: "error",
+        message: error instanceof Error ? error.message : "Failed to place order."
+      }) as Route
+    );
+  }
+
+  redirect(
+    buildFlashHref(`/orders/${response.data.orders[0]?.id ?? ""}`, {}, {
+      scope: "Order placement",
+      status: "success",
+      message:
+        "Order placed. If you selected an online payment method, complete the pending payment below."
+    }) as Route
+  );
 }
 
 export async function confirmPaymentAction(formData: FormData) {
   const paymentId = String(formData.get("paymentId"));
   const orderId = String(formData.get("orderId"));
+  try {
+    await authedMutation(`/payments/${paymentId}/confirm`, {
+      method: "POST"
+    });
+  } catch (error) {
+    redirect(
+      buildFlashHref(`/orders/${orderId}`, {}, {
+        scope: "Payment",
+        status: "error",
+        message: error instanceof Error ? error.message : "Failed to confirm payment."
+      }) as Route
+    );
+  }
 
-  await authedMutation(`/payments/${paymentId}/confirm`, {
-    method: "POST"
-  });
-
-  redirect(`/orders/${orderId}?payment=confirmed`);
+  redirect(
+    buildFlashHref(`/orders/${orderId}`, {}, {
+      scope: "Payment",
+      status: "success",
+      message: "Payment confirmed."
+    }) as Route
+  );
 }
 
 export async function simulatePaymentWebhookAction(formData: FormData) {
@@ -161,31 +252,75 @@ export async function simulatePaymentWebhookAction(formData: FormData) {
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || "Webhook simulation failed");
+    redirect(
+      buildFlashHref(`/orders/${orderId}`, {}, {
+        scope: "Payment webhook",
+        status: "error",
+        message: await readActionErrorMessage(response, "Webhook simulation failed.")
+      }) as Route
+    );
   }
 
-  redirect(`/orders/${orderId}?payment=${event === "PAID" ? "webhook_paid" : "webhook_failed"}`);
+  redirect(
+    buildFlashHref(`/orders/${orderId}`, {}, {
+      scope: "Payment webhook",
+      status: "success",
+      message:
+        event === "PAID"
+          ? "Mock gateway callback marked the payment as paid."
+          : "Mock gateway callback marked the payment as failed."
+    }) as Route
+  );
 }
 
 export async function cancelOrderAction(formData: FormData) {
   const orderId = String(formData.get("orderId"));
+  try {
+    await authedMutation(`/orders/${orderId}/cancel`, {
+      method: "POST"
+    });
+  } catch (error) {
+    redirect(
+      buildFlashHref(`/orders/${orderId}`, {}, {
+        scope: "Order",
+        status: "error",
+        message: error instanceof Error ? error.message : "Failed to cancel order."
+      }) as Route
+    );
+  }
 
-  await authedMutation(`/orders/${orderId}/cancel`, {
-    method: "POST"
-  });
-
-  redirect(`/orders/${orderId}?status=cancelled`);
+  redirect(
+    buildFlashHref(`/orders/${orderId}`, {}, {
+      scope: "Order",
+      status: "success",
+      message: "Order cancelled before shipping."
+    }) as Route
+  );
 }
 
 export async function completeOrderAction(formData: FormData) {
   const orderId = String(formData.get("orderId"));
+  try {
+    await authedMutation(`/orders/${orderId}/complete`, {
+      method: "POST"
+    });
+  } catch (error) {
+    redirect(
+      buildFlashHref(`/orders/${orderId}`, {}, {
+        scope: "Order",
+        status: "error",
+        message: error instanceof Error ? error.message : "Failed to complete order."
+      }) as Route
+    );
+  }
 
-  await authedMutation(`/orders/${orderId}/complete`, {
-    method: "POST"
-  });
-
-  redirect(`/orders/${orderId}?status=completed`);
+  redirect(
+    buildFlashHref(`/orders/${orderId}`, {}, {
+      scope: "Order",
+      status: "success",
+      message: "Order marked as completed."
+    }) as Route
+  );
 }
 
 export async function requestReturnAction(formData: FormData) {
@@ -193,96 +328,219 @@ export async function requestReturnAction(formData: FormData) {
   const reason = String(formData.get("reason") ?? "");
   const details = String(formData.get("details") ?? "") || undefined;
 
-  await authedMutation(`/orders/${orderId}/return-request`, {
-    method: "POST",
-    body: JSON.stringify({
-      reason,
-      details
-    })
-  });
+  try {
+    await authedMutation(`/orders/${orderId}/return-request`, {
+      method: "POST",
+      body: JSON.stringify({
+        reason,
+        details
+      })
+    });
+  } catch (error) {
+    redirect(
+      buildFlashHref(`/orders/${orderId}`, {}, {
+        scope: "Return request",
+        status: "error",
+        message: error instanceof Error ? error.message : "Failed to submit return request."
+      }) as Route
+    );
+  }
 
-  redirect(`/orders/${orderId}?status=return_requested` as Route);
+  redirect(
+    buildFlashHref(`/orders/${orderId}`, {}, {
+      scope: "Return request",
+      status: "success",
+      message: "Return request submitted."
+    }) as Route
+  );
 }
 
 export async function updateOrderShippingAction(formData: FormData) {
   const orderId = String(formData.get("orderId") ?? "");
+  try {
+    await authedMutation(`/orders/${orderId}/shipping`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        recipientName: String(formData.get("recipientName") ?? ""),
+        phoneNumber: String(formData.get("phoneNumber") ?? ""),
+        addressLine1: String(formData.get("addressLine1") ?? ""),
+        addressLine2: String(formData.get("addressLine2") ?? "") || undefined,
+        ward: String(formData.get("ward") ?? "") || undefined,
+        district: String(formData.get("district") ?? ""),
+        province: String(formData.get("province") ?? ""),
+        regionCode: String(formData.get("regionCode") ?? ""),
+        note: String(formData.get("note") ?? "") || undefined
+      })
+    });
+  } catch (error) {
+    redirect(
+      buildFlashHref(`/orders/${orderId}`, {}, {
+        scope: "Shipping update",
+        status: "error",
+        message: error instanceof Error ? error.message : "Failed to update shipping details."
+      }) as Route
+    );
+  }
 
-  await authedMutation(`/orders/${orderId}/shipping`, {
-    method: "PATCH",
-    body: JSON.stringify({
-      recipientName: String(formData.get("recipientName") ?? ""),
-      phoneNumber: String(formData.get("phoneNumber") ?? ""),
-      addressLine1: String(formData.get("addressLine1") ?? ""),
-      addressLine2: String(formData.get("addressLine2") ?? "") || undefined,
-      ward: String(formData.get("ward") ?? "") || undefined,
-      district: String(formData.get("district") ?? ""),
-      province: String(formData.get("province") ?? ""),
-      regionCode: String(formData.get("regionCode") ?? ""),
-      note: String(formData.get("note") ?? "") || undefined
-    })
-  });
-
-  redirect(`/orders/${orderId}?status=shipping_updated` as Route);
+  redirect(
+    buildFlashHref(`/orders/${orderId}`, {}, {
+      scope: "Shipping update",
+      status: "success",
+      message: "Shipping details updated and seller notified."
+    }) as Route
+  );
 }
 
 export async function addToWishlistAction(formData: FormData) {
   const productId = String(formData.get("productId"));
+  const productSlug = String(formData.get("productSlug"));
+  try {
+    await authedMutation(`/wishlist/${productId}`, {
+      method: "POST"
+    });
+  } catch (error) {
+    redirect(
+      buildFlashHref(`/products/${productSlug}`, {}, {
+        scope: "Wishlist",
+        status: "error",
+        message: error instanceof Error ? error.message : "Failed to save wishlist item."
+      }) as Route
+    );
+  }
 
-  await authedMutation(`/wishlist/${productId}`, {
-    method: "POST"
-  });
-
-  redirect(`/products/${String(formData.get("productSlug"))}?wishlist=added`);
+  redirect(
+    buildFlashHref(`/products/${productSlug}`, {}, {
+      scope: "Wishlist",
+      status: "success",
+      message: "Product saved to wishlist."
+    }) as Route
+  );
 }
 
 export async function createAddressAction(formData: FormData) {
-  await authedMutation("/addresses", {
-    method: "POST",
-    body: JSON.stringify(extractAddressPayload(formData))
-  });
+  try {
+    await authedMutation("/addresses", {
+      method: "POST",
+      body: JSON.stringify(extractAddressPayload(formData))
+    });
+  } catch (error) {
+    redirect(
+      buildFlashHref("/account/addresses", {}, {
+        scope: "Address book",
+        status: "error",
+        message: error instanceof Error ? error.message : "Failed to save address."
+      }) as Route
+    );
+  }
 
-  redirect("/account/addresses?status=created" as Route);
+  redirect(
+    buildFlashHref("/account/addresses", {}, {
+      scope: "Address book",
+      status: "success",
+      message: "Address saved."
+    }) as Route
+  );
 }
 
 export async function updateAddressAction(formData: FormData) {
   const addressId = String(formData.get("addressId") ?? "");
+  try {
+    await authedMutation(`/addresses/${addressId}`, {
+      method: "PATCH",
+      body: JSON.stringify(extractAddressPayload(formData))
+    });
+  } catch (error) {
+    redirect(
+      buildFlashHref("/account/addresses", {}, {
+        scope: "Address book",
+        status: "error",
+        message: error instanceof Error ? error.message : "Failed to update address."
+      }) as Route
+    );
+  }
 
-  await authedMutation(`/addresses/${addressId}`, {
-    method: "PATCH",
-    body: JSON.stringify(extractAddressPayload(formData))
-  });
-
-  redirect("/account/addresses?status=updated" as Route);
+  redirect(
+    buildFlashHref("/account/addresses", {}, {
+      scope: "Address book",
+      status: "success",
+      message: "Address updated."
+    }) as Route
+  );
 }
 
 export async function setDefaultAddressAction(formData: FormData) {
   const addressId = String(formData.get("addressId") ?? "");
+  try {
+    await authedMutation(`/addresses/${addressId}/default`, {
+      method: "POST"
+    });
+  } catch (error) {
+    redirect(
+      buildFlashHref("/account/addresses", {}, {
+        scope: "Address book",
+        status: "error",
+        message: error instanceof Error ? error.message : "Failed to update default address."
+      }) as Route
+    );
+  }
 
-  await authedMutation(`/addresses/${addressId}/default`, {
-    method: "POST"
-  });
-
-  redirect("/account/addresses?status=default" as Route);
+  redirect(
+    buildFlashHref("/account/addresses", {}, {
+      scope: "Address book",
+      status: "success",
+      message: "Default address updated."
+    }) as Route
+  );
 }
 
 export async function deleteAddressAction(formData: FormData) {
   const addressId = String(formData.get("addressId") ?? "");
+  try {
+    await authedMutation(`/addresses/${addressId}`, {
+      method: "DELETE"
+    });
+  } catch (error) {
+    redirect(
+      buildFlashHref("/account/addresses", {}, {
+        scope: "Address book",
+        status: "error",
+        message: error instanceof Error ? error.message : "Failed to delete address."
+      }) as Route
+    );
+  }
 
-  await authedMutation(`/addresses/${addressId}`, {
-    method: "DELETE"
-  });
-
-  redirect("/account/addresses?status=deleted" as Route);
+  redirect(
+    buildFlashHref("/account/addresses", {}, {
+      scope: "Address book",
+      status: "success",
+      message: "Address deleted."
+    }) as Route
+  );
 }
 
 export async function removeFromWishlistAction(formData: FormData) {
   const productId = String(formData.get("productId"));
+  try {
+    await authedMutation(`/wishlist/${productId}`, {
+      method: "DELETE"
+    });
+  } catch (error) {
+    redirect(
+      buildFlashHref("/wishlist", {}, {
+        scope: "Wishlist",
+        status: "error",
+        message: error instanceof Error ? error.message : "Failed to remove wishlist item."
+      }) as Route
+    );
+  }
 
-  await authedMutation(`/wishlist/${productId}`, {
-    method: "DELETE"
-  });
-
-  redirect("/wishlist?removed=1");
+  redirect(
+    buildFlashHref("/wishlist", {}, {
+      scope: "Wishlist",
+      status: "success",
+      message: "Wishlist item removed."
+    }) as Route
+  );
 }
 
 export async function createReviewAction(formData: FormData) {
@@ -292,17 +550,33 @@ export async function createReviewAction(formData: FormData) {
   const comment = String(formData.get("comment") ?? "");
   const imageFileAssetId = String(formData.get("imageFileAssetId") ?? "") || undefined;
 
-  await authedMutation("/reviews", {
-    method: "POST",
-    body: JSON.stringify({
-      orderItemId,
-      rating,
-      comment,
-      imageFileAssetIds: imageFileAssetId ? [imageFileAssetId] : undefined
-    })
-  });
+  try {
+    await authedMutation("/reviews", {
+      method: "POST",
+      body: JSON.stringify({
+        orderItemId,
+        rating,
+        comment,
+        imageFileAssetIds: imageFileAssetId ? [imageFileAssetId] : undefined
+      })
+    });
+  } catch (error) {
+    redirect(
+      buildFlashHref(`/orders/${orderId}`, {}, {
+        scope: "Review",
+        status: "error",
+        message: error instanceof Error ? error.message : "Failed to submit review."
+      }) as Route
+    );
+  }
 
-  redirect(`/orders/${orderId}?review=created`);
+  redirect(
+    buildFlashHref(`/orders/${orderId}`, {}, {
+      scope: "Review",
+      status: "success",
+      message: "Review submitted."
+    }) as Route
+  );
 }
 
 export async function startChatConversationAction(formData: FormData) {
@@ -364,18 +638,33 @@ export async function markAllNotificationsReadAction() {
 
 export async function createReportAction(formData: FormData) {
   const redirectTo = String(formData.get("redirectTo") ?? "/");
+  try {
+    await authedMutation("/reports", {
+      method: "POST",
+      body: JSON.stringify({
+        targetType: String(formData.get("targetType") ?? ""),
+        targetId: String(formData.get("targetId") ?? ""),
+        reason: String(formData.get("reason") ?? ""),
+        details: String(formData.get("details") ?? "") || undefined
+      })
+    });
+  } catch (error) {
+    redirect(
+      buildFlashHref(redirectTo, {}, {
+        scope: "Report",
+        status: "error",
+        message: error instanceof Error ? error.message : "Failed to submit report."
+      }) as Route
+    );
+  }
 
-  await authedMutation("/reports", {
-    method: "POST",
-    body: JSON.stringify({
-      targetType: String(formData.get("targetType") ?? ""),
-      targetId: String(formData.get("targetId") ?? ""),
-      reason: String(formData.get("reason") ?? ""),
-      details: String(formData.get("details") ?? "") || undefined
-    })
-  });
-
-  redirect(`${redirectTo}?report=submitted` as Route);
+  redirect(
+    buildFlashHref(redirectTo, {}, {
+      scope: "Report",
+      status: "success",
+      message: "Report submitted."
+    }) as Route
+  );
 }
 
 function extractAddressPayload(formData: FormData) {

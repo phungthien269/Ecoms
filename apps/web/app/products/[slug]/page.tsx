@@ -9,7 +9,9 @@ import {
   startChatConversationAction
 } from "@/app/actions/commerce";
 import { formatPrice } from "@/components/commerce/price";
+import { FlashBanner } from "@/components/layout/flashBanner";
 import { EmptyState } from "@/components/storefront/emptyState";
+import { readFlash } from "@/lib/feedback";
 import { buildMetadata, truncateDescription } from "@/lib/seo";
 import { getProduct, getProductReviews } from "@/lib/storefrontApi";
 
@@ -45,11 +47,14 @@ export async function generateMetadata({
 }
 
 export default async function ProductDetailPage({
-  params
+  params,
+  searchParams
 }: {
   params: Promise<{ slug: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { slug } = await params;
+  const flash = readFlash((await searchParams) ?? {});
   const [product, reviews] = await Promise.all([getProduct(slug), getProductReviews(slug)]);
 
   if (!product) {
@@ -62,6 +67,9 @@ export default async function ProductDetailPage({
   return (
     <main className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-6">
+          <FlashBanner {...flash} />
+        </div>
         <Link
           href={"/products" as Route}
           className="text-sm font-medium text-orange-600 hover:text-orange-700"
@@ -164,6 +172,7 @@ export default async function ProductDetailPage({
                 value={defaultVariant?.id ?? ""}
               />
               <input type="hidden" name="quantity" value="1" />
+              <input type="hidden" name="redirectTo" value={`/products/${product.slug}`} />
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm font-semibold uppercase tracking-[0.2em] text-orange-600">

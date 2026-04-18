@@ -8,9 +8,11 @@ import {
   updateOrderShippingAction
 } from "@/app/actions/commerce";
 import { formatPrice } from "@/components/commerce/price";
+import { FlashBanner } from "@/components/layout/flashBanner";
 import { UploadAssetField } from "@/components/media/uploadAssetField";
 import { EmptyState } from "@/components/storefront/emptyState";
 import { getOrder } from "@/lib/commerceApi";
+import { readFlash } from "@/lib/feedback";
 import { getDemoSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -53,16 +55,14 @@ export default async function OrderDetailPage({
 
   const latestPendingPayment = order.payments.find((payment) => payment.status === "PENDING");
   const activeTimelineIndex = timeline.indexOf(order.status);
-  const flashMessage = getOrderFlashMessage(resolvedSearchParams);
+  const flash = readFlash(resolvedSearchParams);
 
   return (
     <main className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        {flashMessage ? (
-          <div className="mb-6 rounded-[1.5rem] border border-orange-200 bg-orange-50 px-5 py-4 text-sm text-slate-700">
-            {flashMessage}
-          </div>
-        ) : null}
+        <div className="mb-6">
+          <FlashBanner {...flash} />
+        </div>
 
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
@@ -432,52 +432,4 @@ export default async function OrderDetailPage({
       </div>
     </main>
   );
-}
-
-function getOrderFlashMessage(searchParams: Record<string, string | string[] | undefined>) {
-  const placed = readSearchParam(searchParams.placed);
-  const payment = readSearchParam(searchParams.payment);
-  const status = readSearchParam(searchParams.status);
-
-  if (placed === "1") {
-    return "Order placed successfully. If you selected an online payment method, confirm the pending payment below to move the order forward.";
-  }
-
-  if (payment === "confirmed") {
-    return "Payment confirmed. The order status has been refreshed and is ready for seller processing.";
-  }
-
-  if (payment === "webhook_paid") {
-    return "Mock gateway callback marked the payment as paid and the order is now confirmed.";
-  }
-
-  if (payment === "webhook_failed") {
-    return "Mock gateway callback marked the payment as failed. Pending order was cancelled.";
-  }
-
-  if (status === "cancelled") {
-    return "Order cancelled before shipping.";
-  }
-
-  if (status === "completed") {
-    return "Order marked as completed.";
-  }
-
-  if (status === "return_requested") {
-    return "Return request submitted. Seller can now inspect and process the request.";
-  }
-
-  if (status === "shipping_updated") {
-    return "Shipping details updated and seller notified.";
-  }
-
-  return null;
-}
-
-function readSearchParam(value: string | string[] | undefined) {
-  if (Array.isArray(value)) {
-    return value[0];
-  }
-
-  return value;
 }

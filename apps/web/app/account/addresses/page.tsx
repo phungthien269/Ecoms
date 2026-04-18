@@ -6,8 +6,10 @@ import {
   setDefaultAddressAction,
   updateAddressAction
 } from "@/app/actions/commerce";
+import { FlashBanner } from "@/components/layout/flashBanner";
 import { EmptyState } from "@/components/storefront/emptyState";
 import { getAddresses } from "@/lib/commerceApi";
+import { readFlash } from "@/lib/feedback";
 import { getDemoSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -19,8 +21,7 @@ export default async function AddressesPage({
 }) {
   const session = await getDemoSession();
   const addresses = await getAddresses();
-  const resolvedSearchParams = (await searchParams) ?? {};
-  const flashMessage = getFlashMessage(readQueryParam(resolvedSearchParams.status));
+  const flash = readFlash((await searchParams) ?? {});
 
   if (!session) {
     return (
@@ -36,11 +37,9 @@ export default async function AddressesPage({
   return (
     <main className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        {flashMessage ? (
-          <div className="mb-6 rounded-[1.5rem] border border-orange-200 bg-orange-50 px-5 py-4 text-sm text-slate-700">
-            {flashMessage}
-          </div>
-        ) : null}
+        <div className="mb-6">
+          <FlashBanner {...flash} />
+        </div>
 
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
@@ -250,26 +249,3 @@ function AddressFields({
 
 const inputClass =
   "rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700 placeholder:text-slate-400";
-
-function readQueryParam(value: string | string[] | undefined) {
-  if (Array.isArray(value)) {
-    return value[0];
-  }
-
-  return value;
-}
-
-function getFlashMessage(status?: string) {
-  switch (status) {
-    case "created":
-      return "Address saved.";
-    case "updated":
-      return "Address updated.";
-    case "default":
-      return "Default address updated.";
-    case "deleted":
-      return "Address deleted.";
-    default:
-      return null;
-  }
-}

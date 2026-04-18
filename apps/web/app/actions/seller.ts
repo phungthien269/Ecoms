@@ -1,7 +1,9 @@
 "use server";
 
+import type { Route } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { buildFlashHref, readActionErrorMessage } from "@/lib/feedback";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
 
@@ -94,10 +96,26 @@ export async function createSellerProductAction(formData: FormData) {
   });
 
   if (!response.ok) {
-    redirect("/seller?create=failed");
+    redirect(
+      buildFlashHref(
+        "/seller",
+        {},
+        {
+          scope: "Product create",
+          status: "error",
+          message: await readActionErrorMessage(response, "Failed to create product.")
+        }
+      ) as Route
+    );
   }
 
-  redirect("/seller?create=success");
+  redirect(
+    buildFlashHref("/seller", {}, {
+      scope: "Product create",
+      status: "success",
+      message: "Product created."
+    }) as Route
+  );
 }
 
 export async function updateSellerProductAction(formData: FormData) {
@@ -120,10 +138,26 @@ export async function updateSellerProductAction(formData: FormData) {
   });
 
   if (!response.ok) {
-    redirect("/seller?update=failed");
+    redirect(
+      buildFlashHref(
+        "/seller",
+        {},
+        {
+          scope: "Product update",
+          status: "error",
+          message: await readActionErrorMessage(response, "Failed to update product.")
+        }
+      ) as Route
+    );
   }
 
-  redirect("/seller?update=success");
+  redirect(
+    buildFlashHref("/seller", {}, {
+      scope: "Product update",
+      status: "success",
+      message: "Product updated."
+    }) as Route
+  );
 }
 
 export async function deleteSellerProductAction(formData: FormData) {
@@ -143,23 +177,46 @@ export async function deleteSellerProductAction(formData: FormData) {
   });
 
   if (!response.ok) {
-    redirect("/seller?delete=failed");
+    redirect(
+      buildFlashHref(
+        "/seller",
+        {},
+        {
+          scope: "Product delete",
+          status: "error",
+          message: await readActionErrorMessage(response, "Failed to delete product.")
+        }
+      ) as Route
+    );
   }
 
-  redirect("/seller?delete=success");
+  redirect(
+    buildFlashHref("/seller", {}, {
+      scope: "Product delete",
+      status: "success",
+      message: "Product deleted."
+    }) as Route
+  );
 }
 
 export async function updateSellerOrderStatusAction(formData: FormData) {
   const token = await getToken();
+  const redirectTo = String(formData.get("redirectTo") ?? "/seller/orders");
   if (!token) {
-    redirect("/seller/orders");
+    redirect(redirectTo as Route);
   }
 
   const orderId = String(formData.get("orderId") ?? "");
   const status = String(formData.get("status") ?? "");
 
   if (!orderId || !status) {
-    redirect("/seller/orders?status=failed");
+    redirect(
+      buildFlashHref(redirectTo, {}, {
+        scope: "Fulfillment",
+        status: "error",
+        message: "Missing seller order action."
+      }) as Route
+    );
   }
 
   const response = await fetch(`${API_URL}/orders/seller/me/${orderId}/status`, {
@@ -173,10 +230,26 @@ export async function updateSellerOrderStatusAction(formData: FormData) {
   });
 
   if (!response.ok) {
-    redirect("/seller/orders?status=failed");
+    redirect(
+      buildFlashHref(
+        redirectTo,
+        {},
+        {
+          scope: "Fulfillment",
+          status: "error",
+          message: await readActionErrorMessage(response, "Failed to update order status.")
+        }
+      ) as Route
+    );
   }
 
-  redirect("/seller/orders?status=success");
+  redirect(
+    buildFlashHref(redirectTo, {}, {
+      scope: "Fulfillment",
+      status: "success",
+      message: `Order moved to ${status.replaceAll("_", " ").toLowerCase()}.`
+    }) as Route
+  );
 }
 
 export async function replySellerReviewAction(formData: FormData) {
@@ -189,7 +262,13 @@ export async function replySellerReviewAction(formData: FormData) {
   const reply = String(formData.get("reply") ?? "");
 
   if (!reviewId || !reply.trim()) {
-    redirect("/seller/reviews?reply=failed");
+    redirect(
+      buildFlashHref("/seller/reviews", {}, {
+        scope: "Review reply",
+        status: "error",
+        message: "Reply content is required."
+      }) as Route
+    );
   }
 
   const response = await fetch(`${API_URL}/reviews/${reviewId}/reply`, {
@@ -203,10 +282,26 @@ export async function replySellerReviewAction(formData: FormData) {
   });
 
   if (!response.ok) {
-    redirect("/seller/reviews?reply=failed");
+    redirect(
+      buildFlashHref(
+        "/seller/reviews",
+        {},
+        {
+          scope: "Review reply",
+          status: "error",
+          message: await readActionErrorMessage(response, "Failed to reply to review.")
+        }
+      ) as Route
+    );
   }
 
-  redirect("/seller/reviews?reply=success");
+  redirect(
+    buildFlashHref("/seller/reviews", {}, {
+      scope: "Review reply",
+      status: "success",
+      message: "Reply sent."
+    }) as Route
+  );
 }
 
 export async function updateSellerShopAction(formData: FormData) {
@@ -231,10 +326,26 @@ export async function updateSellerShopAction(formData: FormData) {
   });
 
   if (!response.ok) {
-    redirect("/seller?shop=failed");
+    redirect(
+      buildFlashHref(
+        "/seller",
+        {},
+        {
+          scope: "Shop profile",
+          status: "error",
+          message: await readActionErrorMessage(response, "Failed to update shop profile.")
+        }
+      ) as Route
+    );
   }
 
-  redirect("/seller?shop=updated");
+  redirect(
+    buildFlashHref("/seller", {}, {
+      scope: "Shop profile",
+      status: "success",
+      message: "Shop profile updated."
+    }) as Route
+  );
 }
 
 export async function createSellerVoucherAction(formData: FormData) {
@@ -265,8 +376,24 @@ export async function createSellerVoucherAction(formData: FormData) {
   });
 
   if (!response.ok) {
-    redirect("/seller?voucher=failed");
+    redirect(
+      buildFlashHref(
+        "/seller",
+        {},
+        {
+          scope: "Voucher create",
+          status: "error",
+          message: await readActionErrorMessage(response, "Failed to create shop voucher.")
+        }
+      ) as Route
+    );
   }
 
-  redirect("/seller?voucher=created");
+  redirect(
+    buildFlashHref("/seller", {}, {
+      scope: "Voucher create",
+      status: "success",
+      message: "Shop voucher created."
+    }) as Route
+  );
 }

@@ -8,6 +8,7 @@ import {
   updateSellerShopAction
 } from "@/app/actions/seller";
 import { formatPrice } from "@/components/commerce/price";
+import { FlashBanner } from "@/components/layout/flashBanner";
 import { UploadAssetField } from "@/components/media/uploadAssetField";
 import { EmptyState } from "@/components/storefront/emptyState";
 import { flattenCategories } from "@/lib/catalog";
@@ -18,13 +19,19 @@ import {
   getSellerShop,
   getSellerVouchers
 } from "@/lib/commerceApi";
+import { readFlash } from "@/lib/feedback";
 import { getBrands, getCategoryTree } from "@/lib/storefrontApi";
 import { getDemoSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-export default async function SellerPage() {
+export default async function SellerPage({
+  searchParams
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await getDemoSession();
+  const flash = readFlash((await searchParams) ?? {});
   const [shop, dashboard, products, categories, brands, vouchers, files] = await Promise.all([
     getSellerShop(),
     getSellerDashboard(),
@@ -51,6 +58,9 @@ export default async function SellerPage() {
   return (
     <main className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-6">
+          <FlashBanner {...flash} />
+        </div>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-orange-500">

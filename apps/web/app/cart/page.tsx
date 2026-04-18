@@ -2,14 +2,21 @@ import type { Route } from "next";
 import Link from "next/link";
 import { removeCartItemAction, updateCartItemAction } from "@/app/actions/commerce";
 import { formatPrice } from "@/components/commerce/price";
+import { FlashBanner } from "@/components/layout/flashBanner";
 import { EmptyState } from "@/components/storefront/emptyState";
 import { getCart } from "@/lib/commerceApi";
+import { readFlash } from "@/lib/feedback";
 import { getDemoSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-export default async function CartPage() {
+export default async function CartPage({
+  searchParams
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await getDemoSession();
+  const flash = readFlash((await searchParams) ?? {});
   const cart = await getCart();
 
   if (!session) {
@@ -26,6 +33,9 @@ export default async function CartPage() {
   return (
     <main className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-6">
+          <FlashBanner {...flash} />
+        </div>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-orange-500">
