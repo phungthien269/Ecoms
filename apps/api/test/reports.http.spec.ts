@@ -117,7 +117,10 @@ describe("ReportsController (http)", () => {
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
     expect(reportsService.updateStatus).toHaveBeenCalledWith(
-      "admin-1",
+      expect.objectContaining({
+        sub: "admin-1",
+        role: UserRole.ADMIN
+      }),
       "report-1",
       expect.objectContaining({
         status: ReportStatus.RESOLVED,

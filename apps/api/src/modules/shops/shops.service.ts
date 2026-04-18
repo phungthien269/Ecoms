@@ -4,7 +4,10 @@ import {
   NotFoundException
 } from "@nestjs/common";
 import { ProductStatus, ShopStatus, UserRole } from "@ecoms/contracts";
+import { AuditLogsService } from "../auditLogs/audit-logs.service";
+import type { AuthPayload } from "../auth/types/auth-payload";
 import { PrismaService } from "../prisma/prisma.service";
+import { SystemSettingsService } from "../systemSettings/system-settings.service";
 import { slugify } from "../../common/utils/slugify";
 import { CreateShopDto } from "./dto/create-shop.dto";
 import { UpdateShopDto } from "./dto/update-shop.dto";
@@ -12,7 +15,11 @@ import { UpdateShopStatusDto } from "./dto/update-shop-status.dto";
 
 @Injectable()
 export class ShopsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogsService: AuditLogsService,
+    private readonly systemSettingsService: SystemSettingsService
+  ) {}
 
   async listPublic() {
     const shops = await this.prisma.shop.findMany({
@@ -158,6 +165,13 @@ export class ShopsService {
   }
 
   async create(ownerId: string, payload: CreateShopDto) {
+    const registrationEnabled = await this.systemSettingsService.getBooleanValue(
+      "seller_registration_enabled"
+    );
+    if (!registrationEnabled) {
+      throw new ConflictException("Seller registration is currently disabled by system configuration");
+    }
+
     const existingShop = await this.prisma.shop.findUnique({
       where: { ownerId }
     });
@@ -219,7 +233,7 @@ export class ShopsService {
     });
   }
 
-  async updateStatus(shopId: string, payload: UpdateShopStatusDto) {
+  async updateStatus(actor: AuthPayload, shopId: string, payload: UpdateShopStatusDto) {
     const shop = await this.prisma.shop.findUnique({
       where: { id: shopId },
       include: {
@@ -241,7 +255,7 @@ export class ShopsService {
       throw new ConflictException("Cannot approve a shop while the owner account is inactive");
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const updatedShop = await this.prisma.$transaction(async (tx) => {
       if (payload.status === ShopStatus.ACTIVE && shop.owner.role !== UserRole.SELLER) {
         await tx.user.update({
           where: { id: shop.owner.id },
@@ -258,6 +272,22 @@ export class ShopsService {
         }
       });
     });
+
+    await this.auditLogsService.record({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: "shops.admin.update_status",
+      entityType: "SHOP",
+      entityId: shopId,
+      summary: `Updated shop ${shop.name} to ${payload.status}`,
+      metadata: {
+        previousStatus: shop.status,
+        nextStatus: payload.status,
+        ownerId: shop.owner.id
+      }
+    });
+
+    return updatedShop;
   }
 
   private async generateUniqueSlug(name: string, shopId?: string) {

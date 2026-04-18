@@ -365,3 +365,30 @@ export async function updateAdminReportStatusAction(formData: FormData) {
 
   redirectToPath(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}reports=updated`);
 }
+
+export async function updateSystemSettingAction(formData: FormData) {
+  const token = await getToken();
+  const redirectTo = getRedirectTarget(formData, "/admin/settings");
+  if (!token) {
+    redirectToPath(redirectTo);
+  }
+
+  const key = String(formData.get("key") ?? "");
+  const value = String(formData.get("value") ?? "");
+
+  const response = await fetch(`${API_URL}/system-settings/admin/${key}`, {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({ value }),
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    redirectToPath(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}settings=failed`);
+  }
+
+  redirectToPath(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}settings=updated`);
+}

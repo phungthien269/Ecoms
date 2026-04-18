@@ -9,6 +9,8 @@ import {
   NotificationCategory,
   ReportTargetType
 } from "@ecoms/contracts";
+import { AuditLogsService } from "../auditLogs/audit-logs.service";
+import type { AuthPayload } from "../auth/types/auth-payload";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateReportDto } from "./dto/create-report.dto";
@@ -22,7 +24,8 @@ import {
 export class ReportsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly notificationsService: NotificationsService
+    private readonly notificationsService: NotificationsService,
+    private readonly auditLogsService: AuditLogsService
   ) {}
 
   async create(userId: string, payload: CreateReportDto) {
@@ -246,7 +249,7 @@ export class ReportsService {
     };
   }
 
-  async updateStatus(userId: string, reportId: string, payload: UpdateReportStatusDto) {
+  async updateStatus(actor: AuthPayload, reportId: string, payload: UpdateReportStatusDto) {
     const report = await this.prisma.report.findUnique({
       where: { id: reportId },
       include: {
@@ -290,11 +293,11 @@ export class ReportsService {
         resolvedNote: this.buildResolvedNote(payload.resolvedNote, moderationResult.note),
         resolvedAt:
           payload.status === "RESOLVED" || payload.status === "DISMISSED"
-            ? new Date()
+          ? new Date()
             : null,
         resolvedById:
           payload.status === "RESOLVED" || payload.status === "DISMISSED"
-            ? userId
+            ? actor.sub
             : null
       }
     });
@@ -310,6 +313,20 @@ export class ReportsService {
     if (moderationResult.ownerNotification) {
       await this.notificationsService.create(moderationResult.ownerNotification);
     }
+
+    await this.auditLogsService.record({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: "reports.admin.update_status",
+      entityType: "REPORT",
+      entityId: reportId,
+      summary: `Updated report ${reportId} to ${payload.status}`,
+      metadata: {
+        previousStatus: report.status,
+        nextStatus: payload.status,
+        moderationAction: payload.moderationAction ?? null
+      }
+    });
 
     return {
       id: updated.id,

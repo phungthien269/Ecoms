@@ -21,6 +21,7 @@ import { MailerService } from "../mailer/mailer.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { OrderStatusHistoryService } from "../orderStatusHistory/order-status-history.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { SystemSettingsService } from "../systemSettings/system-settings.service";
 import { VouchersService } from "../vouchers/vouchers.service";
 import { CheckoutPreviewDto } from "./dto/checkout-preview.dto";
 
@@ -65,7 +66,8 @@ export class CheckoutService {
     private readonly vouchersService: VouchersService,
     private readonly notificationsService: NotificationsService,
     private readonly mailerService: MailerService,
-    private readonly orderStatusHistoryService: OrderStatusHistoryService
+    private readonly orderStatusHistoryService: OrderStatusHistoryService,
+    private readonly systemSettingsService: SystemSettingsService
   ) {}
 
   async preview(userId: string, payload: CheckoutPreviewDto): Promise<CheckoutPreview> {
@@ -77,6 +79,9 @@ export class CheckoutService {
     const cartItems = await this.getValidatedCartItems(userId);
     const preview = await this.buildPreview(userId, cartItems, payload);
     const placedAt = new Date();
+    const paymentTimeoutMinutes = await this.systemSettingsService.getNumberValue(
+      "payment_timeout_minutes"
+    );
     const appliedVoucherCodes = preview.appliedVouchers.map((voucher) => voucher.code);
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -180,7 +185,7 @@ export class CheckoutService {
             expiresAt:
               payload.paymentMethod === PaymentMethod.COD
                 ? null
-                : new Date(placedAt.getTime() + 15 * 60 * 1000),
+                : new Date(placedAt.getTime() + paymentTimeoutMinutes * 60 * 1000),
             paidAt: payload.paymentMethod === PaymentMethod.COD ? placedAt : null,
             metadata:
               payload.paymentMethod === PaymentMethod.COD

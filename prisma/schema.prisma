@@ -134,6 +134,8 @@ model User {
   fileAssets         FileAsset[]        @relation("FileAssetCreator")
   orderStatusEvents  OrderStatusHistory[] @relation("OrderStatusActor")
   banners            Banner[]
+  auditLogs          AuditLog[]         @relation("AuditLogActor")
+  updatedSettings    SystemSetting[]    @relation("SystemSettingUpdater")
 }
 
 model UserAddress {
@@ -594,6 +596,40 @@ model FileAsset {
   @@index([createdById, createdAt])
   @@index([status, createdAt])
   @@unique([driver, objectKey])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  actorRole   String
+  action      String
+  entityType  String
+  entityId    String?
+  summary     String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  actorUser   User?    @relation("AuditLogActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId, createdAt])
+  @@index([action, createdAt])
+  @@index([entityType, entityId, createdAt])
+  @@index([actorRole, createdAt])
+}
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  category    String
+  label       String
+  description String?
+  value       Json
+  updatedById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  updatedBy   User     @relation("SystemSettingUpdater", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  @@index([category, key])
+  @@index([updatedById, updatedAt])
 }
 
 model Report {

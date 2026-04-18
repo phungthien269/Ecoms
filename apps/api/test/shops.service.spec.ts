@@ -14,8 +14,18 @@ describe("ShopsService", () => {
       update: jest.fn()
     }
   };
+  const auditLogsService = {
+    record: jest.fn()
+  };
+  const systemSettingsService = {
+    getBooleanValue: jest.fn().mockResolvedValue(true)
+  };
 
-  const service = new ShopsService(prisma as never);
+  const service = new ShopsService(
+    prisma as never,
+    auditLogsService as never,
+    systemSettingsService as never
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -32,7 +42,11 @@ describe("ShopsService", () => {
     });
 
     await expect(
-      service.updateStatus("shop-1", { status: ShopStatus.ACTIVE })
+      service.updateStatus(
+        { sub: "admin-1", email: "admin@example.com", role: UserRole.ADMIN },
+        "shop-1",
+        { status: ShopStatus.ACTIVE }
+      )
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
@@ -50,7 +64,11 @@ describe("ShopsService", () => {
       status: ShopStatus.ACTIVE
     });
 
-    const result = await service.updateStatus("shop-1", { status: ShopStatus.ACTIVE });
+    const result = await service.updateStatus(
+      { sub: "admin-1", email: "admin@example.com", role: UserRole.ADMIN },
+      "shop-1",
+      { status: ShopStatus.ACTIVE }
+    );
     expect(prisma.user.update).toHaveBeenCalledWith({
       where: { id: "user-1" },
       data: {
@@ -58,6 +76,12 @@ describe("ShopsService", () => {
       }
     });
     expect(result.status).toBe(ShopStatus.ACTIVE);
+    expect(auditLogsService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "shops.admin.update_status",
+        entityId: "shop-1"
+      })
+    );
   });
 
   it("lists active public shops for storefront discovery", async () => {
@@ -99,5 +123,15 @@ describe("ShopsService", () => {
         updatedAt: "2026-04-19T08:00:00.000Z"
       }
     ]);
+  });
+
+  it("blocks new shop registration when system setting disables it", async () => {
+    systemSettingsService.getBooleanValue.mockResolvedValueOnce(false);
+
+    await expect(
+      service.create("seller-1", {
+        name: "Blocked Shop"
+      })
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 });

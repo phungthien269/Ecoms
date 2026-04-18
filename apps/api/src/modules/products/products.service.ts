@@ -10,6 +10,8 @@ import {
 } from "@ecoms/contracts";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { AuditLogsService } from "../auditLogs/audit-logs.service";
+import type { AuthPayload } from "../auth/types/auth-payload";
 import { slugify } from "../../common/utils/slugify";
 import { FilesService } from "../files/files.service";
 import { FlashSalesService } from "../flashSales/flashSales.service";
@@ -41,7 +43,8 @@ export class ProductsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly flashSalesService: FlashSalesService,
-    private readonly filesService: FilesService
+    private readonly filesService: FilesService,
+    private readonly auditLogsService: AuditLogsService
   ) {}
 
   async listPublic(query: ListProductsQueryDto) {
@@ -507,14 +510,21 @@ export class ProductsService {
     };
   }
 
-  async updateStatus(productId: string, payload: UpdateProductStatusDto) {
+  async updateStatus(actor: AuthPayload, productId: string, payload: UpdateProductStatusDto) {
     const product = await this.prisma.product.findFirst({
       where: {
         id: productId,
         deletedAt: null
       },
       include: {
-        ...productDetailInclude
+        ...productDetailInclude,
+        shop: {
+          select: {
+            id: true,
+            name: true,
+            ownerId: true
+          }
+        }
       }
     });
 
@@ -534,6 +544,20 @@ export class ProductsService {
         variants: {
           orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }]
         }
+      }
+    });
+
+    await this.auditLogsService.record({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: "products.admin.update_status",
+      entityType: "PRODUCT",
+      entityId: productId,
+      summary: `Updated product ${product.name} to ${payload.status}`,
+      metadata: {
+        previousStatus: product.status,
+        nextStatus: payload.status,
+        shopId: product.shop.id
       }
     });
 

@@ -37,8 +37,15 @@ describe("ReportsService", () => {
   const notificationsService = {
     create: jest.fn()
   };
+  const auditLogsService = {
+    record: jest.fn()
+  };
 
-  const service = new ReportsService(prisma as never, notificationsService as never);
+  const service = new ReportsService(
+    prisma as never,
+    notificationsService as never,
+    auditLogsService as never
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -109,13 +116,23 @@ describe("ReportsService", () => {
       resolvedAt: new Date("2026-04-18T01:00:00.000Z")
     });
 
-    const result = await service.updateStatus("admin-1", "report-1", {
-      status: "RESOLVED",
-      resolvedNote: "Handled by admin"
-    });
+    const result = await service.updateStatus(
+      { sub: "admin-1", email: "admin@example.com", role: "ADMIN" },
+      "report-1",
+      {
+        status: "RESOLVED",
+        resolvedNote: "Handled by admin"
+      }
+    );
 
     expect(result.status).toBe("RESOLVED");
     expect(notificationsService.create).toHaveBeenCalled();
+    expect(auditLogsService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "reports.admin.update_status",
+        entityId: "report-1"
+      })
+    );
   });
 
   it("lists paginated admin reports with moderation metadata", async () => {
@@ -207,11 +224,15 @@ describe("ReportsService", () => {
       resolvedAt: new Date("2026-04-18T01:00:00.000Z")
     });
 
-    const result = await service.updateStatus("admin-1", "report-1", {
-      status: "RESOLVED",
-      moderationAction: "BAN_PRODUCT",
-      resolvedNote: "Handled by admin"
-    });
+    const result = await service.updateStatus(
+      { sub: "admin-1", email: "admin@example.com", role: "ADMIN" },
+      "report-1",
+      {
+        status: "RESOLVED",
+        moderationAction: "BAN_PRODUCT",
+        resolvedNote: "Handled by admin"
+      }
+    );
 
     expect(prisma.product.update).toHaveBeenCalledWith({
       where: { id: "product-1" },

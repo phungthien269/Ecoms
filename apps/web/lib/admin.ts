@@ -1,4 +1,8 @@
 export interface AdminListSearchParams {
+  action?: string;
+  actorRole?: string;
+  category?: string;
+  entityType?: string;
   search?: string;
   status?: string;
   role?: string;
@@ -17,6 +21,10 @@ export function normalizeAdminParams(
   searchParams?: Record<string, string | string[] | undefined>
 ): AdminListSearchParams {
   return {
+    action: getSingleValue(searchParams?.action),
+    actorRole: getSingleValue(searchParams?.actorRole),
+    category: getSingleValue(searchParams?.category),
+    entityType: getSingleValue(searchParams?.entityType),
     search: getSingleValue(searchParams?.search),
     status: getSingleValue(searchParams?.status),
     role: getSingleValue(searchParams?.role),

@@ -16,6 +16,7 @@ import Link from "next/link";
 import { formatPrice } from "@/components/commerce/price";
 import { EmptyState } from "@/components/storefront/emptyState";
 import {
+  getAuditLogsPage,
   getAdminBanners,
   getAdminBrands,
   getAdminCategories,
@@ -28,7 +29,8 @@ import {
   getAdminShops,
   getAdminUsers,
   getSystemDiagnostics,
-  getAdminVouchers
+  getAdminVouchers,
+  getSystemSettings
 } from "@/lib/commerceApi";
 import { getDemoSession } from "@/lib/session";
 
@@ -36,7 +38,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
   const session = await getDemoSession();
-  const [dashboard, shops, products, reviews, categories, brands, orders, vouchers, flashSales, reports, banners, users, diagnostics] = await Promise.all([
+  const [dashboard, shops, products, reviews, categories, brands, orders, vouchers, flashSales, reports, banners, users, diagnostics, settings, auditLogsPage] = await Promise.all([
     getAdminDashboard(),
     getAdminShops(),
     getAdminProducts(),
@@ -49,7 +51,9 @@ export default async function AdminPage() {
     getAdminReports(),
     getAdminBanners(),
     getAdminUsers(),
-    getSystemDiagnostics()
+    getSystemDiagnostics(),
+    getSystemSettings(),
+    getAuditLogsPage({ page: 1, pageSize: 6 })
   ]);
 
   if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.role)) {
@@ -154,6 +158,70 @@ export default async function AdminPage() {
             </div>
           ))}
         </section>
+
+        {session.role === "SUPER_ADMIN" ? (
+          <section className="mt-8 grid gap-6 xl:grid-cols-[1fr_1fr]">
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-950">System settings</h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Super-admin controlled runtime knobs for checkout, branding, and seller operations.
+                  </p>
+                </div>
+                <Link
+                  href={"/admin/settings" as Route}
+                  className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+                >
+                  Open settings
+                </Link>
+              </div>
+              <div className="mt-4 grid gap-3">
+                {settings.slice(0, 4).map((setting) => (
+                  <div key={setting.key} className="rounded-[1.5rem] bg-slate-50 p-4">
+                    <div className="font-semibold text-slate-950">{setting.label}</div>
+                    <div className="mt-1 text-sm text-slate-500">{setting.description}</div>
+                    <div className="mt-3 text-sm font-semibold text-orange-600">{String(setting.value)}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-950">Audit trail</h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Recent high-privilege actions across moderation, governance, and configuration.
+                  </p>
+                </div>
+                <Link
+                  href={"/admin/audit" as Route}
+                  className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+                >
+                  Open audit log
+                </Link>
+              </div>
+              <div className="mt-4 space-y-3">
+                {auditLogsPage.items.map((item) => (
+                  <div key={item.id} className="rounded-[1.5rem] bg-slate-50 p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="font-semibold text-slate-950">{item.summary}</div>
+                        <div className="mt-1 text-sm text-slate-500">
+                          {item.actorUser?.fullName ?? item.actorRole} • {item.action}
+                        </div>
+                      </div>
+                      <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
+                        {new Date(item.createdAt).toLocaleDateString("vi-VN")}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         <section className="mt-8 grid gap-4 lg:grid-cols-4">
           {backlogLinks.map((item) => (

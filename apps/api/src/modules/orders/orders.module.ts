@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { AuditLogsModule } from "../auditLogs/audit-logs.module";
 import { AuthModule } from "../auth/auth.module";
 import { MailerModule } from "../mailer/mailer.module";
 import { NotificationsModule } from "../notifications/notifications.module";
@@ -10,6 +11,7 @@ import { OrdersService } from "./orders.service";
 @Module({
   imports: [
     AuthModule,
+    AuditLogsModule,
     PrismaModule,
     NotificationsModule,
     MailerModule,

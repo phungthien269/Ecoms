@@ -1,0 +1,83 @@
+import { AuditLogsService } from "../src/modules/auditLogs/audit-logs.service";
+
+describe("AuditLogsService", () => {
+  const prisma = {
+    $transaction: jest.fn(async (operations: unknown) => {
+      if (Array.isArray(operations)) {
+        return Promise.all(operations);
+      }
+
+      throw new Error("Unsupported transaction payload");
+    }),
+    auditLog: {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      count: jest.fn()
+    }
+  };
+
+  const service = new AuditLogsService(prisma as never);
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("records audit events with structured metadata", async () => {
+    prisma.auditLog.create.mockResolvedValue({
+      id: "audit-1"
+    });
+
+    await service.record({
+      actorUserId: "admin-1",
+      actorRole: "ADMIN",
+      action: "orders.admin.update_status",
+      entityType: "ORDER",
+      entityId: "order-1",
+      summary: "Updated order status",
+      metadata: {
+        previousStatus: "PENDING",
+        nextStatus: "REFUNDED"
+      }
+    });
+
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorUserId: "admin-1",
+        action: "orders.admin.update_status"
+      })
+    });
+  });
+
+  it("lists paginated admin audit logs", async () => {
+    prisma.auditLog.findMany.mockResolvedValue([
+      {
+        id: "audit-1",
+        actorRole: "SUPER_ADMIN",
+        action: "system_settings.admin.update",
+        entityType: "SYSTEM_SETTING",
+        entityId: "payment_timeout_minutes",
+        summary: "Updated system setting",
+        metadata: { nextValue: 20 },
+        createdAt: new Date("2026-04-19T00:00:00.000Z"),
+        actorUser: {
+          id: "super-1",
+          fullName: "Super Admin",
+          email: "super@example.com"
+        }
+      }
+    ]);
+    prisma.auditLog.count.mockResolvedValue(1);
+
+    const result = await service.listAdmin({
+      actorRole: "SUPER_ADMIN",
+      page: 1,
+      pageSize: 20
+    });
+
+    expect(result.items[0]).toMatchObject({
+      id: "audit-1",
+      action: "system_settings.admin.update"
+    });
+    expect(result.pagination.total).toBe(1);
+  });
+});

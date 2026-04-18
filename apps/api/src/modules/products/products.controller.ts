@@ -14,6 +14,7 @@ import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { Roles } from "../rbac/decorators/roles.decorator";
 import { RolesGuard } from "../rbac/guards/roles.guard";
+import type { AuthPayload } from "../auth/types/auth-payload";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { ListAdminProductsDto } from "./dto/list-admin-products.dto";
 import { ListProductsQueryDto } from "./dto/list-products-query.dto";
@@ -78,9 +79,10 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   updateStatus(
+    @CurrentUser() actor: AuthPayload,
     @Param("productId") productId: string,
     @Body() payload: UpdateProductStatusDto
   ) {
-    return this.productsService.updateStatus(productId, payload);
+    return this.productsService.updateStatus(actor, productId, payload);
   }
 }

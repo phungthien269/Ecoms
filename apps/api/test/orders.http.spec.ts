@@ -77,6 +77,10 @@ describe("OrdersController (http)", () => {
       }
     });
     expect(ordersService.updateAdminStatus).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sub: "admin-1",
+        role: UserRole.ADMIN
+      }),
       "order-1",
       OrderStatus.REFUNDED
     );

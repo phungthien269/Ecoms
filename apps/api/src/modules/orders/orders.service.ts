@@ -10,6 +10,8 @@ import { MailerService } from "../mailer/mailer.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { OrderStatusHistoryService } from "../orderStatusHistory/order-status-history.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { AuditLogsService } from "../auditLogs/audit-logs.service";
+import type { AuthPayload } from "../auth/types/auth-payload";
 import { ListAdminOrdersDto } from "./dto/list-admin-orders.dto";
 
 @Injectable()
@@ -18,7 +20,8 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
     private readonly mailerService: MailerService,
-    private readonly orderStatusHistoryService: OrderStatusHistoryService
+    private readonly orderStatusHistoryService: OrderStatusHistoryService,
+    private readonly auditLogsService: AuditLogsService
   ) {}
 
   async listOwn(userId: string) {
@@ -615,7 +618,7 @@ export class OrdersService {
     };
   }
 
-  async updateAdminStatus(orderId: string, nextStatus: OrderStatus) {
+  async updateAdminStatus(actor: AuthPayload, orderId: string, nextStatus: OrderStatus) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId }
     });
@@ -662,6 +665,19 @@ export class OrdersService {
       title: "Admin updated your order",
       body: `${order.orderNumber} is now ${nextStatus.replaceAll("_", " ").toLowerCase()}.`,
       linkUrl: `/orders/${order.id}`
+    });
+
+    await this.auditLogsService.record({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: "orders.admin.update_status",
+      entityType: "ORDER",
+      entityId: orderId,
+      summary: `Updated order ${order.orderNumber} to ${nextStatus}`,
+      metadata: {
+        previousStatus: order.status,
+        nextStatus
+      }
     });
 
     return {

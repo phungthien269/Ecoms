@@ -6,6 +6,7 @@ import { RateLimit } from "../rateLimit/rate-limit.decorator";
 import { RateLimitGuard } from "../rateLimit/rate-limit.guard";
 import { Roles } from "../rbac/decorators/roles.decorator";
 import { RolesGuard } from "../rbac/guards/roles.guard";
+import type { AuthPayload } from "../auth/types/auth-payload";
 import { CreateReportDto } from "./dto/create-report.dto";
 import { ListAdminReportsDto } from "./dto/list-admin-reports.dto";
 import { UpdateReportStatusDto } from "./dto/update-report-status.dto";
@@ -35,10 +36,10 @@ export class ReportsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   updateStatus(
-    @CurrentUser("sub") userId: string,
+    @CurrentUser() actor: AuthPayload,
     @Param("reportId") reportId: string,
     @Body() payload: UpdateReportStatusDto
   ) {
-    return this.reportsService.updateStatus(userId, reportId, payload);
+    return this.reportsService.updateStatus(actor, reportId, payload);
   }
 }

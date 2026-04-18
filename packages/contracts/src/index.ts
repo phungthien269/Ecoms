@@ -460,3 +460,34 @@ export interface FileUploadIntentSummary {
   asset: FileAssetSummary;
   upload: FileUploadInstruction;
 }
+
+export interface AuditLogSummary {
+  id: string;
+  actorRole: string;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  summary: string;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  actorUser: {
+    id: string;
+    fullName: string;
+    email: string;
+  } | null;
+}
+
+export interface SystemSettingSummary {
+  key: string;
+  category: string;
+  label: string;
+  description: string | null;
+  valueType: "STRING" | "NUMBER" | "BOOLEAN";
+  value: string | number | boolean;
+  updatedAt: string | null;
+  updatedBy: {
+    id: string;
+    fullName: string;
+    email: string;
+  } | null;
+}

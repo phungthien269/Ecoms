@@ -8,6 +8,7 @@ import { Prisma } from "@prisma/client";
 import type { UserRole } from "@ecoms/contracts";
 import { ShopStatus } from "@ecoms/contracts";
 import { PrismaService } from "../prisma/prisma.service";
+import { AuditLogsService } from "../auditLogs/audit-logs.service";
 import type { AuthPayload } from "../auth/types/auth-payload";
 import { ListAdminUsersDto } from "./dto/list-admin-users.dto";
 import { UpdateAdminUserDto } from "./dto/update-admin-user.dto";
@@ -15,7 +16,10 @@ import type { UserProfileEntity } from "./entities/user-profile.entity";
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogsService: AuditLogsService
+  ) {}
 
   async findById(userId: string): Promise<UserProfileEntity> {
     const user = await this.prisma.user.findUnique({
@@ -198,6 +202,19 @@ export class UsersService {
       }
 
       return nextUser;
+    });
+
+    await this.auditLogsService.record({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: "users.admin.update",
+      entityType: "USER",
+      entityId: userId,
+      summary: `Updated admin-managed user ${targetUser.email}`,
+      metadata: {
+        nextRole: payload.role ?? null,
+        nextIsActive: payload.isActive ?? null
+      }
     });
 
     const refreshedShop = targetUser.shop

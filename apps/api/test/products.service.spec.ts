@@ -51,7 +51,8 @@ describe("ProductsService", () => {
       findFirst: jest.fn(),
       findMany: jest.fn(),
       count: jest.fn(),
-      create: jest.fn()
+      create: jest.fn(),
+      update: jest.fn()
     },
     productVariant: {
       findUnique: jest.fn()
@@ -63,11 +64,15 @@ describe("ProductsService", () => {
   const filesService = {
     requireOwnedReadyAssets: jest.fn()
   };
+  const auditLogsService = {
+    record: jest.fn()
+  };
 
   const service = new ProductsService(
     prisma as never,
     flashSalesService as never,
-    filesService as never
+    filesService as never,
+    auditLogsService as never
   );
 
   beforeEach(() => {
@@ -358,5 +363,37 @@ describe("ProductsService", () => {
       }
     });
     expect(result.pagination.total).toBe(1);
+  });
+
+  it("records audit metadata when admin changes product status", async () => {
+    prisma.product.findFirst.mockResolvedValue(
+      buildProductRecord({
+        status: ProductStatus.DRAFT,
+        shop: {
+          id: "shop-1",
+          name: "Demo Shop",
+          ownerId: "seller-1"
+        }
+      })
+    );
+    prisma.product.update.mockResolvedValue(
+      buildProductRecord({
+        status: ProductStatus.ACTIVE
+      })
+    );
+
+    const result = await service.updateStatus(
+      { sub: "admin-1", email: "admin@example.com", role: "ADMIN" },
+      "product-1",
+      { status: ProductStatus.ACTIVE }
+    );
+
+    expect(result.status).toBe(ProductStatus.ACTIVE);
+    expect(auditLogsService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "products.admin.update_status",
+        entityId: "product-1"
+      })
+    );
   });
 });

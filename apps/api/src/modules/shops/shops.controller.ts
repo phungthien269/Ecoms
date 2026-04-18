@@ -4,6 +4,7 @@ import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { Roles } from "../rbac/decorators/roles.decorator";
 import { RolesGuard } from "../rbac/guards/roles.guard";
+import type { AuthPayload } from "../auth/types/auth-payload";
 import { CreateShopDto } from "./dto/create-shop.dto";
 import { UpdateShopDto } from "./dto/update-shop.dto";
 import { UpdateShopStatusDto } from "./dto/update-shop-status.dto";
@@ -48,8 +49,12 @@ export class ShopsController {
   @Patch(":shopId/status")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
-  updateStatus(@Param("shopId") shopId: string, @Body() payload: UpdateShopStatusDto) {
-    return this.shopsService.updateStatus(shopId, payload);
+  updateStatus(
+    @CurrentUser() actor: AuthPayload,
+    @Param("shopId") shopId: string,
+    @Body() payload: UpdateShopStatusDto
+  ) {
+    return this.shopsService.updateStatus(actor, shopId, payload);
   }
 
   @Get(":shopIdOrSlug")

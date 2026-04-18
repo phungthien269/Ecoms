@@ -40,12 +40,16 @@ describe("OrdersService", () => {
     listForOrder: jest.fn(),
     getLatestStatusTimestamp: jest.fn()
   };
+  const auditLogsService = {
+    record: jest.fn()
+  };
 
   const service = new OrdersService(
     prisma as never,
     notificationsService as never,
     mailerService as never,
-    orderStatusHistoryService as never
+    orderStatusHistoryService as never,
+    auditLogsService as never
   );
 
   beforeEach(() => {
@@ -192,8 +196,18 @@ describe("OrdersService", () => {
       status: OrderStatus.REFUNDED
     });
 
-    const result = await service.updateAdminStatus("order-1", OrderStatus.REFUNDED);
+    const result = await service.updateAdminStatus(
+      { sub: "admin-1", email: "admin@example.com", role: "ADMIN" },
+      "order-1",
+      OrderStatus.REFUNDED
+    );
     expect(result.status).toBe(OrderStatus.REFUNDED);
+    expect(auditLogsService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "orders.admin.update_status",
+        entityId: "order-1"
+      })
+    );
   });
 
   it("lists paginated admin orders with filters", async () => {

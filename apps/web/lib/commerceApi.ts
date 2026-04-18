@@ -521,6 +521,37 @@ export interface AdminReviewItem {
   };
 }
 
+export interface AuditLogItem {
+  id: string;
+  actorRole: string;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  summary: string;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  actorUser: {
+    id: string;
+    fullName: string;
+    email: string;
+  } | null;
+}
+
+export interface SystemSettingItem {
+  key: string;
+  category: string;
+  label: string;
+  description: string | null;
+  valueType: "STRING" | "NUMBER" | "BOOLEAN";
+  value: string | number | boolean;
+  updatedAt: string | null;
+  updatedBy: {
+    id: string;
+    fullName: string;
+    email: string;
+  } | null;
+}
+
 export interface AdminShopItem {
   id: string;
   name: string;
@@ -910,6 +941,33 @@ export async function getAdminReports() {
 
 export async function getAdminBanners() {
   return (await requestAuthedJson<AdminBannerItem[]>("/banners/admin")) ?? [];
+}
+
+export async function getSystemSettings() {
+  return (await requestAuthedJson<SystemSettingItem[]>("/system-settings/admin")) ?? [];
+}
+
+export async function getAuditLogsPage(query?: {
+  search?: string;
+  action?: string;
+  entityType?: string;
+  actorRole?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  return (
+    (await requestAuthedJson<PaginatedResponse<AuditLogItem>>(
+      `/audit-logs/admin${buildQueryString(query)}`
+    )) ?? {
+      items: [],
+      pagination: {
+        page: 1,
+        pageSize: query?.pageSize ?? 20,
+        total: 0,
+        totalPages: 1
+      }
+    }
+  );
 }
 
 export async function getAdminUsersPage(query?: {

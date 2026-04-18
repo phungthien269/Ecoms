@@ -45,6 +45,17 @@ async function upsertBannerByTitle({ title, ...data }) {
   });
 }
 
+async function upsertSystemSetting({ key, ...data }) {
+  return prisma.systemSetting.upsert({
+    where: { key },
+    update: data,
+    create: {
+      key,
+      ...data
+    }
+  });
+}
+
 async function main() {
   const admin = await upsertUser({
     email: "admin@ecoms.local",
@@ -58,6 +69,9 @@ async function main() {
     fullName: "Ecoms Super Admin",
     role: "SUPER_ADMIN",
     passwordHash: "$2a$12$eixZaYVK1fsbw1ZfbX3OXePaWxn96p36uJpqG8Q3G.NB0I6CLlcG6"
+  });
+  const superAdmin = await prisma.user.findUnique({
+    where: { email: "superadmin@ecoms.local" }
   });
 
   const seller = await upsertUser({
@@ -431,6 +445,49 @@ async function main() {
     isActive: true,
     createdByUserId: admin.id
   });
+
+  if (superAdmin) {
+    await upsertSystemSetting({
+      key: "marketplace_name",
+      category: "branding",
+      label: "Marketplace name",
+      description: "Primary storefront and admin display name.",
+      value: "Ecoms",
+      updatedById: superAdmin.id
+    });
+    await upsertSystemSetting({
+      key: "support_email",
+      category: "support",
+      label: "Support email",
+      description: "Primary support contact shown in operations and messaging.",
+      value: "support@ecoms.local",
+      updatedById: superAdmin.id
+    });
+    await upsertSystemSetting({
+      key: "payment_timeout_minutes",
+      category: "checkout",
+      label: "Online payment timeout (minutes)",
+      description: "Pending online payments expire after this many minutes.",
+      value: 15,
+      updatedById: superAdmin.id
+    });
+    await upsertSystemSetting({
+      key: "seller_registration_enabled",
+      category: "seller",
+      label: "Allow new seller registration",
+      description: "Controls whether users may create new shop registrations.",
+      value: true,
+      updatedById: superAdmin.id
+    });
+    await upsertSystemSetting({
+      key: "order_auto_complete_days",
+      category: "orders",
+      label: "Order auto-complete days",
+      description: "Operational target for future auto-complete jobs after delivery.",
+      value: 3,
+      updatedById: superAdmin.id
+    });
+  }
 
   console.log("Seed completed", {
     adminId: admin.id,

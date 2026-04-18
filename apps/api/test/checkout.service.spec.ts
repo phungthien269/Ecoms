@@ -91,13 +91,17 @@ describe("CheckoutService", () => {
   const orderStatusHistoryService = {
     record: jest.fn()
   };
+  const systemSettingsService = {
+    getNumberValue: jest.fn().mockResolvedValue(15)
+  };
 
   const service = new CheckoutService(
     prisma as never,
     vouchersService as never,
     notificationsService as never,
     mailerService as never,
-    orderStatusHistoryService as never
+    orderStatusHistoryService as never,
+    systemSettingsService as never
   );
 
   beforeEach(() => {
@@ -320,5 +324,55 @@ describe("CheckoutService", () => {
     expect(prisma.voucher.update).toHaveBeenCalledTimes(3);
     expect(prisma.voucherRedemption.create).toHaveBeenCalledTimes(3);
     expect(result.orders[0]?.grandTotal).toBe("578200");
+  });
+
+  it("uses configurable payment timeout for pending online payments", async () => {
+    const cartItems = [createCartItem()];
+    prisma.cartItem.findMany.mockResolvedValue(cartItems);
+    prisma.$transaction.mockImplementation(async (callback: (tx: typeof prisma) => unknown) =>
+      callback(prisma)
+    );
+    systemSettingsService.getNumberValue.mockResolvedValueOnce(25);
+    prisma.order.create.mockResolvedValue({
+      id: "order-2",
+      orderNumber: "ORD-SHOP-2",
+      shopId: "shop-1",
+      status: "PENDING",
+      paymentMethod: PaymentMethod.ONLINE_GATEWAY,
+      itemsSubtotal: new Prisma.Decimal(698000),
+      shippingFee: new Prisma.Decimal(24000),
+      discountTotal: new Prisma.Decimal(0),
+      grandTotal: new Prisma.Decimal(722000),
+      placedAt: new Date("2026-04-17T00:00:00.000Z")
+    });
+    prisma.payment.create.mockResolvedValue({
+      id: "payment-2",
+      status: PaymentStatus.PENDING
+    });
+    prisma.user.findUnique.mockResolvedValue({
+      email: "buyer@example.com",
+      fullName: "Demo Buyer"
+    });
+
+    await service.placeOrder("user-1", {
+      paymentMethod: PaymentMethod.ONLINE_GATEWAY,
+      shippingAddress: {
+        recipientName: "Demo Buyer",
+        phoneNumber: "0900000000",
+        addressLine1: "123 Demo Street",
+        district: "District 1",
+        province: "Ho Chi Minh City",
+        regionCode: "HCM"
+      }
+    });
+
+    expect(systemSettingsService.getNumberValue).toHaveBeenCalledWith("payment_timeout_minutes");
+    expect(prisma.payment.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        status: PaymentStatus.PENDING,
+        method: PaymentMethod.ONLINE_GATEWAY,
+        expiresAt: expect.any(Date)
+      })
+    });
   });
 });

@@ -26,8 +26,11 @@ describe("UsersService", () => {
       findUnique: jest.fn()
     }
   };
+  const auditLogsService = {
+    record: jest.fn()
+  };
 
-  const service = new UsersService(prisma as never);
+  const service = new UsersService(prisma as never, auditLogsService as never);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -116,6 +119,12 @@ describe("UsersService", () => {
         isActive: false
       }
     });
+    expect(auditLogsService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "users.admin.update",
+        entityId: "buyer-1"
+      })
+    );
   });
 
   it("blocks admin from managing admin-level users", async () => {

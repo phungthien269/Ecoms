@@ -11,6 +11,7 @@ import { RequestContextMiddleware } from "./common/middleware/request-context.mi
 import { RequestLoggingMiddleware } from "./common/middleware/request-logging.middleware";
 import { AdminDashboardModule } from "./modules/adminDashboard/adminDashboard.module";
 import { AddressesModule } from "./modules/addresses/addresses.module";
+import { AuditLogsModule } from "./modules/auditLogs/audit-logs.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { BannersModule } from "./modules/banners/banners.module";
 import { BrandsModule } from "./modules/brands/brands.module";
@@ -32,6 +33,7 @@ import { ReportsModule } from "./modules/reports/reports.module";
 import { ReviewsModule } from "./modules/reviews/reviews.module";
 import { SellerDashboardModule } from "./modules/sellerDashboard/sellerDashboard.module";
 import { ShopsModule } from "./modules/shops/shops.module";
+import { SystemSettingsModule } from "./modules/systemSettings/system-settings.module";
 import { UsersModule } from "./modules/users/users.module";
 import { VouchersModule } from "./modules/vouchers/vouchers.module";
 import { WishlistModule } from "./modules/wishlist/wishlist.module";
@@ -47,6 +49,7 @@ import { WishlistModule } from "./modules/wishlist/wishlist.module";
     RateLimitModule,
     AddressesModule,
     AdminDashboardModule,
+    AuditLogsModule,
     HealthModule,
     AuthModule,
     BannersModule,
@@ -63,6 +66,7 @@ import { WishlistModule } from "./modules/wishlist/wishlist.module";
     OrdersModule,
     PaymentsModule,
     ShopsModule,
+    SystemSettingsModule,
     ProductsModule,
     ReportsModule,
     VouchersModule,
