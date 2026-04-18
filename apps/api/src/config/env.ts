@@ -24,6 +24,7 @@ const envSchema = z.object({
   GOOGLE_OAUTH_CLIENT_ID: z.string().optional(),
   GOOGLE_OAUTH_CLIENT_SECRET: z.string().optional(),
   GOOGLE_OAUTH_REDIRECT_URI: z.string().url().optional(),
+  PAYMENT_WEBHOOK_SECRET: z.string().min(1).default("change_me_payment_webhook"),
   REQUEST_LOGGING_ENABLED: booleanFromEnv.default(true),
   REALTIME_STATE_STORE: z.enum(["memory", "redis"]).default("memory"),
   REALTIME_REDIS_PREFIX: z.string().default("ecoms:realtime"),

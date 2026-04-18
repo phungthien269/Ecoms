@@ -2,7 +2,8 @@ import {
   cancelOrderAction,
   completeOrderAction,
   confirmPaymentAction,
-  createReviewAction
+  createReviewAction,
+  simulatePaymentWebhookAction
 } from "@/app/actions/commerce";
 import { formatPrice } from "@/components/commerce/price";
 import { UploadAssetField } from "@/components/media/uploadAssetField";
@@ -72,7 +73,32 @@ export default async function OrderDetailPage({
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            {latestPendingPayment ? (
+            {latestPendingPayment?.method === "ONLINE_GATEWAY" ? (
+              <>
+                <form action={simulatePaymentWebhookAction}>
+                  <input type="hidden" name="paymentId" value={latestPendingPayment.id} />
+                  <input type="hidden" name="orderId" value={order.id} />
+                  <input type="hidden" name="event" value="PAID" />
+                  <button
+                    type="submit"
+                    className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                  >
+                    Simulate gateway success
+                  </button>
+                </form>
+                <form action={simulatePaymentWebhookAction}>
+                  <input type="hidden" name="paymentId" value={latestPendingPayment.id} />
+                  <input type="hidden" name="orderId" value={order.id} />
+                  <input type="hidden" name="event" value="FAILED" />
+                  <button
+                    type="submit"
+                    className="rounded-full border border-red-200 px-5 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+                  >
+                    Simulate gateway failure
+                  </button>
+                </form>
+              </>
+            ) : latestPendingPayment ? (
               <form action={confirmPaymentAction}>
                 <input type="hidden" name="paymentId" value={latestPendingPayment.id} />
                 <input type="hidden" name="orderId" value={order.id} />
@@ -313,6 +339,14 @@ function getOrderFlashMessage(searchParams: Record<string, string | string[] | u
 
   if (payment === "confirmed") {
     return "Payment confirmed. The order status has been refreshed and is ready for seller processing.";
+  }
+
+  if (payment === "webhook_paid") {
+    return "Mock gateway callback marked the payment as paid and the order is now confirmed.";
+  }
+
+  if (payment === "webhook_failed") {
+    return "Mock gateway callback marked the payment as failed. Pending order was cancelled.";
   }
 
   if (status === "cancelled") {

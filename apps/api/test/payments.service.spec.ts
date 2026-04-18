@@ -1,5 +1,10 @@
-import { ConflictException } from "@nestjs/common";
-import { OrderStatus, PaymentMethod, PaymentStatus } from "@ecoms/contracts";
+import { ConflictException, UnauthorizedException } from "@nestjs/common";
+import {
+  OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
+  PaymentWebhookEvent
+} from "@ecoms/contracts";
 import { PaymentsService } from "../src/modules/payments/payments.service";
 
 describe("PaymentsService", () => {
@@ -19,8 +24,21 @@ describe("PaymentsService", () => {
   const notificationsService = {
     create: jest.fn()
   };
+  const configService = {
+    get: jest.fn().mockImplementation((key: string, fallback?: unknown) => {
+      if (key === "PAYMENT_WEBHOOK_SECRET") {
+        return "test-payment-secret";
+      }
 
-  const service = new PaymentsService(prisma as never, notificationsService as never);
+      return fallback;
+    })
+  };
+
+  const service = new PaymentsService(
+    prisma as never,
+    notificationsService as never,
+    configService as never
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -55,7 +73,9 @@ describe("PaymentsService", () => {
     expect(result).toEqual({
       paymentId: "payment-1",
       orderId: "order-1",
-      status: PaymentStatus.PAID
+      paymentStatus: PaymentStatus.PAID,
+      orderStatus: OrderStatus.CONFIRMED,
+      processed: true
     });
   });
 
@@ -78,4 +98,116 @@ describe("PaymentsService", () => {
       ConflictException
     );
   });
+
+  it("processes paid webhook idempotently", async () => {
+    prisma.payment.findFirst.mockResolvedValue({
+      id: "payment-2",
+      orderId: "order-2",
+      userId: "user-1",
+      method: PaymentMethod.ONLINE_GATEWAY,
+      status: PaymentStatus.PAID,
+      referenceCode: "PAY-ORDER-2",
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      metadata: {},
+      order: {
+        id: "order-2",
+        status: OrderStatus.CONFIRMED,
+        shopId: "shop-1",
+        orderNumber: "ORD-2"
+      }
+    });
+
+    const result = await service.handleMockWebhook(
+      {
+        paymentId: "payment-2",
+        event: PaymentWebhookEvent.PAID
+      },
+      signWebhookPayload({
+        paymentId: "payment-2",
+        event: PaymentWebhookEvent.PAID
+      })
+    );
+
+    expect(result).toEqual({
+      paymentId: "payment-2",
+      orderId: "order-2",
+      paymentStatus: PaymentStatus.PAID,
+      orderStatus: OrderStatus.CONFIRMED,
+      processed: false
+    });
+  });
+
+  it("marks failed webhook as cancelled order", async () => {
+    prisma.payment.findFirst.mockResolvedValue({
+      id: "payment-3",
+      orderId: "order-3",
+      userId: "user-1",
+      method: PaymentMethod.ONLINE_GATEWAY,
+      status: PaymentStatus.PENDING,
+      referenceCode: "PAY-ORDER-3",
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      metadata: {},
+      order: {
+        id: "order-3",
+        status: OrderStatus.PENDING,
+        shopId: "shop-1",
+        orderNumber: "ORD-3"
+      }
+    });
+    prisma.shop.findUnique.mockResolvedValue(null);
+
+    const result = await service.handleMockWebhook(
+      {
+        paymentId: "payment-3",
+        event: PaymentWebhookEvent.FAILED
+      },
+      signWebhookPayload({
+        paymentId: "payment-3",
+        event: PaymentWebhookEvent.FAILED
+      })
+    );
+
+    expect(prisma.$transaction).toHaveBeenCalled();
+    expect(result).toEqual({
+      paymentId: "payment-3",
+      orderId: "order-3",
+      paymentStatus: PaymentStatus.FAILED,
+      orderStatus: OrderStatus.CANCELLED,
+      processed: true
+    });
+    expect(notificationsService.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects invalid webhook signatures", async () => {
+    await expect(
+      service.handleMockWebhook(
+        {
+          paymentId: "payment-4",
+          event: PaymentWebhookEvent.PAID
+        },
+        "bad-signature"
+      )
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
 });
+
+function signWebhookPayload(payload: {
+  paymentId?: string;
+  referenceCode?: string;
+  event: PaymentWebhookEvent;
+  providerReference?: string;
+  occurredAt?: string;
+}) {
+  const normalized = [
+    payload.paymentId ?? "",
+    payload.referenceCode ?? "",
+    payload.event,
+    payload.providerReference ?? "",
+    payload.occurredAt ?? ""
+  ].join("|");
+
+  return require("node:crypto")
+    .createHmac("sha256", "test-payment-secret")
+    .update(normalized)
+    .digest("hex");
+}

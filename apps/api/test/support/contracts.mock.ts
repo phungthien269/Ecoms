@@ -47,6 +47,12 @@ export enum PaymentStatus {
   CANCELLED = "CANCELLED"
 }
 
+export enum PaymentWebhookEvent {
+  PAID = "PAID",
+  FAILED = "FAILED",
+  EXPIRED = "EXPIRED"
+}
+
 export enum VoucherScope {
   PLATFORM = "PLATFORM",
   SHOP = "SHOP",

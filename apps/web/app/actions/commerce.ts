@@ -1,6 +1,7 @@
 "use server";
 
 import type { Route } from "next";
+import { createHmac } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -129,6 +130,42 @@ export async function confirmPaymentAction(formData: FormData) {
   });
 
   redirect(`/orders/${orderId}?payment=confirmed`);
+}
+
+export async function simulatePaymentWebhookAction(formData: FormData) {
+  const paymentId = String(formData.get("paymentId"));
+  const orderId = String(formData.get("orderId"));
+  const event = String(formData.get("event"));
+  const occurredAt = new Date().toISOString();
+  const payload = {
+    paymentId,
+    event,
+    occurredAt
+  };
+
+  const signature = createHmac(
+    "sha256",
+    process.env.PAYMENT_WEBHOOK_SECRET ?? "change_me_payment_webhook"
+  )
+    .update([paymentId, "", event, "", occurredAt].join("|"))
+    .digest("hex");
+
+  const response = await fetch(`${API_URL}/payments/webhooks/mock`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-ecoms-webhook-signature": signature
+    },
+    body: JSON.stringify(payload),
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || "Webhook simulation failed");
+  }
+
+  redirect(`/orders/${orderId}?payment=${event === "PAID" ? "webhook_paid" : "webhook_failed"}`);
 }
 
 export async function cancelOrderAction(formData: FormData) {
