@@ -3,6 +3,7 @@ import type { DependencyHealthEntry, HealthStatus, ReadinessStatus } from "@ecom
 import { ConfigService } from "@nestjs/config";
 import { FilesService } from "../files/files.service";
 import { MailerService } from "../mailer/mailer.service";
+import { PaymentExpirySchedulerService } from "../payments/payment-expiry-scheduler.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { RateLimitService } from "../rateLimit/rate-limit.service";
 import { RealtimeStateService } from "../realtime/realtime-state.service";
@@ -17,6 +18,7 @@ export class HealthService {
     private readonly filesService: FilesService,
     private readonly rateLimitService: RateLimitService,
     private readonly realtimeStateService: RealtimeStateService,
+    private readonly paymentExpirySchedulerService: PaymentExpirySchedulerService,
     private readonly systemSettingsService: SystemSettingsService
   ) {}
 
@@ -68,6 +70,7 @@ export class HealthService {
       this.rateLimitService.getDiagnostics(),
       this.realtimeStateService.getDiagnostics()
     ]);
+    const paymentExpiryScheduler = this.paymentExpirySchedulerService.getDiagnostics();
     const [mail, media] = providerProbesEnabled
       ? await Promise.all([
           this.mailerService.probeDiagnostics(),
@@ -111,6 +114,30 @@ export class HealthService {
             : "No action required",
           source: realtime.fallbackActive ? "runtime_fallback" : "active_store"
         })
+      },
+      {
+        key: "payment_expiry_scheduler",
+        label: "Payment expiry scheduler",
+        status:
+          paymentExpiryScheduler.lastError
+            ? "degraded"
+            : paymentExpiryScheduler.lastResult?.skipped
+              ? "degraded"
+              : "ok",
+        message: paymentExpiryScheduler.lastError
+          ? paymentExpiryScheduler.lastError
+          : paymentExpiryScheduler.lastResult?.skipped
+            ? "Payment expiry scheduler disabled"
+            : "Payment expiry scheduler active",
+        details: {
+          ...paymentExpiryScheduler,
+          source: "system_setting_or_env_fallback",
+          actionHint: paymentExpiryScheduler.lastError
+            ? "Inspect scheduler logs and payment sweep configuration."
+            : paymentExpiryScheduler.lastResult?.skipped
+              ? "Enable payment expiry sweep to enforce timeouts without user interaction."
+              : "No action required"
+        }
       },
       {
         key: "mail_driver",

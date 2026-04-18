@@ -43,6 +43,8 @@ describe("SystemSettingsService", () => {
     expect(result.find((item) => item.key === "marketplace_name")?.value).toBe("Ecoms");
     expect(result.find((item) => item.key === "return_request_window_days")?.value).toBe(7);
     expect(result.find((item) => item.key === "shipping_fee_hcm")?.value).toBe(18000);
+    expect(result.find((item) => item.key === "payment_expiry_sweep_enabled")?.value).toBe(true);
+    expect(result.find((item) => item.key === "payment_expiry_sweep_interval_seconds")?.value).toBe(60);
   });
 
   it("updates a setting and records an audit log", async () => {

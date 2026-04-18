@@ -47,6 +47,24 @@ const settingDefinitions: SettingDefinition[] = [
     max: 60
   },
   {
+    key: "payment_expiry_sweep_enabled",
+    category: "operations",
+    label: "Enable payment expiry sweep",
+    description: "Controls background cleanup of expired pending online payments.",
+    valueType: "BOOLEAN",
+    defaultValue: true
+  },
+  {
+    key: "payment_expiry_sweep_interval_seconds",
+    category: "operations",
+    label: "Payment expiry sweep interval (seconds)",
+    description: "How often the background payment expiry sweep runs.",
+    valueType: "NUMBER",
+    defaultValue: 60,
+    min: 15,
+    max: 3600
+  },
+  {
     key: "provider_probes_enabled",
     category: "operations",
     label: "Enable provider probes",

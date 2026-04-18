@@ -25,6 +25,8 @@ const envSchema = z.object({
   GOOGLE_OAUTH_CLIENT_SECRET: z.string().optional(),
   GOOGLE_OAUTH_REDIRECT_URI: z.string().url().optional(),
   PAYMENT_WEBHOOK_SECRET: z.string().min(1).default("change_me_payment_webhook"),
+  PAYMENT_EXPIRY_SWEEP_ENABLED: booleanFromEnv.default(true),
+  PAYMENT_EXPIRY_SWEEP_INTERVAL_SECONDS: z.coerce.number().default(60),
   REQUEST_LOGGING_ENABLED: booleanFromEnv.default(true),
   HEALTHCHECK_PROVIDER_PROBES_ENABLED: booleanFromEnv.default(true),
   REALTIME_STATE_STORE: z.enum(["memory", "redis"]).default("memory"),

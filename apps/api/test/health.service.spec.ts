@@ -31,6 +31,9 @@ describe("HealthService", () => {
   const realtimeStateService = {
     getDiagnostics: jest.fn()
   };
+  const paymentExpirySchedulerService = {
+    getDiagnostics: jest.fn()
+  };
   const systemSettingsService = {
     getBooleanValue: jest.fn().mockResolvedValue(true)
   };
@@ -42,6 +45,7 @@ describe("HealthService", () => {
     filesService as never,
     rateLimitService as never,
     realtimeStateService as never,
+    paymentExpirySchedulerService as never,
     systemSettingsService as never
   );
 
@@ -92,6 +96,18 @@ describe("HealthService", () => {
       healthy: true,
       fallbackActive: false,
       message: "Memory realtime state store active"
+    });
+    paymentExpirySchedulerService.getDiagnostics.mockReturnValue({
+      enabled: true,
+      running: false,
+      lastRunAt: "2026-04-19T00:00:00.000Z",
+      nextRunAt: "2026-04-19T00:01:00.000Z",
+      lastResult: {
+        expiredCount: 0,
+        cancelledOrderCount: 0,
+        skipped: false
+      },
+      lastError: null
     });
   });
 
@@ -166,6 +182,32 @@ describe("HealthService", () => {
     ).toEqual(
       expect.objectContaining({
         source: "system_setting_or_env_fallback"
+      })
+    );
+  });
+
+  it("marks readiness as degraded when payment expiry scheduler is disabled", async () => {
+    paymentExpirySchedulerService.getDiagnostics.mockReturnValue({
+      enabled: false,
+      running: false,
+      lastRunAt: null,
+      nextRunAt: "2026-04-19T00:01:00.000Z",
+      lastResult: {
+        expiredCount: 0,
+        cancelledOrderCount: 0,
+        skipped: true
+      },
+      lastError: null
+    });
+
+    const readiness = await service.getReadiness();
+
+    expect(readiness.status).toBe("degraded");
+    expect(
+      readiness.checks.find((check) => check.key === "payment_expiry_scheduler")?.details
+    ).toEqual(
+      expect.objectContaining({
+        actionHint: "Enable payment expiry sweep to enforce timeouts without user interaction."
       })
     );
   });
