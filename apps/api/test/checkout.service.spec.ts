@@ -115,6 +115,7 @@ describe("CheckoutService", () => {
     systemSettingsService.getNumberValue.mockImplementation(async (key: string) => {
       const mapping: Record<string, number> = {
         payment_timeout_minutes: 15,
+        default_product_weight_grams: 300,
         shipping_fee_hn: 18000,
         shipping_fee_hcm: 18000,
         shipping_fee_central: 28000,
@@ -354,6 +355,7 @@ describe("CheckoutService", () => {
     systemSettingsService.getNumberValue.mockImplementation(async (key: string) => {
       const mapping: Record<string, number> = {
         payment_timeout_minutes: 25,
+        default_product_weight_grams: 300,
         shipping_fee_hn: 18000,
         shipping_fee_hcm: 18000,
         shipping_fee_central: 28000,
@@ -418,6 +420,7 @@ describe("CheckoutService", () => {
     systemSettingsService.getNumberValue.mockImplementation(async (key: string) => {
       const mapping: Record<string, number> = {
         payment_timeout_minutes: 15,
+        default_product_weight_grams: 300,
         shipping_fee_hn: 21000,
         shipping_fee_hcm: 20000,
         shipping_fee_central: 30000,
@@ -442,5 +445,38 @@ describe("CheckoutService", () => {
 
     expect(preview.totals.shippingFee).toBe("27000");
     expect(preview.totals.grandTotal).toBe("725000");
+  });
+
+  it("uses configurable default product weight when product weight is missing", async () => {
+    const cartItem = createCartItem();
+    cartItem.product.weightGrams = null;
+    prisma.cartItem.findMany.mockResolvedValue([cartItem]);
+    systemSettingsService.getNumberValue.mockImplementation(async (key: string) => {
+      const mapping: Record<string, number> = {
+        payment_timeout_minutes: 15,
+        default_product_weight_grams: 800,
+        shipping_fee_hn: 18000,
+        shipping_fee_hcm: 18000,
+        shipping_fee_central: 28000,
+        shipping_fee_other: 35000,
+        shipping_fee_extra_per_500g: 6000
+      };
+
+      return mapping[key] ?? 15;
+    });
+
+    const preview = await service.preview("user-1", {
+      paymentMethod: PaymentMethod.COD,
+      shippingAddress: {
+        recipientName: "Demo Buyer",
+        phoneNumber: "0900000000",
+        addressLine1: "123 Demo Street",
+        district: "District 1",
+        province: "Ho Chi Minh City",
+        regionCode: "HCM"
+      }
+    });
+
+    expect(preview.totals.shippingFee).toBe("36000");
   });
 });

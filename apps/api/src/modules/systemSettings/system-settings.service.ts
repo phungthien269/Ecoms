@@ -47,6 +47,14 @@ const settingDefinitions: SettingDefinition[] = [
     max: 60
   },
   {
+    key: "provider_probes_enabled",
+    category: "operations",
+    label: "Enable provider probes",
+    description: "Controls whether readiness performs live mail/media provider probes.",
+    valueType: "BOOLEAN",
+    defaultValue: true
+  },
+  {
     key: "return_request_window_days",
     category: "orders",
     label: "Return request window (days)",
@@ -73,6 +81,16 @@ const settingDefinitions: SettingDefinition[] = [
     defaultValue: 3,
     min: 1,
     max: 14
+  },
+  {
+    key: "default_product_weight_grams",
+    category: "shipping",
+    label: "Default product weight (grams)",
+    description: "Fallback weight used in checkout shipping when a product has no explicit weight.",
+    valueType: "NUMBER",
+    defaultValue: 300,
+    min: 1,
+    max: 100000
   },
   {
     key: "shipping_fee_hn",
@@ -123,6 +141,16 @@ const settingDefinitions: SettingDefinition[] = [
     defaultValue: 6000,
     min: 0,
     max: 100000
+  },
+  {
+    key: "media_upload_url_ttl_seconds",
+    category: "operations",
+    label: "Media upload URL TTL (seconds)",
+    description: "Signed upload URLs expire after this many seconds.",
+    valueType: "NUMBER",
+    defaultValue: 900,
+    min: 60,
+    max: 7200
   }
 ];
 

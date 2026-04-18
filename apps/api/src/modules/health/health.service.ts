@@ -6,6 +6,7 @@ import { MailerService } from "../mailer/mailer.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { RateLimitService } from "../rateLimit/rate-limit.service";
 import { RealtimeStateService } from "../realtime/realtime-state.service";
+import { SystemSettingsService } from "../systemSettings/system-settings.service";
 
 @Injectable()
 export class HealthService {
@@ -15,7 +16,8 @@ export class HealthService {
     private readonly mailerService: MailerService,
     private readonly filesService: FilesService,
     private readonly rateLimitService: RateLimitService,
-    private readonly realtimeStateService: RealtimeStateService
+    private readonly realtimeStateService: RealtimeStateService,
+    private readonly systemSettingsService: SystemSettingsService
   ) {}
 
   getHealth(): HealthStatus {
@@ -60,10 +62,7 @@ export class HealthService {
   }
 
   private async getChecks(): Promise<DependencyHealthEntry[]> {
-    const providerProbesEnabled = this.configService.get<boolean>(
-      "HEALTHCHECK_PROVIDER_PROBES_ENABLED",
-      true
-    );
+    const providerProbesEnabled = await this.getProviderProbesEnabled();
     const [database, rateLimit, realtime] = await Promise.all([
       this.checkDatabase(),
       this.rateLimitService.getDiagnostics(),
@@ -139,6 +138,14 @@ export class HealthService {
         }
       }
     ];
+  }
+
+  private async getProviderProbesEnabled() {
+    try {
+      return await this.systemSettingsService.getBooleanValue("provider_probes_enabled");
+    } catch {
+      return this.configService.get<boolean>("HEALTHCHECK_PROVIDER_PROBES_ENABLED", true);
+    }
   }
 
   private async checkDatabase(): Promise<DependencyHealthEntry> {

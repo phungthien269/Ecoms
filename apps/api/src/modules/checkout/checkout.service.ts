@@ -385,7 +385,7 @@ export class CheckoutService {
     for (const item of cartItems) {
       const unitPrice = item.productVariant?.price ?? item.product.salePrice;
       const lineSubtotal = unitPrice.mul(item.quantity);
-      const lineWeight = (item.product.weightGrams ?? 300) * item.quantity;
+      const lineWeight = (item.product.weightGrams ?? shippingConfig.defaultProductWeightGrams) * item.quantity;
       itemCount += item.quantity;
       itemsSubtotal = itemsSubtotal.add(lineSubtotal);
 
@@ -819,7 +819,10 @@ export class CheckoutService {
       HCM: shippingFeeHcm,
       CENTRAL: shippingFeeCentral,
       OTHER: shippingFeeOther,
-      extraPer500g: shippingFeeExtraPer500g
+      extraPer500g: shippingFeeExtraPer500g,
+      defaultProductWeightGrams: await this.systemSettingsService.getNumberValue(
+        "default_product_weight_grams"
+      )
     };
   }
 
@@ -832,6 +835,7 @@ export class CheckoutService {
       CENTRAL: number;
       OTHER: number;
       extraPer500g: number;
+      defaultProductWeightGrams: number;
     }
   ) {
     const baseFee = shippingConfig[regionCode as "HN" | "HCM" | "CENTRAL" | "OTHER"] ?? shippingConfig.OTHER;

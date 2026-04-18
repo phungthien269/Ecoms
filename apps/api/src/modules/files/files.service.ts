@@ -13,6 +13,7 @@ import type {
 } from "@ecoms/contracts";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service";
+import { SystemSettingsService } from "../systemSettings/system-settings.service";
 import { CreateUploadIntentDto } from "./dto/create-upload-intent.dto";
 
 type UploadInstruction = FileUploadIntentSummary["upload"];
@@ -21,7 +22,8 @@ type UploadInstruction = FileUploadIntentSummary["upload"];
 export class FilesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
+    private readonly systemSettingsService: SystemSettingsService
   ) {}
 
   async listOwn(userId: string): Promise<FileAssetSummary[]> {
@@ -300,7 +302,7 @@ export class FilesService {
       throw new ServiceUnavailableException("S3_BUCKET is required for s3 media uploads");
     }
 
-    const expiresIn = this.configService.get<number>("MEDIA_UPLOAD_URL_TTL_SECONDS", 900);
+    const expiresIn = await this.getUploadUrlTtlSeconds();
     const client = this.createS3Client();
     const uploadUrl = await getSignedUrl(
       client,
@@ -324,6 +326,14 @@ export class FilesService {
       },
       expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString()
     };
+  }
+
+  private async getUploadUrlTtlSeconds() {
+    try {
+      return await this.systemSettingsService.getNumberValue("media_upload_url_ttl_seconds");
+    } catch {
+      return this.configService.get<number>("MEDIA_UPLOAD_URL_TTL_SECONDS", 900);
+    }
   }
 
   private buildCloudinaryUploadInstruction(

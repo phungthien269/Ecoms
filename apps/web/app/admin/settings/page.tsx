@@ -67,7 +67,9 @@ export default async function AdminSettingsPage() {
                 </div>
                 <div className="mt-2 text-sm text-slate-500">
                   {category === "shipping"
-                    ? "Tune phase-1 shipping heuristics without touching checkout code."
+                    ? "Tune fallback product weight and phase-1 shipping heuristics without touching checkout code."
+                    : category === "operations"
+                      ? "Control live probes and signed-upload runtime behavior."
                     : category === "orders"
                       ? "Lifecycle windows and post-delivery behavior."
                       : "Runtime knobs for this system area."}

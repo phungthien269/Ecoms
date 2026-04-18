@@ -31,6 +31,9 @@ describe("HealthService", () => {
   const realtimeStateService = {
     getDiagnostics: jest.fn()
   };
+  const systemSettingsService = {
+    getBooleanValue: jest.fn().mockResolvedValue(true)
+  };
 
   const service = new HealthService(
     prisma as never,
@@ -38,11 +41,13 @@ describe("HealthService", () => {
     mailerService as never,
     filesService as never,
     rateLimitService as never,
-    realtimeStateService as never
+    realtimeStateService as never,
+    systemSettingsService as never
   );
 
   beforeEach(() => {
     jest.clearAllMocks();
+    systemSettingsService.getBooleanValue.mockResolvedValue(true);
     prisma.ping.mockResolvedValue(true);
     mailerService.getDiagnostics.mockReturnValue({
       driver: "console",
@@ -122,6 +127,7 @@ describe("HealthService", () => {
   it("uses probe diagnostics for mail and media when enabled", async () => {
     const readiness = await service.getReadiness();
 
+    expect(systemSettingsService.getBooleanValue).toHaveBeenCalledWith("provider_probes_enabled");
     expect(mailerService.probeDiagnostics).toHaveBeenCalled();
     expect(filesService.probeDiagnostics).toHaveBeenCalled();
     expect(readiness.checks.find((check) => check.key === "mail_driver")?.message).toBe(
@@ -130,6 +136,7 @@ describe("HealthService", () => {
   });
 
   it("falls back to static diagnostics when provider probes are disabled", async () => {
+    systemSettingsService.getBooleanValue.mockRejectedValue(new Error("settings unavailable"));
     configService.get.mockImplementation((key: string, fallback?: unknown) => {
       if (key === "REQUEST_LOGGING_ENABLED") {
         return true;
