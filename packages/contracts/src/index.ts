@@ -254,6 +254,13 @@ export interface OrderReturnWindowSummary {
   expiresAt: string | null;
 }
 
+export interface OrderAutoCompleteSummary {
+  canAutoComplete: boolean;
+  deliveredAt: string | null;
+  autoCompleteAt: string | null;
+  windowDays: number;
+}
+
 export interface ApiSuccessResponse<T> {
   success: true;
   data: T;
@@ -490,4 +497,11 @@ export interface SystemSettingSummary {
     fullName: string;
     email: string;
   } | null;
+}
+
+export interface PublicSystemSettingsSummary {
+  marketplaceName: string;
+  supportEmail: string;
+  paymentTimeoutMinutes: number;
+  orderAutoCompleteDays: number;
 }

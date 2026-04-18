@@ -120,6 +120,11 @@ export default async function AdminAuditPage({
                         {item.actorUser?.fullName ?? item.actorRole} • {item.action} • {item.entityType}
                         {item.entityId ? ` • ${item.entityId}` : ""}
                       </div>
+                      {typeof item.metadata?.requestId === "string" ? (
+                        <div className="mt-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                          Request {item.metadata.requestId}
+                        </div>
+                      ) : null}
                       {item.metadata ? (
                         <pre className="mt-3 overflow-x-auto rounded-[1rem] bg-white px-3 py-3 text-xs text-slate-600">
                           {JSON.stringify(item.metadata, null, 2)}

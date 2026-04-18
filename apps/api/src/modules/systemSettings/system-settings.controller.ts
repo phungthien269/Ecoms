@@ -9,17 +9,24 @@ import { UpdateSystemSettingDto } from "./dto/update-system-setting.dto";
 import { SystemSettingsService } from "./system-settings.service";
 
 @Controller("system-settings")
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.SUPER_ADMIN)
 export class SystemSettingsController {
   constructor(private readonly systemSettingsService: SystemSettingsService) {}
 
+  @Get("public")
+  listPublic() {
+    return this.systemSettingsService.getPublicSummary();
+  }
+
   @Get("admin")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
   listAdmin() {
     return this.systemSettingsService.listAdmin();
   }
 
   @Patch("admin/:key")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
   update(
     @CurrentUser() actor: AuthPayload,
     @Param("key") key: string,

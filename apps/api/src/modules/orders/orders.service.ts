@@ -10,6 +10,7 @@ import { MailerService } from "../mailer/mailer.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { OrderStatusHistoryService } from "../orderStatusHistory/order-status-history.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { SystemSettingsService } from "../systemSettings/system-settings.service";
 import { AuditLogsService } from "../auditLogs/audit-logs.service";
 import type { AuthPayload } from "../auth/types/auth-payload";
 import { ListAdminOrdersDto } from "./dto/list-admin-orders.dto";
@@ -21,6 +22,7 @@ export class OrdersService {
     private readonly notificationsService: NotificationsService,
     private readonly mailerService: MailerService,
     private readonly orderStatusHistoryService: OrderStatusHistoryService,
+    private readonly systemSettingsService: SystemSettingsService,
     private readonly auditLogsService: AuditLogsService
   ) {}
 
@@ -221,10 +223,19 @@ export class OrdersService {
     }
 
     const statusTimeline = await this.orderStatusHistoryService.listForOrder(order.id);
+    const autoCompleteDays = await this.systemSettingsService.getNumberValue(
+      "order_auto_complete_days"
+    );
     return {
       ...this.serializeOrderDetail(order),
       statusTimeline,
-      returnWindow: this.buildReturnWindow(order.status as OrderStatus, order.updatedAt, statusTimeline)
+      returnWindow: this.buildReturnWindow(order.status as OrderStatus, order.updatedAt, statusTimeline),
+      autoCompleteWindow: this.buildAutoCompleteWindow(
+        order.status as OrderStatus,
+        order.updatedAt,
+        statusTimeline,
+        autoCompleteDays
+      )
     };
   }
 
@@ -342,11 +353,12 @@ export class OrdersService {
     });
 
     if (buyer) {
+      const publicSettings = await this.systemSettingsService.getPublicSummary();
       await this.mailerService.sendSafely({
         to: buyer.email,
-        subject: `Order completed: ${order.orderNumber}`,
-        html: `<p>Hello ${buyer.fullName},</p><p>Your order ${order.orderNumber} has been marked completed.</p><p>You can now leave a review for the purchased items.</p>`,
-        text: `Hello ${buyer.fullName}, your order ${order.orderNumber} has been marked completed. You can now leave a review for the purchased items.`,
+        subject: `${publicSettings.marketplaceName}: order completed ${order.orderNumber}`,
+        html: `<p>Hello ${buyer.fullName},</p><p>Your order ${order.orderNumber} on ${publicSettings.marketplaceName} has been marked completed.</p><p>You can now leave a review for the purchased items.</p><p>Support: ${publicSettings.supportEmail}</p>`,
+        text: `Hello ${buyer.fullName}, your order ${order.orderNumber} on ${publicSettings.marketplaceName} has been marked completed. You can now leave a review for the purchased items. Support: ${publicSettings.supportEmail}.`,
         tags: ["order_completed"]
       });
     }
@@ -549,12 +561,21 @@ export class OrdersService {
     }
 
     const statusTimeline = await this.orderStatusHistoryService.listForOrder(order.id);
+    const autoCompleteDays = await this.systemSettingsService.getNumberValue(
+      "order_auto_complete_days"
+    );
     return {
       ...this.serializeOrderDetail(order),
       customer: order.user,
       shop: order.shop,
       statusTimeline,
-      returnWindow: this.buildReturnWindow(order.status as OrderStatus, order.updatedAt, statusTimeline)
+      returnWindow: this.buildReturnWindow(order.status as OrderStatus, order.updatedAt, statusTimeline),
+      autoCompleteWindow: this.buildAutoCompleteWindow(
+        order.status as OrderStatus,
+        order.updatedAt,
+        statusTimeline,
+        autoCompleteDays
+      )
     };
   }
 
@@ -840,6 +861,36 @@ export class OrdersService {
       canRequest,
       deliveredAt: deliveredDate?.toISOString() ?? null,
       expiresAt: expiresAt?.toISOString() ?? null
+    };
+  }
+
+  private buildAutoCompleteWindow(
+    currentStatus: OrderStatus,
+    orderUpdatedAt: Date,
+    statusTimeline: Array<{ status: string; createdAt: string }>,
+    windowDays: number
+  ) {
+    const deliveredEntry = [...statusTimeline]
+      .reverse()
+      .find((entry) => entry.status === OrderStatus.DELIVERED);
+    const deliveredAt = deliveredEntry?.createdAt ?? null;
+    const deliveredDate =
+      deliveredAt
+        ? new Date(deliveredAt)
+        : currentStatus === OrderStatus.DELIVERED
+          ? orderUpdatedAt
+          : null;
+    const autoCompleteAt = deliveredDate
+      ? new Date(deliveredDate.getTime() + windowDays * 24 * 60 * 60 * 1000)
+      : null;
+
+    return {
+      canAutoComplete:
+        currentStatus === OrderStatus.DELIVERED &&
+        Boolean(autoCompleteAt && autoCompleteAt.getTime() > Date.now()),
+      deliveredAt: deliveredDate?.toISOString() ?? null,
+      autoCompleteAt: autoCompleteAt?.toISOString() ?? null,
+      windowDays
     };
   }
 

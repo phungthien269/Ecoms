@@ -14,12 +14,16 @@ export function AppShell({
   children,
   session,
   unreadNotificationsCount,
-  unreadChatCount
+  unreadChatCount,
+  siteName,
+  supportEmail
 }: {
   children: React.ReactNode;
   session: DemoSession | null;
   unreadNotificationsCount: number;
   unreadChatCount: number;
+  siteName: string;
+  supportEmail: string;
 }) {
   const googleAuthEnabled = process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true";
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
@@ -32,7 +36,7 @@ export function AppShell({
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-6">
             <Link href={"/" as Route} className="text-xl font-black tracking-tight text-slate-950">
-              Ecoms
+              {siteName}
             </Link>
             <form action="/products" className="hidden lg:block">
               <input
@@ -145,7 +149,15 @@ export function AppShell({
         </div>
       </header>
 
-      {children}
+      <main>{children}</main>
+      <footer className="border-t border-orange-100 bg-white/80">
+        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-5 text-sm text-slate-500 sm:px-6 lg:px-8 md:flex-row md:items-center md:justify-between">
+          <div>{siteName} marketplace operations shell</div>
+          <div>
+            Support: <a href={`mailto:${supportEmail}`} className="font-semibold text-orange-600">{supportEmail}</a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

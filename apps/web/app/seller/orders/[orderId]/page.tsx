@@ -188,6 +188,12 @@ export default async function SellerOrderDetailPage({
                 {latestPayment?.expiresAt ? (
                   <div>Expires at {new Date(latestPayment.expiresAt).toLocaleString("vi-VN")}</div>
                 ) : null}
+                {order.autoCompleteWindow.autoCompleteAt ? (
+                  <div>
+                    Buyer auto-complete target{" "}
+                    {new Date(order.autoCompleteWindow.autoCompleteAt).toLocaleString("vi-VN")}
+                  </div>
+                ) : null}
               </div>
               <div className="mt-5 space-y-3">
                 {nextStatuses.length > 0 ? (

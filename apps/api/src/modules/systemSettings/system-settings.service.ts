@@ -1,5 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import type { SystemSettingSummary } from "@ecoms/contracts";
+import type {
+  PublicSystemSettingsSummary,
+  SystemSettingSummary
+} from "@ecoms/contracts";
 import type { AuthPayload } from "../auth/types/auth-payload";
 import { AuditLogsService } from "../auditLogs/audit-logs.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -63,6 +66,12 @@ const settingDefinitions: SettingDefinition[] = [
 ];
 
 const definitionMap = new Map(settingDefinitions.map((item) => [item.key, item]));
+const publicSettingKeys = [
+  "marketplace_name",
+  "support_email",
+  "payment_timeout_minutes",
+  "order_auto_complete_days"
+] as const;
 
 @Injectable()
 export class SystemSettingsService {
@@ -105,6 +114,30 @@ export class SystemSettingsService {
         updatedBy: record?.updatedBy ?? null
       };
     });
+  }
+
+  async getPublicSummary(): Promise<PublicSystemSettingsSummary> {
+    const [marketplaceName, supportEmail, paymentTimeoutMinutes, orderAutoCompleteDays] =
+      await Promise.all([
+        this.getStringValue("marketplace_name"),
+        this.getStringValue("support_email"),
+        this.getNumberValue("payment_timeout_minutes"),
+        this.getNumberValue("order_auto_complete_days")
+      ]);
+
+    return {
+      marketplaceName,
+      supportEmail,
+      paymentTimeoutMinutes,
+      orderAutoCompleteDays
+    };
+  }
+
+  async listPublic() {
+    const adminItems = await this.listAdmin();
+    return adminItems.filter((item) =>
+      publicSettingKeys.includes(item.key as (typeof publicSettingKeys)[number])
+    );
   }
 
   async update(actor: AuthPayload, key: string, rawValue: string): Promise<SystemSettingSummary> {
@@ -179,6 +212,16 @@ export class SystemSettingsService {
 
     const value = await this.getValue(key);
     return typeof value === "number" ? value : Number(definition.defaultValue);
+  }
+
+  async getStringValue(key: string) {
+    const definition = definitionMap.get(key);
+    if (!definition || definition.valueType !== "STRING") {
+      throw new NotFoundException("String system setting not found");
+    }
+
+    const value = await this.getValue(key);
+    return typeof value === "string" ? value : String(definition.defaultValue);
   }
 
   async getBooleanValue(key: string) {

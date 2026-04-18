@@ -1,7 +1,7 @@
 import { Injectable, NestMiddleware } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import type { NextFunction, Response } from "express";
-import type { ApiRequest } from "../request-context";
+import { requestContextStorage, type ApiRequest } from "../request-context";
 
 @Injectable()
 export class RequestContextMiddleware implements NestMiddleware {
@@ -10,7 +10,7 @@ export class RequestContextMiddleware implements NestMiddleware {
     request.requestId = requestId;
     request.startedAt = Date.now();
     response.setHeader("x-request-id", requestId);
-    next();
+    requestContextStorage.run({ requestId }, () => next());
   }
 
   private getRequestId(headerValue: string | string[] | undefined) {

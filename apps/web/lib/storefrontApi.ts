@@ -1,3 +1,4 @@
+import type { PublicSystemSettingsSummary } from "@ecoms/contracts";
 import type {
   ApiEnvelope,
   BrandSummary,
@@ -86,6 +87,17 @@ export async function getActiveFlashSales(): Promise<StorefrontFlashSale[]> {
 
 export async function getHomeBanners(): Promise<StorefrontBanner[]> {
   return (await requestJson<StorefrontBanner[]>("/banners?placement=HOME_HERO")) ?? [];
+}
+
+export async function getPublicSystemSettings(): Promise<PublicSystemSettingsSummary> {
+  return (
+    (await requestJson<PublicSystemSettingsSummary>("/system-settings/public")) ?? {
+      marketplaceName: "Ecoms Marketplace",
+      supportEmail: "support@ecoms.local",
+      paymentTimeoutMinutes: 15,
+      orderAutoCompleteDays: 3
+    }
+  );
 }
 
 export function findCategoryBySlug(

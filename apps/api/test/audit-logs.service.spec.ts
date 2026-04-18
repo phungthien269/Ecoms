@@ -1,3 +1,4 @@
+import { requestContextStorage } from "../src/common/request-context";
 import { AuditLogsService } from "../src/modules/auditLogs/audit-logs.service";
 
 describe("AuditLogsService", () => {
@@ -44,6 +45,35 @@ describe("AuditLogsService", () => {
       data: expect.objectContaining({
         actorUserId: "admin-1",
         action: "orders.admin.update_status"
+      })
+    });
+  });
+
+  it("adds requestId from request context into metadata", async () => {
+    prisma.auditLog.create.mockResolvedValue({
+      id: "audit-2"
+    });
+
+    await requestContextStorage.run({ requestId: "req-audit-1" }, async () => {
+      await service.record({
+        actorUserId: "admin-1",
+        actorRole: "ADMIN",
+        action: "products.admin.update_status",
+        entityType: "PRODUCT",
+        entityId: "product-1",
+        summary: "Updated product status",
+        metadata: {
+          nextStatus: "BANNED"
+        }
+      });
+    });
+
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        metadata: expect.objectContaining({
+          requestId: "req-audit-1",
+          nextStatus: "BANNED"
+        })
       })
     });
   });

@@ -185,6 +185,12 @@ export default async function OrderDetailPage({
                   ) : null}
                 </div>
               ) : null}
+              {order.autoCompleteWindow.autoCompleteAt ? (
+                <div className="mt-4 rounded-[1.5rem] border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+                  Auto-complete target: {new Date(order.autoCompleteWindow.autoCompleteAt).toLocaleString("vi-VN")}
+                  {" "}• window {order.autoCompleteWindow.windowDays} days after delivery
+                </div>
+              ) : null}
             </section>
 
             <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">

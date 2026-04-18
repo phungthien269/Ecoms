@@ -197,6 +197,12 @@ export interface OrderDetail extends OrderListItem {
     deliveredAt: string | null;
     expiresAt: string | null;
   };
+  autoCompleteWindow: {
+    canAutoComplete: boolean;
+    deliveredAt: string | null;
+    autoCompleteAt: string | null;
+    windowDays: number;
+  };
 }
 
 export interface SellerOrderListItem extends OrderListItem {

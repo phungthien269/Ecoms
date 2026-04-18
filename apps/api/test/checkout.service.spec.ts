@@ -92,7 +92,13 @@ describe("CheckoutService", () => {
     record: jest.fn()
   };
   const systemSettingsService = {
-    getNumberValue: jest.fn().mockResolvedValue(15)
+    getNumberValue: jest.fn().mockResolvedValue(15),
+    getPublicSummary: jest.fn().mockResolvedValue({
+      marketplaceName: "Ecoms Marketplace",
+      supportEmail: "support@ecoms.local",
+      paymentTimeoutMinutes: 15,
+      orderAutoCompleteDays: 3
+    })
   };
 
   const service = new CheckoutService(
@@ -212,6 +218,7 @@ describe("CheckoutService", () => {
     expect(mailerService.sendSafely).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "buyer@example.com",
+        subject: expect.stringContaining("Ecoms Marketplace"),
         tags: ["order_placed"]
       })
     );
@@ -333,6 +340,12 @@ describe("CheckoutService", () => {
       callback(prisma)
     );
     systemSettingsService.getNumberValue.mockResolvedValueOnce(25);
+    systemSettingsService.getPublicSummary.mockResolvedValueOnce({
+      marketplaceName: "Ops Demo",
+      supportEmail: "ops@example.com",
+      paymentTimeoutMinutes: 25,
+      orderAutoCompleteDays: 3
+    });
     prisma.order.create.mockResolvedValue({
       id: "order-2",
       orderNumber: "ORD-SHOP-2",
@@ -367,6 +380,7 @@ describe("CheckoutService", () => {
     });
 
     expect(systemSettingsService.getNumberValue).toHaveBeenCalledWith("payment_timeout_minutes");
+    expect(systemSettingsService.getPublicSummary).toHaveBeenCalled();
     expect(prisma.payment.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         status: PaymentStatus.PENDING,

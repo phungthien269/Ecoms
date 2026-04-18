@@ -70,6 +70,37 @@ describe("SystemSettingsService", () => {
     );
   });
 
+  it("returns public summary for storefront/runtime consumers", async () => {
+    prisma.systemSetting.findUnique.mockImplementation(async ({ where }: { where: { key: string } }) => {
+      if (where.key === "marketplace_name") {
+        return { key: "marketplace_name", value: "Ops Demo" };
+      }
+
+      if (where.key === "support_email") {
+        return { key: "support_email", value: "ops@example.com" };
+      }
+
+      if (where.key === "payment_timeout_minutes") {
+        return { key: "payment_timeout_minutes", value: 20 };
+      }
+
+      if (where.key === "order_auto_complete_days") {
+        return { key: "order_auto_complete_days", value: 5 };
+      }
+
+      return null;
+    });
+
+    const result = await service.getPublicSummary();
+
+    expect(result).toEqual({
+      marketplaceName: "Ops Demo",
+      supportEmail: "ops@example.com",
+      paymentTimeoutMinutes: 20,
+      orderAutoCompleteDays: 5
+    });
+  });
+
   it("rejects invalid boolean values", async () => {
     await expect(
       service.update(

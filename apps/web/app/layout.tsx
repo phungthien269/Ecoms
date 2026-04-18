@@ -3,6 +3,7 @@ import { AppShell } from "@/components/layout/appShell";
 import { getChatConversations, getNotifications } from "@/lib/commerceApi";
 import { getSiteUrl } from "@/lib/seo";
 import { getDemoSession } from "@/lib/session";
+import { getPublicSystemSettings } from "@/lib/storefrontApi";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -35,6 +36,7 @@ export default async function RootLayout({
   children
 }: Readonly<{ children: React.ReactNode }>) {
   const session = await getDemoSession();
+  const publicSettings = await getPublicSystemSettings();
   const notifications = session
     ? await getNotifications()
     : {
@@ -54,6 +56,8 @@ export default async function RootLayout({
           session={session}
           unreadNotificationsCount={notifications.unreadCount}
           unreadChatCount={unreadChatCount}
+          siteName={publicSettings.marketplaceName}
+          supportEmail={publicSettings.supportEmail}
         >
           {children}
         </AppShell>

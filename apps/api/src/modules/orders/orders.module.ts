@@ -5,6 +5,7 @@ import { MailerModule } from "../mailer/mailer.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { OrderStatusHistoryModule } from "../orderStatusHistory/order-status-history.module";
 import { PrismaModule } from "../prisma/prisma.module";
+import { SystemSettingsModule } from "../systemSettings/system-settings.module";
 import { OrdersController } from "./orders.controller";
 import { OrdersService } from "./orders.service";
 
@@ -15,7 +16,8 @@ import { OrdersService } from "./orders.service";
     PrismaModule,
     NotificationsModule,
     MailerModule,
-    OrderStatusHistoryModule
+    OrderStatusHistoryModule,
+    SystemSettingsModule
   ],
   controllers: [OrdersController],
   providers: [OrdersService]

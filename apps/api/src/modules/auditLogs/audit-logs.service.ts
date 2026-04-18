@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type { AuditLogSummary } from "@ecoms/contracts";
 import { Prisma } from "@prisma/client";
+import { getRequestId } from "../../common/request-context";
 import { PrismaService } from "../prisma/prisma.service";
 import { ListAuditLogsDto } from "./dto/list-audit-logs.dto";
 
@@ -129,6 +130,15 @@ export class AuditLogsService {
     },
     prisma: Prisma.TransactionClient | PrismaService = this.prisma
   ) {
+    const requestId = getRequestId();
+    const metadata =
+      requestId || payload.metadata
+        ? {
+            ...(payload.metadata ?? {}),
+            ...(requestId ? { requestId } : {})
+          }
+        : undefined;
+
     return prisma.auditLog.create({
       data: {
         actorUserId: payload.actorUserId ?? undefined,
@@ -137,7 +147,7 @@ export class AuditLogsService {
         entityType: payload.entityType,
         entityId: payload.entityId ?? undefined,
         summary: payload.summary,
-        metadata: (payload.metadata ?? undefined) as Prisma.InputJsonValue | undefined
+        metadata: metadata as Prisma.InputJsonValue | undefined
       }
     });
   }

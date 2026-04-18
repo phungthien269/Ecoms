@@ -40,6 +40,15 @@ describe("OrdersService", () => {
     listForOrder: jest.fn(),
     getLatestStatusTimestamp: jest.fn()
   };
+  const systemSettingsService = {
+    getNumberValue: jest.fn().mockResolvedValue(3),
+    getPublicSummary: jest.fn().mockResolvedValue({
+      marketplaceName: "Ecoms Marketplace",
+      supportEmail: "support@ecoms.local",
+      paymentTimeoutMinutes: 15,
+      orderAutoCompleteDays: 3
+    })
+  };
   const auditLogsService = {
     record: jest.fn()
   };
@@ -49,6 +58,7 @@ describe("OrdersService", () => {
     notificationsService as never,
     mailerService as never,
     orderStatusHistoryService as never,
+    systemSettingsService as never,
     auditLogsService as never
   );
 
@@ -128,6 +138,7 @@ describe("OrdersService", () => {
     expect(mailerService.sendSafely).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "buyer@example.com",
+        subject: expect.stringContaining("Ecoms Marketplace"),
         tags: ["order_completed"]
       })
     );
@@ -314,6 +325,55 @@ describe("OrdersService", () => {
         userId: "seller-1"
       })
     );
+  });
+
+  it("returns auto-complete window on buyer order detail", async () => {
+    prisma.order.findFirst.mockResolvedValue({
+      id: "order-1",
+      orderNumber: "ORD-1",
+      status: OrderStatus.DELIVERED,
+      paymentMethod: "COD",
+      shippingRecipientName: "Buyer Demo",
+      shippingPhoneNumber: "0900000000",
+      shippingAddressLine1: "123 Demo Street",
+      shippingAddressLine2: null,
+      shippingWard: null,
+      shippingDistrict: "District 1",
+      shippingProvince: "Ho Chi Minh City",
+      shippingRegionCode: "HCM",
+      itemsSubtotal: { toString: () => "100000" },
+      shippingFee: { toString: () => "20000" },
+      discountTotal: { toString: () => "0" },
+      grandTotal: { toString: () => "120000" },
+      note: null,
+      appliedVoucherCodes: [],
+      placedAt: new Date("2026-04-18T00:00:00.000Z"),
+      updatedAt: new Date("2026-04-18T00:00:00.000Z"),
+      shop: {
+        id: "shop-1",
+        name: "Demo Shop",
+        slug: "demo-shop"
+      },
+      items: [],
+      payments: []
+    });
+    orderStatusHistoryService.listForOrder.mockResolvedValue([
+      {
+        id: "hist-1",
+        status: OrderStatus.DELIVERED,
+        actorType: "SELLER",
+        actorUser: null,
+        note: null,
+        metadata: null,
+        createdAt: new Date().toISOString()
+      }
+    ]);
+
+    const result = await service.getOwnDetail("user-1", "order-1");
+
+    expect(systemSettingsService.getNumberValue).toHaveBeenCalledWith("order_auto_complete_days");
+    expect(result.autoCompleteWindow.windowDays).toBe(3);
+    expect(result.autoCompleteWindow.autoCompleteAt).not.toBeNull();
   });
 
   it("blocks return requests after the 7 day window", async () => {

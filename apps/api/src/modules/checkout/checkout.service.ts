@@ -79,9 +79,10 @@ export class CheckoutService {
     const cartItems = await this.getValidatedCartItems(userId);
     const preview = await this.buildPreview(userId, cartItems, payload);
     const placedAt = new Date();
-    const paymentTimeoutMinutes = await this.systemSettingsService.getNumberValue(
-      "payment_timeout_minutes"
-    );
+    const [paymentTimeoutMinutes, publicSettings] = await Promise.all([
+      this.systemSettingsService.getNumberValue("payment_timeout_minutes"),
+      this.systemSettingsService.getPublicSummary()
+    ]);
     const appliedVoucherCodes = preview.appliedVouchers.map((voucher) => voucher.code);
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -299,13 +300,13 @@ export class CheckoutService {
     if (buyer) {
       await this.mailerService.sendSafely({
         to: buyer.email,
-        subject: `Order placed: ${result.length} order(s) created`,
-        html: `<p>Hello ${buyer.fullName},</p><p>Your checkout was successful.</p><p>Orders: ${result
+        subject: `${publicSettings.marketplaceName}: ${result.length} order(s) placed`,
+        html: `<p>Hello ${buyer.fullName},</p><p>Your checkout on ${publicSettings.marketplaceName} was successful.</p><p>Orders: ${result
           .map((order) => order.orderNumber)
-          .join(", ")}</p><p>Total: ${preview.totals.grandTotal} VND</p>`,
-        text: `Hello ${buyer.fullName}, your checkout was successful. Orders: ${result
+          .join(", ")}</p><p>Total: ${preview.totals.grandTotal} VND</p><p>Pending online payments expire after ${publicSettings.paymentTimeoutMinutes} minutes.</p><p>Support: ${publicSettings.supportEmail}</p>`,
+        text: `Hello ${buyer.fullName}, your checkout on ${publicSettings.marketplaceName} was successful. Orders: ${result
           .map((order) => order.orderNumber)
-          .join(", ")}. Total: ${preview.totals.grandTotal} VND.`,
+          .join(", ")}. Total: ${preview.totals.grandTotal} VND. Pending online payments expire after ${publicSettings.paymentTimeoutMinutes} minutes. Support: ${publicSettings.supportEmail}.`,
         tags: ["order_placed"]
       });
     }
