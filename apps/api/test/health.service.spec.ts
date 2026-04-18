@@ -133,6 +133,12 @@ describe("HealthService", () => {
     expect(readiness.checks.find((check) => check.key === "mail_driver")?.message).toBe(
       "Console mail driver does not require external probe"
     );
+    expect(readiness.checks.find((check) => check.key === "mail_driver")?.details).toEqual(
+      expect.objectContaining({
+        source: "system_setting",
+        actionHint: "No action required"
+      })
+    );
   });
 
   it("falls back to static diagnostics when provider probes are disabled", async () => {
@@ -154,6 +160,13 @@ describe("HealthService", () => {
     expect(filesService.probeDiagnostics).not.toHaveBeenCalled();
     expect(readiness.checks.find((check) => check.key === "provider_probes")?.status).toBe(
       "degraded"
+    );
+    expect(
+      readiness.checks.find((check) => check.key === "provider_probes")?.details
+    ).toEqual(
+      expect.objectContaining({
+        source: "system_setting_or_env_fallback"
+      })
     );
   });
 });

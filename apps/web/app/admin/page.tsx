@@ -300,8 +300,13 @@ export default async function AdminPage() {
                     </div>
                   </div>
                   {check.details ? (
-                    <div className="mt-3 text-xs text-slate-500">
-                      {Object.keys(check.details).length} detail field(s)
+                    <div className="mt-3 space-y-2">
+                      {typeof check.details.actionHint === "string" ? (
+                        <div className="text-xs text-slate-500">{check.details.actionHint}</div>
+                      ) : null}
+                      <div className="text-xs text-slate-400">
+                        {Object.keys(check.details).length} detail field(s)
+                      </div>
                     </div>
                   ) : null}
                 </div>

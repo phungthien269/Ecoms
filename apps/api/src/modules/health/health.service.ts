@@ -87,7 +87,13 @@ export class HealthService {
             : "ok"
           : "degraded",
         message: rateLimit.message,
-        details: this.toDetails(rateLimit)
+        details: this.toDetails({
+          ...rateLimit,
+          actionHint: rateLimit.fallbackActive
+            ? "Bring Redis back to restore shared rate limiting across instances."
+            : "No action required",
+          source: rateLimit.fallbackActive ? "runtime_fallback" : "active_store"
+        })
       },
       {
         key: "realtime_state_store",
@@ -98,14 +104,26 @@ export class HealthService {
             : "ok"
           : "degraded",
         message: realtime.message,
-        details: this.toDetails(realtime)
+        details: this.toDetails({
+          ...realtime,
+          actionHint: realtime.fallbackActive
+            ? "Restore Redis to recover cross-instance presence and unread state."
+            : "No action required",
+          source: realtime.fallbackActive ? "runtime_fallback" : "active_store"
+        })
       },
       {
         key: "mail_driver",
         label: "Mail driver",
         status: mail.healthy ? "ok" : "degraded",
         message: mail.probeMessage ?? mail.message,
-        details: this.toDetails(mail)
+        details: this.toDetails({
+          ...mail,
+          source: providerProbesEnabled ? "system_setting" : "env_fallback",
+          actionHint: mail.healthy
+            ? "No action required"
+            : "Check mail credentials and outbound provider availability."
+        })
       },
       {
         key: "media_driver",
@@ -115,7 +133,13 @@ export class HealthService {
           "probeMessage" in media && typeof media.probeMessage === "string"
             ? media.probeMessage
             : media.message,
-        details: this.toDetails(media)
+        details: this.toDetails({
+          ...media,
+          source: providerProbesEnabled ? "system_setting" : "env_fallback",
+          actionHint: media.healthy
+            ? "No action required"
+            : "Verify media driver credentials, endpoint, and signed-upload configuration."
+        })
       },
       {
         key: "request_logging",
@@ -123,7 +147,11 @@ export class HealthService {
         status: loggingEnabled ? "ok" : "degraded",
         message: loggingEnabled ? "Structured request logging enabled" : "Request logging disabled",
         details: {
-          enabled: loggingEnabled
+          enabled: loggingEnabled,
+          source: "env",
+          actionHint: loggingEnabled
+            ? "No action required"
+            : "Enable request logging for production tracing."
         }
       },
       {
@@ -134,7 +162,11 @@ export class HealthService {
           ? "External provider probes enabled"
           : "External provider probes disabled",
         details: {
-          enabled: providerProbesEnabled
+          enabled: providerProbesEnabled,
+          source: "system_setting_or_env_fallback",
+          actionHint: providerProbesEnabled
+            ? "No action required"
+            : "Enable probes if you need live verification of mail/media providers."
         }
       }
     ];

@@ -77,6 +77,33 @@ export default async function AdminDiagnosticsPage() {
             </div>
           </div>
 
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <div className="rounded-[1.5rem] bg-slate-50 p-5">
+              <div className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">
+                Failing checks
+              </div>
+              <div className="mt-3 text-3xl font-black text-slate-950">
+                {diagnostics.checks.filter((check) => check.status === "fail").length}
+              </div>
+            </div>
+            <div className="rounded-[1.5rem] bg-slate-50 p-5">
+              <div className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">
+                Degraded checks
+              </div>
+              <div className="mt-3 text-3xl font-black text-slate-950">
+                {diagnostics.checks.filter((check) => check.status === "degraded").length}
+              </div>
+            </div>
+            <div className="rounded-[1.5rem] bg-slate-50 p-5">
+              <div className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">
+                Healthy checks
+              </div>
+              <div className="mt-3 text-3xl font-black text-slate-950">
+                {diagnostics.checks.filter((check) => check.status === "ok").length}
+              </div>
+            </div>
+          </div>
+
           <div className="mt-6 grid gap-4 xl:grid-cols-2">
             {diagnostics.checks.map((check) => (
               <div key={check.key} className="rounded-[1.5rem] bg-slate-50 p-5">
@@ -98,6 +125,14 @@ export default async function AdminDiagnosticsPage() {
                     {check.status}
                   </div>
                 </div>
+                {typeof check.details?.actionHint === "string" ? (
+                  <div className="mt-4 rounded-[1rem] bg-white px-4 py-3">
+                    <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                      Next step
+                    </div>
+                    <div className="mt-1 text-sm text-slate-700">{check.details.actionHint}</div>
+                  </div>
+                ) : null}
                 {check.details ? (
                   <div className="mt-4 grid gap-2 sm:grid-cols-2">
                     {Object.entries(check.details).map(([key, value]) => (
