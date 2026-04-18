@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import type {
+  AuditLogSummary,
   PublicSystemSettingsSummary,
   SystemSettingSummary
 } from "@ecoms/contracts";
@@ -140,6 +141,81 @@ export class SystemSettingsService {
     );
   }
 
+  async listHistory(key?: string): Promise<
+    Array<{
+      setting: SystemSettingSummary;
+      events: Array<
+        AuditLogSummary & {
+          previousValue: string | number | boolean | null;
+          nextValue: string | number | boolean | null;
+        }
+      >;
+    }>
+  > {
+    const settings = await this.listAdmin();
+    const selectedSettings = key
+      ? settings.filter((item) => item.key === key)
+      : settings;
+
+    if (key && selectedSettings.length === 0) {
+      throw new NotFoundException("System setting not found");
+    }
+
+    const auditLogs = await this.prisma.auditLog.findMany({
+      where: {
+        entityType: "SYSTEM_SETTING",
+        action: "system_settings.admin.update",
+        ...(key ? { entityId: key } : {})
+      },
+      include: {
+        actorUser: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true
+          }
+        }
+      },
+      orderBy: [{ createdAt: "desc" }],
+      take: key ? 20 : 100
+    });
+
+    const groupedLogs = new Map<string, typeof auditLogs>();
+    for (const log of auditLogs) {
+      const settingKey = log.entityId;
+      if (!settingKey) {
+        continue;
+      }
+
+      const current = groupedLogs.get(settingKey) ?? [];
+      current.push(log);
+      groupedLogs.set(settingKey, current);
+    }
+
+    return selectedSettings.map((setting) => ({
+      setting,
+      events: (groupedLogs.get(setting.key) ?? []).map((log) => ({
+        id: log.id,
+        actorRole: log.actorRole,
+        action: log.action,
+        entityType: log.entityType,
+        entityId: log.entityId,
+        summary: log.summary,
+        metadata: (log.metadata as Record<string, unknown> | null) ?? null,
+        createdAt: log.createdAt.toISOString(),
+        actorUser: log.actorUser,
+        previousValue: this.normalizeAuditValue(
+          (log.metadata as Record<string, unknown> | null)?.previousValue,
+          setting.valueType
+        ),
+        nextValue: this.normalizeAuditValue(
+          (log.metadata as Record<string, unknown> | null)?.nextValue,
+          setting.valueType
+        )
+      }))
+    }));
+  }
+
   async update(actor: AuthPayload, key: string, rawValue: string): Promise<SystemSettingSummary> {
     const definition = definitionMap.get(key);
     if (!definition) {
@@ -261,6 +337,17 @@ export class SystemSettingsService {
     }
 
     return typeof value === "string" ? value : String(value ?? "");
+  }
+
+  private normalizeAuditValue(
+    value: unknown,
+    valueType: SettingDefinition["valueType"]
+  ): string | number | boolean | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    return this.normalizeStoredValue(value, valueType);
   }
 
   private parseValue(definition: SettingDefinition, rawValue: string) {

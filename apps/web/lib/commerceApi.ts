@@ -580,6 +580,29 @@ export interface SystemSettingItem {
   } | null;
 }
 
+export interface SystemSettingHistoryEvent {
+  id: string;
+  actorRole: string;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  summary: string;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  actorUser: {
+    id: string;
+    fullName: string;
+    email: string;
+  } | null;
+  previousValue: string | number | boolean | null;
+  nextValue: string | number | boolean | null;
+}
+
+export interface SystemSettingHistoryGroup {
+  setting: SystemSettingItem;
+  events: SystemSettingHistoryEvent[];
+}
+
 export interface AdminShopItem {
   id: string;
   name: string;
@@ -973,6 +996,14 @@ export async function getAdminBanners() {
 
 export async function getSystemSettings() {
   return (await requestAuthedJson<SystemSettingItem[]>("/system-settings/admin")) ?? [];
+}
+
+export async function getSystemSettingHistory(key?: string) {
+  return (
+    (await requestAuthedJson<SystemSettingHistoryGroup[]>(
+      key ? `/system-settings/admin/${key}/history` : "/system-settings/admin/history"
+    )) ?? []
+  );
 }
 
 export async function getAuditLogsPage(query?: {

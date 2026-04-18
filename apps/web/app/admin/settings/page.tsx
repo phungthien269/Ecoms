@@ -35,12 +35,20 @@ export default async function AdminSettingsPage() {
               Update runtime knobs for checkout, branding, and seller operations without code edits.
             </p>
           </div>
-          <Link
-            href={"/admin" as Route}
-            className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
-          >
-            Back to dashboard
-          </Link>
+          <div className="flex gap-3">
+            <Link
+              href={"/admin/settings/history" as Route}
+              className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+            >
+              Settings history
+            </Link>
+            <Link
+              href={"/admin" as Route}
+              className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+            >
+              Back to dashboard
+            </Link>
+          </div>
         </div>
 
         <div className="mt-8 grid gap-4">

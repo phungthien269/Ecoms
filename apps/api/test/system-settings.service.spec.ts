@@ -7,6 +7,9 @@ describe("SystemSettingsService", () => {
       findMany: jest.fn(),
       findUnique: jest.fn(),
       upsert: jest.fn()
+    },
+    auditLog: {
+      findMany: jest.fn()
     }
   };
   const auditLogsService = {
@@ -17,6 +20,7 @@ describe("SystemSettingsService", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    prisma.auditLog.findMany.mockResolvedValue([]);
   });
 
   it("lists merged system settings with defaults", async () => {
@@ -109,5 +113,48 @@ describe("SystemSettingsService", () => {
         "maybe"
       )
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("returns grouped history with typed previous and next values", async () => {
+    prisma.systemSetting.findMany.mockResolvedValue([
+      {
+        key: "payment_timeout_minutes",
+        value: 25,
+        updatedAt: new Date("2026-04-19T00:00:00.000Z"),
+        updatedBy: {
+          id: "super-1",
+          fullName: "Super Admin",
+          email: "super@example.com"
+        }
+      }
+    ]);
+    prisma.auditLog.findMany.mockResolvedValue([
+      {
+        id: "audit-1",
+        actorRole: "SUPER_ADMIN",
+        action: "system_settings.admin.update",
+        entityType: "SYSTEM_SETTING",
+        entityId: "payment_timeout_minutes",
+        summary: "Updated system setting payment_timeout_minutes",
+        metadata: {
+          previousValue: 15,
+          nextValue: 25
+        },
+        createdAt: new Date("2026-04-19T01:00:00.000Z"),
+        actorUser: {
+          id: "super-1",
+          fullName: "Super Admin",
+          email: "super@example.com"
+        }
+      }
+    ]);
+
+    const result = await service.listHistory("payment_timeout_minutes");
+
+    expect(result).toHaveLength(1);
+    expect(result[0].events[0]).toMatchObject({
+      previousValue: 15,
+      nextValue: 25
+    });
   });
 });

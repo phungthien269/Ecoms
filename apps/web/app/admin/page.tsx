@@ -185,6 +185,14 @@ export default async function AdminPage() {
                   </div>
                 ))}
               </div>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Link
+                  href={"/admin/settings/history" as Route}
+                  className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+                >
+                  View settings history
+                </Link>
+              </div>
             </div>
 
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
@@ -249,21 +257,29 @@ export default async function AdminPage() {
                   Runtime view of readiness, fallback stores, and provider configuration.
                 </p>
               </div>
-              <div
-                className={[
-                  "rounded-full px-4 py-2 text-sm font-semibold",
-                  diagnostics.status === "ok"
-                    ? "bg-emerald-50 text-emerald-700"
-                    : diagnostics.status === "degraded"
-                      ? "bg-amber-50 text-amber-700"
-                      : "bg-red-50 text-red-700"
-                ].join(" ")}
-              >
-                {diagnostics.status.toUpperCase()} • {diagnostics.ready ? "READY" : "NOT READY"}
+              <div className="flex flex-wrap gap-3">
+                <div
+                  className={[
+                    "rounded-full px-4 py-2 text-sm font-semibold",
+                    diagnostics.status === "ok"
+                      ? "bg-emerald-50 text-emerald-700"
+                      : diagnostics.status === "degraded"
+                        ? "bg-amber-50 text-amber-700"
+                        : "bg-red-50 text-red-700"
+                  ].join(" ")}
+                >
+                  {diagnostics.status.toUpperCase()} • {diagnostics.ready ? "READY" : "NOT READY"}
+                </div>
+                <Link
+                  href={"/admin/diagnostics" as Route}
+                  className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+                >
+                  Open diagnostics
+                </Link>
               </div>
             </div>
             <div className="mt-4 grid gap-4 xl:grid-cols-2">
-              {diagnostics.checks.map((check) => (
+              {diagnostics.checks.slice(0, 4).map((check) => (
                 <div key={check.key} className="rounded-[1.5rem] bg-slate-50 p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>
@@ -284,17 +300,8 @@ export default async function AdminPage() {
                     </div>
                   </div>
                   {check.details ? (
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                      {Object.entries(check.details).map(([key, value]) => (
-                        <div key={key} className="rounded-[1rem] bg-white px-3 py-2 text-xs text-slate-600">
-                          <div className="font-semibold uppercase tracking-[0.14em] text-slate-400">
-                            {key}
-                          </div>
-                          <div className="mt-1 break-all text-slate-700">
-                            {typeof value === "object" ? JSON.stringify(value) : String(value)}
-                          </div>
-                        </div>
-                      ))}
+                    <div className="mt-3 text-xs text-slate-500">
+                      {Object.keys(check.details).length} detail field(s)
                     </div>
                   ) : null}
                 </div>

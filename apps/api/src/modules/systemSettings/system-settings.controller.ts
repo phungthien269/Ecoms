@@ -24,6 +24,20 @@ export class SystemSettingsController {
     return this.systemSettingsService.listAdmin();
   }
 
+  @Get("admin/history")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  listHistory() {
+    return this.systemSettingsService.listHistory();
+  }
+
+  @Get("admin/:key/history")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  getHistory(@Param("key") key: string) {
+    return this.systemSettingsService.listHistory(key);
+  }
+
   @Patch("admin/:key")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SUPER_ADMIN)
