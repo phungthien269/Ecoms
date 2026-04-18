@@ -112,6 +112,18 @@ describe("CheckoutService", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    systemSettingsService.getNumberValue.mockImplementation(async (key: string) => {
+      const mapping: Record<string, number> = {
+        payment_timeout_minutes: 15,
+        shipping_fee_hn: 18000,
+        shipping_fee_hcm: 18000,
+        shipping_fee_central: 28000,
+        shipping_fee_other: 35000,
+        shipping_fee_extra_per_500g: 6000
+      };
+
+      return mapping[key] ?? 15;
+    });
   });
 
   it("builds a checkout preview split by shop with shipping totals", async () => {
@@ -339,7 +351,18 @@ describe("CheckoutService", () => {
     prisma.$transaction.mockImplementation(async (callback: (tx: typeof prisma) => unknown) =>
       callback(prisma)
     );
-    systemSettingsService.getNumberValue.mockResolvedValueOnce(25);
+    systemSettingsService.getNumberValue.mockImplementation(async (key: string) => {
+      const mapping: Record<string, number> = {
+        payment_timeout_minutes: 25,
+        shipping_fee_hn: 18000,
+        shipping_fee_hcm: 18000,
+        shipping_fee_central: 28000,
+        shipping_fee_other: 35000,
+        shipping_fee_extra_per_500g: 6000
+      };
+
+      return mapping[key] ?? 25;
+    });
     systemSettingsService.getPublicSummary.mockResolvedValueOnce({
       marketplaceName: "Ops Demo",
       supportEmail: "ops@example.com",
@@ -388,5 +411,36 @@ describe("CheckoutService", () => {
         expiresAt: expect.any(Date)
       })
     });
+  });
+
+  it("uses configurable shipping fee settings in preview", async () => {
+    prisma.cartItem.findMany.mockResolvedValue([createCartItem()]);
+    systemSettingsService.getNumberValue.mockImplementation(async (key: string) => {
+      const mapping: Record<string, number> = {
+        payment_timeout_minutes: 15,
+        shipping_fee_hn: 21000,
+        shipping_fee_hcm: 20000,
+        shipping_fee_central: 30000,
+        shipping_fee_other: 37000,
+        shipping_fee_extra_per_500g: 7000
+      };
+
+      return mapping[key] ?? 15;
+    });
+
+    const preview = await service.preview("user-1", {
+      paymentMethod: PaymentMethod.COD,
+      shippingAddress: {
+        recipientName: "Demo Buyer",
+        phoneNumber: "0900000000",
+        addressLine1: "123 Demo Street",
+        district: "District 1",
+        province: "Ho Chi Minh City",
+        regionCode: "HCM"
+      }
+    });
+
+    expect(preview.totals.shippingFee).toBe("27000");
+    expect(preview.totals.grandTotal).toBe("725000");
   });
 });

@@ -41,6 +41,8 @@ describe("SystemSettingsService", () => {
 
     expect(result.find((item) => item.key === "payment_timeout_minutes")?.value).toBe(25);
     expect(result.find((item) => item.key === "marketplace_name")?.value).toBe("Ecoms");
+    expect(result.find((item) => item.key === "return_request_window_days")?.value).toBe(7);
+    expect(result.find((item) => item.key === "shipping_fee_hcm")?.value).toBe(18000);
   });
 
   it("updates a setting and records an audit log", async () => {

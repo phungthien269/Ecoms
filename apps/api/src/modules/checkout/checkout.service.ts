@@ -380,6 +380,8 @@ export class CheckoutService {
     let itemsSubtotal = new Prisma.Decimal(0);
     let shippingFeeTotal = new Prisma.Decimal(0);
 
+    const shippingConfig = await this.getShippingFeeConfig();
+
     for (const item of cartItems) {
       const unitPrice = item.productVariant?.price ?? item.product.salePrice;
       const lineSubtotal = unitPrice.mul(item.quantity);
@@ -420,7 +422,8 @@ export class CheckoutService {
     const shopEntries = Array.from(groupMap.values()).map((group) => {
       const shippingFee = this.calculateShippingFee(
         payload.shippingAddress.regionCode,
-        group.totalWeightGrams
+        group.totalWeightGrams,
+        shippingConfig
       );
       group.shippingFee = shippingFee;
       shippingFeeTotal = shippingFeeTotal.add(shippingFee);
@@ -796,16 +799,44 @@ export class CheckoutService {
     return allocations;
   }
 
-  private calculateShippingFee(regionCode: string, totalWeightGrams: number) {
-    const baseFees: Record<string, number> = {
-      HN: 18000,
-      HCM: 18000,
-      CENTRAL: 28000,
-      OTHER: 35000
+  private async getShippingFeeConfig() {
+    const [
+      shippingFeeHn,
+      shippingFeeHcm,
+      shippingFeeCentral,
+      shippingFeeOther,
+      shippingFeeExtraPer500g
+    ] = await Promise.all([
+      this.systemSettingsService.getNumberValue("shipping_fee_hn"),
+      this.systemSettingsService.getNumberValue("shipping_fee_hcm"),
+      this.systemSettingsService.getNumberValue("shipping_fee_central"),
+      this.systemSettingsService.getNumberValue("shipping_fee_other"),
+      this.systemSettingsService.getNumberValue("shipping_fee_extra_per_500g")
+    ]);
+
+    return {
+      HN: shippingFeeHn,
+      HCM: shippingFeeHcm,
+      CENTRAL: shippingFeeCentral,
+      OTHER: shippingFeeOther,
+      extraPer500g: shippingFeeExtraPer500g
     };
-    const baseFee = baseFees[regionCode] ?? 35000;
+  }
+
+  private calculateShippingFee(
+    regionCode: string,
+    totalWeightGrams: number,
+    shippingConfig: {
+      HN: number;
+      HCM: number;
+      CENTRAL: number;
+      OTHER: number;
+      extraPer500g: number;
+    }
+  ) {
+    const baseFee = shippingConfig[regionCode as "HN" | "HCM" | "CENTRAL" | "OTHER"] ?? shippingConfig.OTHER;
     const extraBlocks = Math.max(0, Math.ceil((totalWeightGrams - 500) / 500));
-    return new Prisma.Decimal(baseFee + extraBlocks * 6000);
+    return new Prisma.Decimal(baseFee + extraBlocks * shippingConfig.extraPer500g);
   }
 
   private roundCurrency(value: Prisma.Decimal) {

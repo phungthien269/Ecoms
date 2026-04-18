@@ -47,6 +47,16 @@ const settingDefinitions: SettingDefinition[] = [
     max: 60
   },
   {
+    key: "return_request_window_days",
+    category: "orders",
+    label: "Return request window (days)",
+    description: "Buyers can request returns until this many days after delivery.",
+    valueType: "NUMBER",
+    defaultValue: 7,
+    min: 1,
+    max: 30
+  },
+  {
     key: "seller_registration_enabled",
     category: "seller",
     label: "Allow new seller registration",
@@ -63,6 +73,56 @@ const settingDefinitions: SettingDefinition[] = [
     defaultValue: 3,
     min: 1,
     max: 14
+  },
+  {
+    key: "shipping_fee_hn",
+    category: "shipping",
+    label: "Base shipping fee - Hanoi",
+    description: "Base shipping fee in VND for HN region orders up to 500g.",
+    valueType: "NUMBER",
+    defaultValue: 18000,
+    min: 0,
+    max: 200000
+  },
+  {
+    key: "shipping_fee_hcm",
+    category: "shipping",
+    label: "Base shipping fee - Ho Chi Minh City",
+    description: "Base shipping fee in VND for HCM region orders up to 500g.",
+    valueType: "NUMBER",
+    defaultValue: 18000,
+    min: 0,
+    max: 200000
+  },
+  {
+    key: "shipping_fee_central",
+    category: "shipping",
+    label: "Base shipping fee - Central region",
+    description: "Base shipping fee in VND for CENTRAL region orders up to 500g.",
+    valueType: "NUMBER",
+    defaultValue: 28000,
+    min: 0,
+    max: 200000
+  },
+  {
+    key: "shipping_fee_other",
+    category: "shipping",
+    label: "Base shipping fee - Other regions",
+    description: "Base shipping fee in VND for OTHER region orders up to 500g.",
+    valueType: "NUMBER",
+    defaultValue: 35000,
+    min: 0,
+    max: 200000
+  },
+  {
+    key: "shipping_fee_extra_per_500g",
+    category: "shipping",
+    label: "Extra shipping fee per 500g block",
+    description: "Additional shipping fee in VND per started 500g above the first 500g.",
+    valueType: "NUMBER",
+    defaultValue: 6000,
+    min: 0,
+    max: 100000
   }
 ];
 

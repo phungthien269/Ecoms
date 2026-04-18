@@ -64,6 +64,14 @@ describe("OrdersService", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    systemSettingsService.getNumberValue.mockImplementation(async (key: string) => {
+      const mapping: Record<string, number> = {
+        order_auto_complete_days: 3,
+        return_request_window_days: 7
+      };
+
+      return mapping[key] ?? 3;
+    });
   });
 
   it("cancels orders before shipping starts", async () => {
@@ -372,6 +380,7 @@ describe("OrdersService", () => {
     const result = await service.getOwnDetail("user-1", "order-1");
 
     expect(systemSettingsService.getNumberValue).toHaveBeenCalledWith("order_auto_complete_days");
+    expect(systemSettingsService.getNumberValue).toHaveBeenCalledWith("return_request_window_days");
     expect(result.autoCompleteWindow.windowDays).toBe(3);
     expect(result.autoCompleteWindow.autoCompleteAt).not.toBeNull();
   });
@@ -402,6 +411,61 @@ describe("OrdersService", () => {
         reason: "Late damage"
       })
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it("uses configurable return window days on buyer detail", async () => {
+    systemSettingsService.getNumberValue.mockImplementation(async (key: string) => {
+      const mapping: Record<string, number> = {
+        order_auto_complete_days: 3,
+        return_request_window_days: 10
+      };
+
+      return mapping[key] ?? 3;
+    });
+    prisma.order.findFirst.mockResolvedValue({
+      id: "order-1",
+      orderNumber: "ORD-1",
+      status: OrderStatus.DELIVERED,
+      paymentMethod: "COD",
+      shippingRecipientName: "Buyer Demo",
+      shippingPhoneNumber: "0900000000",
+      shippingAddressLine1: "123 Demo Street",
+      shippingAddressLine2: null,
+      shippingWard: null,
+      shippingDistrict: "District 1",
+      shippingProvince: "Ho Chi Minh City",
+      shippingRegionCode: "HCM",
+      itemsSubtotal: { toString: () => "100000" },
+      shippingFee: { toString: () => "20000" },
+      discountTotal: { toString: () => "0" },
+      grandTotal: { toString: () => "120000" },
+      note: null,
+      appliedVoucherCodes: [],
+      placedAt: new Date("2026-04-18T00:00:00.000Z"),
+      updatedAt: new Date("2026-04-18T00:00:00.000Z"),
+      shop: {
+        id: "shop-1",
+        name: "Demo Shop",
+        slug: "demo-shop"
+      },
+      items: [],
+      payments: []
+    });
+    orderStatusHistoryService.listForOrder.mockResolvedValue([
+      {
+        id: "hist-1",
+        status: OrderStatus.DELIVERED,
+        actorType: "SELLER",
+        actorUser: null,
+        note: null,
+        metadata: null,
+        createdAt: new Date("2026-04-18T00:00:00.000Z").toISOString()
+      }
+    ]);
+
+    const result = await service.getOwnDetail("user-1", "order-1");
+
+    expect(result.returnWindow.expiresAt).toBe("2026-04-28T00:00:00.000Z");
   });
 
   it("allows buyer to update shipping details before seller handling", async () => {

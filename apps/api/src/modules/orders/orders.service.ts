@@ -224,9 +224,10 @@ export class OrdersService {
     }
 
     const statusTimeline = await this.orderStatusHistoryService.listForOrder(order.id);
-    const autoCompleteDays = await this.systemSettingsService.getNumberValue(
-      "order_auto_complete_days"
-    );
+    const [autoCompleteDays, returnRequestWindowDays] = await Promise.all([
+      this.systemSettingsService.getNumberValue("order_auto_complete_days"),
+      this.systemSettingsService.getNumberValue("return_request_window_days")
+    ]);
     const shippingEditable = this.canCustomerEditShipping(
       order.status as OrderStatus,
       statusTimeline
@@ -235,7 +236,12 @@ export class OrdersService {
       ...this.serializeOrderDetail(order),
       statusTimeline,
       latestShippingUpdate: this.extractLatestShippingUpdate(statusTimeline),
-      returnWindow: this.buildReturnWindow(order.status as OrderStatus, order.updatedAt, statusTimeline),
+      returnWindow: this.buildReturnWindow(
+        order.status as OrderStatus,
+        order.updatedAt,
+        statusTimeline,
+        returnRequestWindowDays
+      ),
       shippingUpdateWindow: {
         canEdit: shippingEditable,
         lockedReason: shippingEditable
@@ -548,7 +554,15 @@ export class OrdersService {
     }
 
     const statusTimeline = await this.orderStatusHistoryService.listForOrder(order.id);
-    const returnWindow = this.buildReturnWindow(order.status as OrderStatus, order.updatedAt, statusTimeline);
+    const returnRequestWindowDays = await this.systemSettingsService.getNumberValue(
+      "return_request_window_days"
+    );
+    const returnWindow = this.buildReturnWindow(
+      order.status as OrderStatus,
+      order.updatedAt,
+      statusTimeline,
+      returnRequestWindowDays
+    );
     if (!returnWindow.canRequest) {
       throw new ConflictException("Return window has expired");
     }
@@ -716,16 +730,22 @@ export class OrdersService {
     }
 
     const statusTimeline = await this.orderStatusHistoryService.listForOrder(order.id);
-    const autoCompleteDays = await this.systemSettingsService.getNumberValue(
-      "order_auto_complete_days"
-    );
+    const [autoCompleteDays, returnRequestWindowDays] = await Promise.all([
+      this.systemSettingsService.getNumberValue("order_auto_complete_days"),
+      this.systemSettingsService.getNumberValue("return_request_window_days")
+    ]);
     return {
       ...this.serializeOrderDetail(order),
       customer: order.user,
       shop: order.shop,
       statusTimeline,
       latestShippingUpdate: this.extractLatestShippingUpdate(statusTimeline),
-      returnWindow: this.buildReturnWindow(order.status as OrderStatus, order.updatedAt, statusTimeline),
+      returnWindow: this.buildReturnWindow(
+        order.status as OrderStatus,
+        order.updatedAt,
+        statusTimeline,
+        returnRequestWindowDays
+      ),
       shippingUpdateWindow: {
         canEdit: this.canCustomerEditShipping(order.status as OrderStatus, statusTimeline),
         lockedReason: null
@@ -999,7 +1019,8 @@ export class OrdersService {
   private buildReturnWindow(
     currentStatus: OrderStatus,
     orderUpdatedAt: Date,
-    statusTimeline: Array<{ status: string; createdAt: string }>
+    statusTimeline: Array<{ status: string; createdAt: string }>,
+    windowDays: number
   ) {
     const deliveredEntry = [...statusTimeline]
       .reverse()
@@ -1011,7 +1032,9 @@ export class OrdersService {
         : [OrderStatus.DELIVERED, OrderStatus.COMPLETED].includes(currentStatus)
           ? orderUpdatedAt
           : null;
-    const expiresAt = deliveredDate ? new Date(deliveredDate.getTime() + 7 * 24 * 60 * 60 * 1000) : null;
+    const expiresAt = deliveredDate
+      ? new Date(deliveredDate.getTime() + windowDays * 24 * 60 * 60 * 1000)
+      : null;
     const canRequest =
       Boolean(deliveredDate) &&
       [OrderStatus.DELIVERED, OrderStatus.COMPLETED].includes(currentStatus) &&

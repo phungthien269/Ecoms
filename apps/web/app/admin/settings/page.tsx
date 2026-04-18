@@ -10,6 +10,10 @@ export const dynamic = "force-dynamic";
 export default async function AdminSettingsPage() {
   const session = await getDemoSession();
   const settings = await getSystemSettings();
+  const groupedSettings = settings.reduce<Record<string, typeof settings>>((acc, setting) => {
+    acc[setting.category] = [...(acc[setting.category] ?? []), setting];
+    return acc;
+  }, {});
 
   if (!session || session.role !== "SUPER_ADMIN") {
     return (
@@ -51,51 +55,69 @@ export default async function AdminSettingsPage() {
           </div>
         </div>
 
-        <div className="mt-8 grid gap-4">
-          {settings.map((setting) => (
-            <div key={setting.key} className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div className="max-w-2xl">
-                  <div className="text-sm font-semibold uppercase tracking-[0.18em] text-orange-500">
-                    {setting.category}
-                  </div>
-                  <h2 className="mt-2 text-xl font-bold text-slate-950">{setting.label}</h2>
-                  <p className="mt-2 text-sm text-slate-500">{setting.description}</p>
-                  <div className="mt-3 text-xs text-slate-400">
-                    {setting.updatedAt
-                      ? `Updated ${new Date(setting.updatedAt).toLocaleString("vi-VN")} by ${setting.updatedBy?.fullName ?? "system"}`
-                      : "Using default value"}
-                  </div>
+        <div className="mt-8 grid gap-6">
+          {Object.entries(groupedSettings).map(([category, categorySettings]) => (
+            <section
+              key={category}
+              className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm"
+            >
+              <div className="mb-5">
+                <div className="text-sm font-semibold uppercase tracking-[0.18em] text-orange-500">
+                  {category}
                 </div>
-                <form action={updateSystemSettingAction} className="flex w-full max-w-xl flex-col gap-3 lg:w-auto">
-                  <input type="hidden" name="redirectTo" value="/admin/settings" />
-                  <input type="hidden" name="key" value={setting.key} />
-                  {setting.valueType === "BOOLEAN" ? (
-                    <select
-                      name="value"
-                      defaultValue={String(setting.value)}
-                      className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700"
-                    >
-                      <option value="true">true</option>
-                      <option value="false">false</option>
-                    </select>
-                  ) : (
-                    <input
-                      name="value"
-                      defaultValue={String(setting.value)}
-                      inputMode={setting.valueType === "NUMBER" ? "numeric" : undefined}
-                      className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700"
-                    />
-                  )}
-                  <button
-                    type="submit"
-                    className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white"
-                  >
-                    Save setting
-                  </button>
-                </form>
+                <div className="mt-2 text-sm text-slate-500">
+                  {category === "shipping"
+                    ? "Tune phase-1 shipping heuristics without touching checkout code."
+                    : category === "orders"
+                      ? "Lifecycle windows and post-delivery behavior."
+                      : "Runtime knobs for this system area."}
+                </div>
               </div>
-            </div>
+              <div className="grid gap-4">
+                {categorySettings.map((setting) => (
+                  <div key={setting.key} className="rounded-[1.5rem] bg-slate-50 p-5">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="max-w-2xl">
+                        <h2 className="text-xl font-bold text-slate-950">{setting.label}</h2>
+                        <p className="mt-2 text-sm text-slate-500">{setting.description}</p>
+                        <div className="mt-3 text-xs text-slate-400">
+                          {setting.updatedAt
+                            ? `Updated ${new Date(setting.updatedAt).toLocaleString("vi-VN")} by ${setting.updatedBy?.fullName ?? "system"}`
+                            : "Using default value"}
+                        </div>
+                      </div>
+                      <form action={updateSystemSettingAction} className="flex w-full max-w-xl flex-col gap-3 lg:w-auto">
+                        <input type="hidden" name="redirectTo" value="/admin/settings" />
+                        <input type="hidden" name="key" value={setting.key} />
+                        {setting.valueType === "BOOLEAN" ? (
+                          <select
+                            name="value"
+                            defaultValue={String(setting.value)}
+                            className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                          >
+                            <option value="true">true</option>
+                            <option value="false">false</option>
+                          </select>
+                        ) : (
+                          <input
+                            name="value"
+                            defaultValue={String(setting.value)}
+                            inputMode={setting.valueType === "NUMBER" ? "numeric" : undefined}
+                            className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                          />
+                        )}
+                        <button
+                          type="submit"
+                          className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white"
+                        >
+                          Save setting
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       </div>
