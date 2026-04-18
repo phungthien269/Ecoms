@@ -14,6 +14,7 @@ describe("OrdersController (http)", () => {
     listSellerOrders: jest.fn(),
     getSellerOrderDetail: jest.fn(),
     getOwnDetail: jest.fn(),
+    updateOwnShipping: jest.fn(),
     cancel: jest.fn(),
     complete: jest.fn(),
     requestReturn: jest.fn(),
@@ -122,5 +123,37 @@ describe("OrdersController (http)", () => {
       reason: "Wrong size",
       details: "Need seller support"
     });
+  });
+
+  it("allows buyer to update shipping details before seller handling", async () => {
+    ordersService.updateOwnShipping.mockResolvedValue({
+      id: "order-1",
+      status: OrderStatus.PENDING
+    });
+
+    const response = await request(app.getHttpServer())
+      .patch("/api/orders/order-1/shipping")
+      .set("x-test-user-id", "buyer-1")
+      .set("x-test-user-role", UserRole.CUSTOMER)
+      .send({
+        recipientName: "Buyer Demo",
+        phoneNumber: "0900000000",
+        addressLine1: "456 New Street",
+        district: "District 3",
+        province: "Ho Chi Minh City",
+        regionCode: "HCM",
+        note: "Call before delivery"
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(ordersService.updateOwnShipping).toHaveBeenCalledWith(
+      "buyer-1",
+      "order-1",
+      expect.objectContaining({
+        addressLine1: "456 New Street",
+        note: "Call before delivery"
+      })
+    );
   });
 });

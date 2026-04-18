@@ -4,7 +4,8 @@ import {
   confirmPaymentAction,
   createReviewAction,
   requestReturnAction,
-  simulatePaymentWebhookAction
+  simulatePaymentWebhookAction,
+  updateOrderShippingAction
 } from "@/app/actions/commerce";
 import { formatPrice } from "@/components/commerce/price";
 import { UploadAssetField } from "@/components/media/uploadAssetField";
@@ -307,6 +308,32 @@ export default async function OrderDetailPage({
                     .join(", ")}
                 </div>
               </div>
+              {order.shippingUpdateWindow.canEdit ? (
+                <form action={updateOrderShippingAction} className="mt-5 space-y-3 rounded-[1.5rem] bg-slate-50 p-4">
+                  <input type="hidden" name="orderId" value={order.id} />
+                  <div className="text-sm font-semibold text-slate-950">
+                    Update shipping details before seller handling
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <input name="recipientName" defaultValue={order.shippingAddress.recipientName} placeholder="Recipient name" className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700" />
+                    <input name="phoneNumber" defaultValue={order.shippingAddress.phoneNumber} placeholder="Phone number" className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700" />
+                    <input name="addressLine1" defaultValue={order.shippingAddress.addressLine1} placeholder="Address line 1" className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700 md:col-span-2" />
+                    <input name="addressLine2" defaultValue={order.shippingAddress.addressLine2 ?? ""} placeholder="Address line 2" className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700 md:col-span-2" />
+                    <input name="ward" defaultValue={order.shippingAddress.ward ?? ""} placeholder="Ward" className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700" />
+                    <input name="district" defaultValue={order.shippingAddress.district} placeholder="District" className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700" />
+                    <input name="province" defaultValue={order.shippingAddress.province} placeholder="Province" className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700" />
+                    <input name="regionCode" defaultValue={order.shippingAddress.regionCode} placeholder="Region code" className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700" />
+                  </div>
+                  <textarea name="note" defaultValue={order.note ?? ""} rows={3} placeholder="Order note for seller" className="w-full rounded-[1.2rem] border border-slate-200 px-4 py-3 text-sm text-slate-700" />
+                  <button type="submit" className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800">
+                    Save shipping update
+                  </button>
+                </form>
+              ) : order.shippingUpdateWindow.lockedReason ? (
+                <div className="mt-5 rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                  {order.shippingUpdateWindow.lockedReason}
+                </div>
+              ) : null}
             </section>
 
             {order.returnWindow.canRequest ? (
@@ -438,6 +465,10 @@ function getOrderFlashMessage(searchParams: Record<string, string | string[] | u
 
   if (status === "return_requested") {
     return "Return request submitted. Seller can now inspect and process the request.";
+  }
+
+  if (status === "shipping_updated") {
+    return "Shipping details updated and seller notified.";
   }
 
   return null;

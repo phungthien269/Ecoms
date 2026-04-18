@@ -8,6 +8,7 @@ import type { AuthPayload } from "../auth/types/auth-payload";
 import { CreateReturnRequestDto } from "./dto/create-return-request.dto";
 import { ListAdminOrdersDto } from "./dto/list-admin-orders.dto";
 import { UpdateAdminOrderStatusDto } from "./dto/update-admin-order-status.dto";
+import { UpdateOrderShippingDto } from "./dto/update-order-shipping.dto";
 import { UpdateSellerOrderStatusDto } from "./dto/update-seller-order-status.dto";
 import { OrdersService } from "./orders.service";
 
@@ -56,6 +57,15 @@ export class OrdersController {
   @Get(":orderId")
   getOwnDetail(@CurrentUser("sub") userId: string, @Param("orderId") orderId: string) {
     return this.ordersService.getOwnDetail(userId, orderId);
+  }
+
+  @Patch(":orderId/shipping")
+  updateOwnShipping(
+    @CurrentUser("sub") userId: string,
+    @Param("orderId") orderId: string,
+    @Body() payload: UpdateOrderShippingDto
+  ) {
+    return this.ordersService.updateOwnShipping(userId, orderId, payload);
   }
 
   @Post(":orderId/cancel")

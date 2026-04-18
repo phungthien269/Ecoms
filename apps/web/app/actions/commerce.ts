@@ -204,6 +204,27 @@ export async function requestReturnAction(formData: FormData) {
   redirect(`/orders/${orderId}?status=return_requested` as Route);
 }
 
+export async function updateOrderShippingAction(formData: FormData) {
+  const orderId = String(formData.get("orderId") ?? "");
+
+  await authedMutation(`/orders/${orderId}/shipping`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      recipientName: String(formData.get("recipientName") ?? ""),
+      phoneNumber: String(formData.get("phoneNumber") ?? ""),
+      addressLine1: String(formData.get("addressLine1") ?? ""),
+      addressLine2: String(formData.get("addressLine2") ?? "") || undefined,
+      ward: String(formData.get("ward") ?? "") || undefined,
+      district: String(formData.get("district") ?? ""),
+      province: String(formData.get("province") ?? ""),
+      regionCode: String(formData.get("regionCode") ?? ""),
+      note: String(formData.get("note") ?? "") || undefined
+    })
+  });
+
+  redirect(`/orders/${orderId}?status=shipping_updated` as Route);
+}
+
 export async function addToWishlistAction(formData: FormData) {
   const productId = String(formData.get("productId"));
 

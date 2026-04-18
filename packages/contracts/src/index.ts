@@ -261,6 +261,11 @@ export interface OrderAutoCompleteSummary {
   windowDays: number;
 }
 
+export interface OrderShippingUpdateWindowSummary {
+  canEdit: boolean;
+  lockedReason: string | null;
+}
+
 export interface ApiSuccessResponse<T> {
   success: true;
   data: T;

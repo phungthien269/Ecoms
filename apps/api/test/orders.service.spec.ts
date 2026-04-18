@@ -403,4 +403,121 @@ describe("OrdersService", () => {
       })
     ).rejects.toBeInstanceOf(ConflictException);
   });
+
+  it("allows buyer to update shipping details before seller handling", async () => {
+    prisma.order.findFirst.mockResolvedValue({
+      id: "order-1",
+      userId: "user-1",
+      shopId: "shop-1",
+      orderNumber: "ORD-1",
+      status: OrderStatus.CONFIRMED,
+      note: "Old note",
+      shippingRecipientName: "Buyer Demo",
+      shippingPhoneNumber: "0900000000",
+      shippingAddressLine1: "123 Demo Street",
+      shippingAddressLine2: null,
+      shippingWard: null,
+      shippingDistrict: "District 1",
+      shippingProvince: "Ho Chi Minh City",
+      shippingRegionCode: "HCM",
+      shop: {
+        ownerId: "seller-1",
+        name: "Demo Shop"
+      }
+    });
+    orderStatusHistoryService.listForOrder.mockResolvedValue([
+      {
+        id: "hist-1",
+        status: OrderStatus.CONFIRMED,
+        actorType: "CHECKOUT",
+        actorUser: null,
+        note: null,
+        metadata: null,
+        createdAt: new Date().toISOString()
+      }
+    ]);
+    prisma.order.update.mockResolvedValue({
+      id: "order-1",
+      status: OrderStatus.CONFIRMED,
+      note: "Call before delivery",
+      shippingRecipientName: "Buyer Demo",
+      shippingPhoneNumber: "0900000000",
+      shippingAddressLine1: "456 New Street",
+      shippingAddressLine2: null,
+      shippingWard: null,
+      shippingDistrict: "District 3",
+      shippingProvince: "Ho Chi Minh City",
+      shippingRegionCode: "HCM"
+    });
+
+    const result = await service.updateOwnShipping("user-1", "order-1", {
+      recipientName: "Buyer Demo",
+      phoneNumber: "0900000000",
+      addressLine1: "456 New Street",
+      district: "District 3",
+      province: "Ho Chi Minh City",
+      regionCode: "HCM",
+      note: "Call before delivery"
+    });
+
+    expect(result.shippingAddress.addressLine1).toBe("456 New Street");
+    expect(orderStatusHistoryService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: "order-1",
+        actorType: "CUSTOMER",
+        note: "Buyer updated shipping details before seller handling"
+      }),
+      prisma
+    );
+    expect(notificationsService.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "seller-1"
+      })
+    );
+  });
+
+  it("blocks buyer shipping updates after seller has handled the order", async () => {
+    prisma.order.findFirst.mockResolvedValue({
+      id: "order-1",
+      userId: "user-1",
+      shopId: "shop-1",
+      orderNumber: "ORD-1",
+      status: OrderStatus.CONFIRMED,
+      note: null,
+      shippingRecipientName: "Buyer Demo",
+      shippingPhoneNumber: "0900000000",
+      shippingAddressLine1: "123 Demo Street",
+      shippingAddressLine2: null,
+      shippingWard: null,
+      shippingDistrict: "District 1",
+      shippingProvince: "Ho Chi Minh City",
+      shippingRegionCode: "HCM",
+      shop: {
+        ownerId: "seller-1",
+        name: "Demo Shop"
+      }
+    });
+    orderStatusHistoryService.listForOrder.mockResolvedValue([
+      {
+        id: "hist-1",
+        status: OrderStatus.CONFIRMED,
+        actorType: "SELLER",
+        actorUser: null,
+        note: null,
+        metadata: null,
+        createdAt: new Date().toISOString()
+      }
+    ]);
+
+    await expect(
+      service.updateOwnShipping("user-1", "order-1", {
+        recipientName: "Buyer Demo",
+        phoneNumber: "0900000000",
+        addressLine1: "456 New Street",
+        district: "District 3",
+        province: "Ho Chi Minh City",
+        regionCode: "HCM"
+      })
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
 });

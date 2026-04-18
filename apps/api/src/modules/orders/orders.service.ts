@@ -226,16 +226,148 @@ export class OrdersService {
     const autoCompleteDays = await this.systemSettingsService.getNumberValue(
       "order_auto_complete_days"
     );
+    const shippingEditable = this.canCustomerEditShipping(
+      order.status as OrderStatus,
+      statusTimeline
+    );
     return {
       ...this.serializeOrderDetail(order),
       statusTimeline,
       returnWindow: this.buildReturnWindow(order.status as OrderStatus, order.updatedAt, statusTimeline),
+      shippingUpdateWindow: {
+        canEdit: shippingEditable,
+        lockedReason: shippingEditable
+          ? null
+          : "Shipping details can only change before the seller starts handling the order."
+      },
       autoCompleteWindow: this.buildAutoCompleteWindow(
         order.status as OrderStatus,
         order.updatedAt,
         statusTimeline,
         autoCompleteDays
       )
+    };
+  }
+
+  async updateOwnShipping(
+    userId: string,
+    orderId: string,
+    payload: {
+      recipientName: string;
+      phoneNumber: string;
+      addressLine1: string;
+      addressLine2?: string;
+      ward?: string;
+      district: string;
+      province: string;
+      regionCode: string;
+      note?: string;
+    }
+  ) {
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        userId
+      },
+      include: {
+        shop: {
+          select: {
+            ownerId: true,
+            name: true
+          }
+        }
+      }
+    });
+
+    if (!order) {
+      throw new NotFoundException("Order not found");
+    }
+
+    const statusTimeline = await this.orderStatusHistoryService.listForOrder(order.id);
+    if (!this.canCustomerEditShipping(order.status as OrderStatus, statusTimeline)) {
+      throw new ConflictException(
+        "Shipping details can only be changed before the seller handles the order"
+      );
+    }
+
+    const previousAddress = {
+      recipientName: order.shippingRecipientName,
+      phoneNumber: order.shippingPhoneNumber,
+      addressLine1: order.shippingAddressLine1,
+      addressLine2: order.shippingAddressLine2,
+      ward: order.shippingWard,
+      district: order.shippingDistrict,
+      province: order.shippingProvince,
+      regionCode: order.shippingRegionCode,
+      note: order.note
+    };
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const nextOrder = await tx.order.update({
+        where: { id: order.id },
+        data: {
+          shippingRecipientName: payload.recipientName,
+          shippingPhoneNumber: payload.phoneNumber,
+          shippingAddressLine1: payload.addressLine1,
+          shippingAddressLine2: payload.addressLine2 ?? null,
+          shippingWard: payload.ward ?? null,
+          shippingDistrict: payload.district,
+          shippingProvince: payload.province,
+          shippingRegionCode: payload.regionCode,
+          note: payload.note?.trim() || null
+        }
+      });
+
+      await this.orderStatusHistoryService.record(
+        {
+          orderId: order.id,
+          status: order.status as OrderStatus,
+          actorType: "CUSTOMER",
+          actorUserId: userId,
+          note: "Buyer updated shipping details before seller handling",
+          metadata: {
+            previousAddress,
+            nextAddress: {
+              recipientName: payload.recipientName,
+              phoneNumber: payload.phoneNumber,
+              addressLine1: payload.addressLine1,
+              addressLine2: payload.addressLine2 ?? null,
+              ward: payload.ward ?? null,
+              district: payload.district,
+              province: payload.province,
+              regionCode: payload.regionCode,
+              note: payload.note?.trim() || null
+            }
+          }
+        },
+        tx
+      );
+
+      return nextOrder;
+    });
+
+    await this.notificationsService.create({
+      userId: order.shop.ownerId,
+      category: NotificationCategory.ORDER_STATUS,
+      title: "Buyer updated shipping details",
+      body: `${order.orderNumber} has updated delivery details before fulfillment.`,
+      linkUrl: "/seller/orders"
+    });
+
+    return {
+      id: updated.id,
+      status: updated.status,
+      shippingAddress: {
+        recipientName: updated.shippingRecipientName,
+        phoneNumber: updated.shippingPhoneNumber,
+        addressLine1: updated.shippingAddressLine1,
+        addressLine2: updated.shippingAddressLine2,
+        ward: updated.shippingWard,
+        district: updated.shippingDistrict,
+        province: updated.shippingProvince,
+        regionCode: updated.shippingRegionCode
+      },
+      note: updated.note
     };
   }
 
@@ -570,6 +702,10 @@ export class OrdersService {
       shop: order.shop,
       statusTimeline,
       returnWindow: this.buildReturnWindow(order.status as OrderStatus, order.updatedAt, statusTimeline),
+      shippingUpdateWindow: {
+        canEdit: this.canCustomerEditShipping(order.status as OrderStatus, statusTimeline),
+        lockedReason: null
+      },
       autoCompleteWindow: this.buildAutoCompleteWindow(
         order.status as OrderStatus,
         order.updatedAt,
@@ -892,6 +1028,36 @@ export class OrdersService {
       autoCompleteAt: autoCompleteAt?.toISOString() ?? null,
       windowDays
     };
+  }
+
+  private canCustomerEditShipping(
+    currentStatus: OrderStatus,
+    statusTimeline: Array<{ status: string; actorType: string }>
+  ) {
+    if (
+      [
+        OrderStatus.SHIPPING,
+        OrderStatus.DELIVERED,
+        OrderStatus.COMPLETED,
+        OrderStatus.CANCELLED,
+        OrderStatus.DELIVERY_FAILED,
+        OrderStatus.RETURN_REQUESTED,
+        OrderStatus.RETURNED,
+        OrderStatus.REFUNDED
+      ].includes(currentStatus)
+    ) {
+      return false;
+    }
+
+    const sellerHasHandled = statusTimeline.some(
+      (entry) =>
+        entry.actorType === "SELLER" &&
+        [OrderStatus.CONFIRMED, OrderStatus.PROCESSING, OrderStatus.SHIPPING].includes(
+          entry.status as OrderStatus
+        )
+    );
+
+    return !sellerHasHandled;
   }
 
   private getSellerTransitionNote(nextStatus: OrderStatus) {

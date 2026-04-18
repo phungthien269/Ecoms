@@ -197,6 +197,10 @@ export interface OrderDetail extends OrderListItem {
     deliveredAt: string | null;
     expiresAt: string | null;
   };
+  shippingUpdateWindow: {
+    canEdit: boolean;
+    lockedReason: string | null;
+  };
   autoCompleteWindow: {
     canAutoComplete: boolean;
     deliveredAt: string | null;
