@@ -52,6 +52,9 @@ export default async function ChatConversationPage({
             <h1 className="text-2xl font-black text-slate-950">
               {session.role === "SELLER" ? conversation.buyer.fullName : conversation.shop.name}
             </h1>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+              {conversation.isCounterpartOnline ? "Online now" : "Offline"}
+            </p>
             <p className="text-sm text-slate-500">
               {conversation.product
                 ? `Product reference: ${conversation.product.name}`

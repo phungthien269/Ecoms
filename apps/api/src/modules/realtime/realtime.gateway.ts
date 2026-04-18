@@ -7,6 +7,7 @@ import {
 } from "@nestjs/websockets";
 import type { Server, Socket } from "socket.io";
 import { AuthService } from "../auth/auth.service";
+import { RealtimeStateService } from "./realtime-state.service";
 
 @WebSocketGateway({
   namespace: "realtime",
@@ -16,7 +17,10 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
   @WebSocketServer()
   server!: Server;
 
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly realtimeStateService: RealtimeStateService
+  ) {}
 
   async handleConnection(@ConnectedSocket() client: Socket) {
     const token = this.extractToken(client);
@@ -29,15 +33,17 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
       const payload = await this.authService.verifyAccessToken(token);
       client.data.userId = payload.sub;
       client.join(this.getUserRoom(payload.sub));
-    } catch {
+      await this.realtimeStateService.connect(payload.sub, client.id);
+      } catch {
       client.disconnect(true);
     }
   }
 
-  handleDisconnect(@ConnectedSocket() client: Socket) {
+  async handleDisconnect(@ConnectedSocket() client: Socket) {
     const userId = client.data.userId as string | undefined;
     if (userId) {
       client.leave(this.getUserRoom(userId));
+      await this.realtimeStateService.disconnect(userId, client.id);
     }
   }
 

@@ -49,6 +49,9 @@ export default async function ChatPage() {
                         ? conversation.buyer.fullName
                         : conversation.shop.name}
                     </div>
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      {conversation.isCounterpartOnline ? "Online" : "Offline"}
+                    </div>
                     <div className="text-sm text-slate-500">
                       {conversation.product
                         ? `Product reference: ${conversation.product.name}`

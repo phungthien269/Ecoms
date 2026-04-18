@@ -14,6 +14,7 @@ import { FilesService } from "../files/files.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { RealtimeGateway } from "../realtime/realtime.gateway";
+import { RealtimeStateService } from "../realtime/realtime-state.service";
 import { CreateConversationDto } from "./dto/create-conversation.dto";
 import { SendMessageDto } from "./dto/send-message.dto";
 
@@ -23,7 +24,8 @@ export class ChatService {
     private readonly prisma: PrismaService,
     private readonly filesService: FilesService,
     private readonly notificationsService: NotificationsService,
-    private readonly realtimeGateway: RealtimeGateway
+    private readonly realtimeGateway: RealtimeGateway,
+    private readonly realtimeStateService: RealtimeStateService
   ) {}
 
   async listConversations(userId: string): Promise<ChatConversationSummary[]> {
@@ -77,6 +79,11 @@ export class ChatService {
       orderBy: [{ lastMessageAt: "desc" }, { updatedAt: "desc" }]
     });
 
+    const counterpartIds = conversations.map((conversation) =>
+      user.role === UserRole.SELLER ? conversation.buyer.id : conversation.shop.ownerId
+    );
+    const onlineUserIds = await this.realtimeStateService.getOnlineUserIds(counterpartIds);
+
     return conversations.map((conversation) => ({
       id: conversation.id,
       buyer: conversation.buyer,
@@ -84,6 +91,9 @@ export class ChatService {
       product: conversation.product,
       lastMessagePreview: conversation.lastMessagePreview,
       lastMessageAt: conversation.lastMessageAt?.toISOString() ?? null,
+      isCounterpartOnline: onlineUserIds.has(
+        user.role === UserRole.SELLER ? conversation.buyer.id : conversation.shop.ownerId
+      ),
       unreadCount: conversation.messages.filter((message) => {
         const readAt =
           user.role === UserRole.SELLER
@@ -193,6 +203,7 @@ export class ChatService {
       product: conversation.product,
       lastMessagePreview: conversation.lastMessagePreview,
       lastMessageAt: conversation.lastMessageAt?.toISOString() ?? null,
+      isCounterpartOnline: false,
       unreadCount: 0
     };
   }
@@ -223,7 +234,7 @@ export class ChatService {
       orderBy: [{ createdAt: "asc" }]
     });
 
-    await this.markConversationRead(conversation.id, participantRole);
+    await this.markConversationRead(userId, conversation.id, participantRole);
 
     return messages.map((message) => ({
       id: message.id,
@@ -321,6 +332,7 @@ export class ChatService {
         conversationId: conversation.id
       }
     });
+    await Promise.all([this.emitUnreadBadge(recipientUserId), this.emitUnreadBadge(userId)]);
 
     return serializedMessage;
   }
@@ -362,7 +374,11 @@ export class ChatService {
     throw new NotFoundException("Conversation not found");
   }
 
-  private async markConversationRead(conversationId: string, participantRole: "buyer" | "seller") {
+  private async markConversationRead(
+    userId: string,
+    conversationId: string,
+    participantRole: "buyer" | "seller"
+  ) {
     await this.prisma.chatConversation.update({
       where: { id: conversationId },
       data:
@@ -374,6 +390,52 @@ export class ChatService {
               sellerLastReadAt: new Date()
             }
     });
+    await this.emitUnreadBadge(userId);
+  }
+
+  private async emitUnreadBadge(userId: string) {
+    const unreadCount = await this.getUnreadConversationCount(userId);
+    this.realtimeGateway.emitToUser(userId, "chat.unread-count", {
+      unreadCount
+    });
+  }
+
+  private async getUnreadConversationCount(userId: string) {
+    const user = await this.getActiveUser(userId);
+    const conversations = await this.prisma.chatConversation.findMany({
+      where:
+        user.role === UserRole.SELLER
+          ? {
+              shop: {
+                ownerId: userId
+              }
+            }
+          : {
+              buyerId: userId
+            },
+      select: {
+        buyerLastReadAt: true,
+        sellerLastReadAt: true,
+        messages: {
+          select: {
+            senderId: true,
+            createdAt: true
+          },
+          orderBy: [{ createdAt: "desc" }],
+          take: 20
+        }
+      }
+    });
+
+    return conversations.filter((conversation) =>
+      conversation.messages.some((message) => {
+        const readAt =
+          user.role === UserRole.SELLER
+            ? conversation.sellerLastReadAt
+            : conversation.buyerLastReadAt;
+        return message.senderId !== userId && (!readAt || message.createdAt > readAt);
+      })
+    ).length;
   }
 
   private async getActiveUser(userId: string) {

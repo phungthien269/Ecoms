@@ -25,13 +25,19 @@ export function RealtimeBridge({ token }: { token: string }) {
     socket.on("notification.created", refresh);
     socket.on("notification.read", refresh);
     socket.on("notification.read-all", refresh);
+    socket.on("notification.unread-count", refresh);
     socket.on("chat.message", refresh);
+    socket.on("chat.unread-count", refresh);
+    socket.on("presence.changed", refresh);
 
     return () => {
       socket.off("notification.created", refresh);
       socket.off("notification.read", refresh);
       socket.off("notification.read-all", refresh);
+      socket.off("notification.unread-count", refresh);
       socket.off("chat.message", refresh);
+      socket.off("chat.unread-count", refresh);
+      socket.off("presence.changed", refresh);
       socket.disconnect();
     };
   }, [router, token]);

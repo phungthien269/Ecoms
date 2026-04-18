@@ -273,6 +273,7 @@ export interface ChatConversationItem {
   } | null;
   lastMessagePreview: string | null;
   lastMessageAt: string | null;
+  isCounterpartOnline: boolean;
   unreadCount: number;
 }
 

@@ -27,7 +27,11 @@ describe("ChatService", () => {
     create: jest.fn()
   };
   const realtimeGateway = {
-    emitToUsers: jest.fn()
+    emitToUsers: jest.fn(),
+    emitToUser: jest.fn()
+  };
+  const realtimeStateService = {
+    getOnlineUserIds: jest.fn().mockResolvedValue(new Set<string>())
   };
   const filesService = {
     requireOwnedReadyAsset: jest.fn()
@@ -37,11 +41,19 @@ describe("ChatService", () => {
     prisma as never,
     filesService as never,
     notificationsService as never,
-    realtimeGateway as never
+    realtimeGateway as never,
+    realtimeStateService as never
   );
 
   beforeEach(() => {
     jest.clearAllMocks();
+    prisma.user.findUnique.mockResolvedValue({
+      id: "buyer-1",
+      role: "CUSTOMER",
+      isActive: true,
+      deletedAt: null
+    });
+    prisma.chatConversation.findMany.mockResolvedValue([]);
     filesService.requireOwnedReadyAsset.mockResolvedValue({
       id: "asset-1",
       url: "https://cdn.example.com/chat-asset.jpg"

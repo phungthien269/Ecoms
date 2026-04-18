@@ -25,6 +25,8 @@ const envSchema = z.object({
   GOOGLE_OAUTH_CLIENT_SECRET: z.string().optional(),
   GOOGLE_OAUTH_REDIRECT_URI: z.string().url().optional(),
   REQUEST_LOGGING_ENABLED: booleanFromEnv.default(true),
+  REALTIME_STATE_STORE: z.enum(["memory", "redis"]).default("memory"),
+  REALTIME_REDIS_PREFIX: z.string().default("ecoms:realtime"),
   RATE_LIMIT_STORE: z.enum(["memory", "redis"]).default("memory"),
   RATE_LIMIT_REDIS_PREFIX: z.string().default("ecoms:rate-limit"),
   AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().default(60_000),

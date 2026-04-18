@@ -77,6 +77,7 @@ export class NotificationsService {
     };
 
     this.realtimeGateway.emitToUser(input.userId, "notification.created", payload);
+    await this.emitUnreadCount(input.userId);
 
     return payload;
   }
@@ -104,6 +105,7 @@ export class NotificationsService {
     this.realtimeGateway.emitToUser(userId, "notification.read", {
       id: updated.id
     });
+    await this.emitUnreadCount(userId);
 
     return {
       id: updated.id,
@@ -128,10 +130,24 @@ export class NotificationsService {
     this.realtimeGateway.emitToUser(userId, "notification.read-all", {
       readAt: now.toISOString()
     });
+    await this.emitUnreadCount(userId);
 
     return {
       success: true,
       readAt: now.toISOString()
     };
+  }
+
+  private async emitUnreadCount(userId: string) {
+    const unreadCount = await this.prisma.notification.count({
+      where: {
+        userId,
+        isRead: false
+      }
+    });
+
+    this.realtimeGateway.emitToUser(userId, "notification.unread-count", {
+      unreadCount
+    });
   }
 }
