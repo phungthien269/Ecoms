@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { PaymentExpiryCoordinationService } from "./payment-expiry-coordination.service";
 import { PaymentLifecycleService } from "./payment-lifecycle.service";
 import { SystemSettingsService } from "../systemSettings/system-settings.service";
 
@@ -15,12 +16,14 @@ export class PaymentExpirySchedulerService implements OnModuleInit, OnModuleDest
         expiredCount: number;
         cancelledOrderCount: number;
         skipped: boolean;
+        skipReason?: "disabled" | "lease_held_elsewhere";
       }
     | null = null;
   private lastError: string | null = null;
 
   constructor(
     private readonly paymentLifecycleService: PaymentLifecycleService,
+    private readonly paymentExpiryCoordinationService: PaymentExpiryCoordinationService,
     private readonly systemSettingsService: SystemSettingsService,
     private readonly configService: ConfigService
   ) {}
@@ -38,12 +41,13 @@ export class PaymentExpirySchedulerService implements OnModuleInit, OnModuleDest
 
   getDiagnostics() {
     return {
-      enabled: this.lastResult?.skipped === true ? false : null,
+      enabled: this.lastResult?.skipReason === "disabled" ? false : true,
       running: this.running,
       lastRunAt: this.lastRunAt,
       nextRunAt: this.nextRunAt,
       lastResult: this.lastResult,
-      lastError: this.lastError
+      lastError: this.lastError,
+      coordination: this.paymentExpiryCoordinationService.getDiagnostics()
     };
   }
 
@@ -76,7 +80,23 @@ export class PaymentExpirySchedulerService implements OnModuleInit, OnModuleDest
         this.lastResult = {
           expiredCount: 0,
           cancelledOrderCount: 0,
-          skipped: true
+          skipped: true,
+          skipReason: "disabled"
+        };
+        this.lastError = null;
+        return;
+      }
+
+      const intervalSeconds = await this.getSweepIntervalSeconds();
+      const lease = await this.paymentExpiryCoordinationService.tryAcquireLease(
+        this.getLeaseTtlMs(intervalSeconds)
+      );
+      if (!lease.acquired) {
+        this.lastResult = {
+          expiredCount: 0,
+          cancelledOrderCount: 0,
+          skipped: true,
+          skipReason: "lease_held_elsewhere"
         };
         this.lastError = null;
         return;
@@ -111,5 +131,9 @@ export class PaymentExpirySchedulerService implements OnModuleInit, OnModuleDest
     } catch {
       return this.configService.get<number>("PAYMENT_EXPIRY_SWEEP_INTERVAL_SECONDS", 60);
     }
+  }
+
+  private getLeaseTtlMs(intervalSeconds: number) {
+    return Math.max(intervalSeconds * 2 * 1000, 30_000);
   }
 }

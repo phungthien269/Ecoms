@@ -5,6 +5,7 @@ import { NotificationsModule } from "../notifications/notifications.module";
 import { OrderStatusHistoryModule } from "../orderStatusHistory/order-status-history.module";
 import { PrismaModule } from "../prisma/prisma.module";
 import { SystemSettingsModule } from "../systemSettings/system-settings.module";
+import { PaymentExpiryCoordinationService } from "./payment-expiry-coordination.service";
 import { PaymentExpirySchedulerService } from "./payment-expiry-scheduler.service";
 import { PaymentsController } from "./payments.controller";
 import { PaymentLifecycleService } from "./payment-lifecycle.service";
@@ -20,7 +21,16 @@ import { PaymentsService } from "./payments.service";
     SystemSettingsModule
   ],
   controllers: [PaymentsController],
-  providers: [PaymentsService, PaymentLifecycleService, PaymentExpirySchedulerService],
-  exports: [PaymentLifecycleService, PaymentExpirySchedulerService]
+  providers: [
+    PaymentsService,
+    PaymentLifecycleService,
+    PaymentExpiryCoordinationService,
+    PaymentExpirySchedulerService
+  ],
+  exports: [
+    PaymentLifecycleService,
+    PaymentExpiryCoordinationService,
+    PaymentExpirySchedulerService
+  ]
 })
 export class PaymentsModule {}

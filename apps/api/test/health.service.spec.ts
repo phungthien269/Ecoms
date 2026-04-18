@@ -107,7 +107,17 @@ describe("HealthService", () => {
         cancelledOrderCount: 0,
         skipped: false
       },
-      lastError: null
+      lastError: null,
+      coordination: {
+        preferredStore: "memory",
+        activeStore: "memory",
+        configured: true,
+        healthy: true,
+        fallbackActive: false,
+        instanceId: "instance-1",
+        lastOwner: "instance-1",
+        message: "Memory coordination active"
+      }
     });
   });
 
@@ -195,9 +205,20 @@ describe("HealthService", () => {
       lastResult: {
         expiredCount: 0,
         cancelledOrderCount: 0,
-        skipped: true
+        skipped: true,
+        skipReason: "disabled"
       },
-      lastError: null
+      lastError: null,
+      coordination: {
+        preferredStore: "memory",
+        activeStore: "memory",
+        configured: true,
+        healthy: true,
+        fallbackActive: false,
+        instanceId: "instance-1",
+        lastOwner: "instance-1",
+        message: "Memory coordination active"
+      }
     });
 
     const readiness = await service.getReadiness();
@@ -208,6 +229,42 @@ describe("HealthService", () => {
     ).toEqual(
       expect.objectContaining({
         actionHint: "Enable payment expiry sweep to enforce timeouts without user interaction."
+      })
+    );
+  });
+
+  it("marks readiness as degraded when payment expiry coordination falls back to memory", async () => {
+    paymentExpirySchedulerService.getDiagnostics.mockReturnValue({
+      enabled: true,
+      running: false,
+      lastRunAt: "2026-04-19T00:00:00.000Z",
+      nextRunAt: "2026-04-19T00:01:00.000Z",
+      lastResult: {
+        expiredCount: 0,
+        cancelledOrderCount: 0,
+        skipped: false
+      },
+      lastError: null,
+      coordination: {
+        preferredStore: "redis",
+        activeStore: "memory",
+        configured: true,
+        healthy: true,
+        fallbackActive: true,
+        instanceId: "instance-1",
+        lastOwner: "instance-1",
+        message: "Redis coordination unavailable, using in-memory lease"
+      }
+    });
+
+    const readiness = await service.getReadiness();
+
+    expect(readiness.status).toBe("degraded");
+    expect(
+      readiness.checks.find((check) => check.key === "payment_expiry_scheduler")?.details
+    ).toEqual(
+      expect.objectContaining({
+        actionHint: "Restore Redis coordination to prevent duplicate sweeps across instances."
       })
     );
   });

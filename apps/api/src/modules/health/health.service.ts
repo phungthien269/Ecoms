@@ -78,6 +78,20 @@ export class HealthService {
         ])
       : [this.mailerService.getDiagnostics(), this.filesService.getDiagnostics()];
     const loggingEnabled = this.configService.get<boolean>("REQUEST_LOGGING_ENABLED", true);
+    const paymentExpirySchedulerActionHint = paymentExpiryScheduler.lastError
+      ? "Inspect scheduler logs and payment sweep configuration."
+      : paymentExpiryScheduler.lastResult?.skipReason === "disabled"
+        ? "Enable payment expiry sweep to enforce timeouts without user interaction."
+        : paymentExpiryScheduler.coordination.fallbackActive
+          ? "Restore Redis coordination to prevent duplicate sweeps across instances."
+          : "No action required";
+    const paymentExpirySchedulerMessage = paymentExpiryScheduler.lastError
+      ? paymentExpiryScheduler.lastError
+      : paymentExpiryScheduler.lastResult?.skipReason === "disabled"
+        ? "Payment expiry scheduler disabled"
+        : paymentExpiryScheduler.lastResult?.skipReason === "lease_held_elsewhere"
+          ? "Payment expiry sweep lease held by another instance"
+          : paymentExpiryScheduler.coordination.message || "Payment expiry scheduler active";
 
     return [
       database,
@@ -121,22 +135,16 @@ export class HealthService {
         status:
           paymentExpiryScheduler.lastError
             ? "degraded"
-            : paymentExpiryScheduler.lastResult?.skipped
+            : paymentExpiryScheduler.coordination.fallbackActive
               ? "degraded"
+              : paymentExpiryScheduler.lastResult?.skipReason === "disabled"
+                ? "degraded"
               : "ok",
-        message: paymentExpiryScheduler.lastError
-          ? paymentExpiryScheduler.lastError
-          : paymentExpiryScheduler.lastResult?.skipped
-            ? "Payment expiry scheduler disabled"
-            : "Payment expiry scheduler active",
+        message: paymentExpirySchedulerMessage,
         details: {
           ...paymentExpiryScheduler,
           source: "system_setting_or_env_fallback",
-          actionHint: paymentExpiryScheduler.lastError
-            ? "Inspect scheduler logs and payment sweep configuration."
-            : paymentExpiryScheduler.lastResult?.skipped
-              ? "Enable payment expiry sweep to enforce timeouts without user interaction."
-              : "No action required"
+          actionHint: paymentExpirySchedulerActionHint
         }
       },
       {

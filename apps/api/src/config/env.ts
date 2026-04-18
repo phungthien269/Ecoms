@@ -27,6 +27,8 @@ const envSchema = z.object({
   PAYMENT_WEBHOOK_SECRET: z.string().min(1).default("change_me_payment_webhook"),
   PAYMENT_EXPIRY_SWEEP_ENABLED: booleanFromEnv.default(true),
   PAYMENT_EXPIRY_SWEEP_INTERVAL_SECONDS: z.coerce.number().default(60),
+  PAYMENT_EXPIRY_COORDINATION_STORE: z.enum(["memory", "redis"]).default("memory"),
+  PAYMENT_EXPIRY_REDIS_PREFIX: z.string().default("ecoms:payment-expiry"),
   REQUEST_LOGGING_ENABLED: booleanFromEnv.default(true),
   HEALTHCHECK_PROVIDER_PROBES_ENABLED: booleanFromEnv.default(true),
   REALTIME_STATE_STORE: z.enum(["memory", "redis"]).default("memory"),
