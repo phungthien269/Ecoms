@@ -14,6 +14,7 @@ import { slugify } from "../../common/utils/slugify";
 import { FilesService } from "../files/files.service";
 import { FlashSalesService } from "../flashSales/flashSales.service";
 import { CreateProductDto } from "./dto/create-product.dto";
+import { ListAdminProductsDto } from "./dto/list-admin-products.dto";
 import {
   ListProductsQueryDto,
   ProductSortOption
@@ -405,44 +406,105 @@ export class ProductsService {
     return { deleted: true };
   }
 
-  async listAdmin() {
-    const products = await this.prisma.product.findMany({
-      where: {
-        deletedAt: null
-      },
-      include: {
-        ...productDetailInclude,
-        shop: {
-          select: {
-            id: true,
-            name: true,
-            status: true
+  async listAdmin(query: ListAdminProductsDto) {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 12;
+    const where: Prisma.ProductWhereInput = {
+      deletedAt: null,
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.search
+        ? {
+            OR: [
+              {
+                name: {
+                  contains: query.search,
+                  mode: "insensitive"
+                }
+              },
+              {
+                sku: {
+                  contains: query.search,
+                  mode: "insensitive"
+                }
+              },
+              {
+                slug: {
+                  contains: query.search,
+                  mode: "insensitive"
+                }
+              },
+              {
+                shop: {
+                  is: {
+                    name: {
+                      contains: query.search,
+                      mode: "insensitive"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        : {}),
+      ...(query.shopStatus
+        ? {
+            shop: {
+              is: {
+                status: query.shopStatus
+              }
+            }
+          }
+        : {})
+    };
+
+    const [products, total] = await this.prisma.$transaction([
+      this.prisma.product.findMany({
+        where,
+        include: {
+          ...productDetailInclude,
+          shop: {
+            select: {
+              id: true,
+              name: true,
+              status: true
+            }
+          },
+          category: {
+            select: {
+              id: true,
+              name: true
+            }
+          },
+          brand: {
+            select: {
+              id: true,
+              name: true
+            }
           }
         },
-        category: {
-          select: {
-            id: true,
-            name: true
-          }
-        },
-        brand: {
-          select: {
-            id: true,
-            name: true
-          }
-        }
-      },
-      orderBy: [{ createdAt: "desc" }]
-    });
+        orderBy: [{ createdAt: "desc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize
+      }),
+      this.prisma.product.count({ where })
+    ]);
 
     const enrichedProducts = await this.attachFlashSales(products);
 
-    return enrichedProducts.map((item, index) => ({
+    return {
+      items: enrichedProducts.map((item, index) => ({
       ...item,
       shop: products[index]!.shop,
       category: products[index]!.category,
       brand: products[index]!.brand
-    }));
+      })),
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize))
+      }
+    };
   }
 
   async updateStatus(productId: string, payload: UpdateProductStatusDto) {

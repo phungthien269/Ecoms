@@ -4,12 +4,23 @@ import { OrdersService } from "../src/modules/orders/orders.service";
 
 describe("OrdersService", () => {
   const prisma = {
-    $transaction: jest.fn(async (callback: (tx: typeof prisma) => unknown) => callback(prisma)),
+    $transaction: jest.fn(async (input: unknown) => {
+      if (typeof input === "function") {
+        return input(prisma);
+      }
+
+      if (Array.isArray(input)) {
+        return Promise.all(input);
+      }
+
+      throw new Error("Unsupported transaction payload");
+    }),
     order: {
       findFirst: jest.fn(),
       update: jest.fn(),
       findMany: jest.fn(),
-      findUnique: jest.fn()
+      findUnique: jest.fn(),
+      count: jest.fn()
     },
     shop: {
       findUnique: jest.fn()
@@ -183,6 +194,63 @@ describe("OrdersService", () => {
 
     const result = await service.updateAdminStatus("order-1", OrderStatus.REFUNDED);
     expect(result.status).toBe(OrderStatus.REFUNDED);
+  });
+
+  it("lists paginated admin orders with filters", async () => {
+    prisma.order.findMany.mockResolvedValue([
+      {
+        id: "order-1",
+        orderNumber: "ORD-1",
+        status: OrderStatus.PENDING,
+        paymentMethod: "COD",
+        itemsSubtotal: { toString: () => "100000" },
+        shippingFee: { toString: () => "20000" },
+        discountTotal: { toString: () => "0" },
+        grandTotal: { toString: () => "120000" },
+        placedAt: new Date("2026-04-18T00:00:00.000Z"),
+        user: {
+          id: "user-1",
+          fullName: "Buyer Demo",
+          email: "buyer@example.com"
+        },
+        shop: {
+          id: "shop-1",
+          name: "Demo Shop",
+          slug: "demo-shop",
+          status: "ACTIVE"
+        },
+        payments: []
+      }
+    ]);
+    prisma.order.count.mockResolvedValue(1);
+
+    const result = await service.listAdmin({
+      search: "buyer",
+      status: OrderStatus.PENDING,
+      page: 1,
+      pageSize: 12
+    });
+
+    expect(prisma.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skip: 0,
+        take: 12,
+        where: expect.objectContaining({
+          status: OrderStatus.PENDING,
+          OR: expect.any(Array)
+        })
+      })
+    );
+    expect(result.items[0]).toMatchObject({
+      id: "order-1",
+      customer: {
+        id: "user-1"
+      },
+      shop: {
+        id: "shop-1"
+      }
+    });
+    expect(result.pagination.total).toBe(1);
   });
 
   it("allows buyer to request return within 7 days after delivery", async () => {

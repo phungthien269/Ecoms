@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Param, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Patch, Param, Query, UseGuards } from "@nestjs/common";
 import { UserRole } from "@ecoms/contracts";
 import type { UserProfileEntity } from "./entities/user-profile.entity";
 import { UsersService } from "./users.service";
@@ -7,6 +7,7 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { Roles } from "../rbac/decorators/roles.decorator";
 import { RolesGuard } from "../rbac/guards/roles.guard";
 import type { AuthPayload } from "../auth/types/auth-payload";
+import { ListAdminUsersDto } from "./dto/list-admin-users.dto";
 import { UpdateAdminUserDto } from "./dto/update-admin-user.dto";
 
 @Controller("users")
@@ -22,8 +23,8 @@ export class UsersController {
   @Get("admin")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
-  listAdmin() {
-    return this.usersService.listAdmin();
+  listAdmin(@Query() query: ListAdminUsersDto) {
+    return this.usersService.listAdmin(query);
   }
 
   @Patch("admin/:userId")

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { UserRole } from "@ecoms/contracts";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
@@ -7,6 +7,7 @@ import { RateLimitGuard } from "../rateLimit/rate-limit.guard";
 import { Roles } from "../rbac/decorators/roles.decorator";
 import { RolesGuard } from "../rbac/guards/roles.guard";
 import { CreateReportDto } from "./dto/create-report.dto";
+import { ListAdminReportsDto } from "./dto/list-admin-reports.dto";
 import { UpdateReportStatusDto } from "./dto/update-report-status.dto";
 import { ReportsService } from "./reports.service";
 
@@ -26,8 +27,8 @@ export class ReportsController {
   @Get("admin")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
-  listAdmin() {
-    return this.reportsService.listAdmin();
+  listAdmin(@Query() query: ListAdminReportsDto) {
+    return this.reportsService.listAdmin(query);
   }
 
   @Patch("admin/:reportId/status")

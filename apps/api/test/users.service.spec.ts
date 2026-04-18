@@ -4,11 +4,22 @@ import { UsersService } from "../src/modules/users/users.service";
 
 describe("UsersService", () => {
   const prisma = {
-    $transaction: jest.fn(async (callback: (tx: typeof prisma) => unknown) => callback(prisma)),
+    $transaction: jest.fn(async (input: unknown) => {
+      if (typeof input === "function") {
+        return input(prisma);
+      }
+
+      if (Array.isArray(input)) {
+        return Promise.all(input);
+      }
+
+      throw new Error("Unsupported transaction payload");
+    }),
     user: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
-      update: jest.fn()
+      update: jest.fn(),
+      count: jest.fn()
     },
     shop: {
       update: jest.fn(),
@@ -40,14 +51,24 @@ describe("UsersService", () => {
         }
       }
     ]);
+    prisma.user.count.mockResolvedValue(1);
 
-    const result = await service.listAdmin();
-    expect(result[0]).toMatchObject({
+    const result = await service.listAdmin({
+      page: 1,
+      pageSize: 12
+    });
+    expect(result.items[0]).toMatchObject({
       id: "user-1",
       role: UserRole.SELLER,
       shop: {
         id: "shop-1"
       }
+    });
+    expect(result.pagination).toEqual({
+      page: 1,
+      pageSize: 12,
+      total: 1,
+      totalPages: 1
     });
   });
 

@@ -4,6 +4,7 @@ import {
   BadRequestException,
   NotFoundException
 } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import {
   NotificationCategory,
   ReportTargetType
@@ -11,6 +12,7 @@ import {
 import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateReportDto } from "./dto/create-report.dto";
+import { ListAdminReportsDto } from "./dto/list-admin-reports.dto";
 import {
   ReportModerationAction,
   UpdateReportStatusDto
@@ -93,58 +95,130 @@ export class ReportsService {
     };
   }
 
-  async listAdmin() {
-    const reports = await this.prisma.report.findMany({
-      include: {
-        reporter: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true
+  async listAdmin(query: ListAdminReportsDto) {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 12;
+    const where: Prisma.ReportWhereInput = {
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.targetType ? { targetType: query.targetType } : {}),
+      ...(query.search
+        ? {
+            OR: [
+              {
+                reason: {
+                  contains: query.search,
+                  mode: "insensitive"
+                }
+              },
+              {
+                details: {
+                  contains: query.search,
+                  mode: "insensitive"
+                }
+              },
+              {
+                reporter: {
+                  is: {
+                    fullName: {
+                      contains: query.search,
+                      mode: "insensitive"
+                    }
+                  }
+                }
+              },
+              {
+                reporter: {
+                  is: {
+                    email: {
+                      contains: query.search,
+                      mode: "insensitive"
+                    }
+                  }
+                }
+              },
+              {
+                product: {
+                  is: {
+                    name: {
+                      contains: query.search,
+                      mode: "insensitive"
+                    }
+                  }
+                }
+              },
+              {
+                shop: {
+                  is: {
+                    name: {
+                      contains: query.search,
+                      mode: "insensitive"
+                    }
+                  }
+                }
+              }
+            ]
           }
-        },
-        resolvedBy: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true
-          }
-        },
-        product: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            status: true
-          }
-        },
-        shop: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            status: true,
-            ownerId: true
-          }
-        },
-        review: {
-          select: {
-            id: true,
-            comment: true,
-            product: {
-              select: {
-                id: true,
-                name: true,
-                slug: true
+        : {})
+    };
+
+    const [reports, total] = await this.prisma.$transaction([
+      this.prisma.report.findMany({
+        where,
+        include: {
+          reporter: {
+            select: {
+              id: true,
+              fullName: true,
+              email: true
+            }
+          },
+          resolvedBy: {
+            select: {
+              id: true,
+              fullName: true,
+              email: true
+            }
+          },
+          product: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              status: true
+            }
+          },
+          shop: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              status: true,
+              ownerId: true
+            }
+          },
+          review: {
+            select: {
+              id: true,
+              comment: true,
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true
+                }
               }
             }
           }
-        }
-      },
-      orderBy: [{ createdAt: "desc" }]
-    });
+        },
+        orderBy: [{ createdAt: "desc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize
+      }),
+      this.prisma.report.count({ where })
+    ]);
 
-    return reports.map((report) => ({
+    return {
+      items: reports.map((report) => ({
       id: report.id,
       targetType: report.targetType,
       targetId: report.productId ?? report.shopId ?? report.reviewId ?? "",
@@ -162,7 +236,14 @@ export class ReportsService {
           : report.targetType === "SHOP"
             ? report.shop
             : report.review
-    }));
+      })),
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize))
+      }
+    };
   }
 
   async updateStatus(userId: string, reportId: string, payload: UpdateReportStatusDto) {

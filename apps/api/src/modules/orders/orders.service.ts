@@ -5,10 +5,12 @@ import {
   PaymentMethod,
   PaymentStatus
 } from "@ecoms/contracts";
+import { Prisma } from "@prisma/client";
 import { MailerService } from "../mailer/mailer.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { OrderStatusHistoryService } from "../orderStatusHistory/order-status-history.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { ListAdminOrdersDto } from "./dto/list-admin-orders.dto";
 
 @Injectable()
 export class OrdersService {
@@ -65,41 +67,96 @@ export class OrdersService {
     }));
   }
 
-  async listAdmin() {
-    const orders = await this.prisma.order.findMany({
-      orderBy: [{ createdAt: "desc" }],
-      include: {
-        user: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true
+  async listAdmin(query: ListAdminOrdersDto) {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 12;
+    const where: Prisma.OrderWhereInput = {
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.paymentMethod ? { paymentMethod: query.paymentMethod } : {}),
+      ...(query.search
+        ? {
+            OR: [
+              {
+                orderNumber: {
+                  contains: query.search,
+                  mode: "insensitive"
+                }
+              },
+              {
+                user: {
+                  is: {
+                    fullName: {
+                      contains: query.search,
+                      mode: "insensitive"
+                    }
+                  }
+                }
+              },
+              {
+                user: {
+                  is: {
+                    email: {
+                      contains: query.search,
+                      mode: "insensitive"
+                    }
+                  }
+                }
+              },
+              {
+                shop: {
+                  is: {
+                    name: {
+                      contains: query.search,
+                      mode: "insensitive"
+                    }
+                  }
+                }
+              }
+            ]
           }
-        },
-        shop: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            status: true
-          }
-        },
-        payments: {
-          select: {
-            id: true,
-            method: true,
-            status: true,
-            amount: true,
-            referenceCode: true,
-            expiresAt: true
-          },
-          orderBy: [{ createdAt: "desc" }]
-        }
-      },
-      take: 50
-    });
+        : {})
+    };
 
-    return orders.map((order) => ({
+    const [orders, total] = await this.prisma.$transaction([
+      this.prisma.order.findMany({
+        where,
+        orderBy: [{ createdAt: "desc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          user: {
+            select: {
+              id: true,
+              fullName: true,
+              email: true
+            }
+          },
+          shop: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              status: true
+            }
+          },
+          payments: {
+            select: {
+              id: true,
+              method: true,
+              status: true,
+              amount: true,
+              referenceCode: true,
+              expiresAt: true
+            },
+            orderBy: [{ createdAt: "desc" }]
+          }
+        }
+      }),
+      this.prisma.order.count({ where })
+    ]);
+
+    return {
+      items: orders.map((order) => ({
       id: order.id,
       orderNumber: order.orderNumber,
       status: order.status,
@@ -116,7 +173,14 @@ export class OrdersService {
         amount: payment.amount.toString(),
         expiresAt: payment.expiresAt?.toISOString() ?? null
       }))
-    }));
+      })),
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize))
+      }
+    };
   }
 
   async getOwnDetail(userId: string, orderId: string) {

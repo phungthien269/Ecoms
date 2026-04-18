@@ -4,10 +4,12 @@ import {
   Injectable,
   NotFoundException
 } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import type { UserRole } from "@ecoms/contracts";
 import { ShopStatus } from "@ecoms/contracts";
 import { PrismaService } from "../prisma/prisma.service";
 import type { AuthPayload } from "../auth/types/auth-payload";
+import { ListAdminUsersDto } from "./dto/list-admin-users.dto";
 import { UpdateAdminUserDto } from "./dto/update-admin-user.dto";
 import type { UserProfileEntity } from "./entities/user-profile.entity";
 
@@ -33,25 +35,71 @@ export class UsersService {
     };
   }
 
-  async listAdmin() {
-    const users = await this.prisma.user.findMany({
-      where: {
-        deletedAt: null
-      },
-      orderBy: [{ createdAt: "desc" }],
-      include: {
-        shop: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            status: true
+  async listAdmin(query: ListAdminUsersDto) {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 12;
+    const where: Prisma.UserWhereInput = {
+      deletedAt: null,
+      ...(query.role ? { role: query.role } : {}),
+      ...(typeof query.isActive === "boolean" ? { isActive: query.isActive } : {}),
+      ...(query.search
+        ? {
+            OR: [
+              {
+                email: {
+                  contains: query.search,
+                  mode: "insensitive"
+                }
+              },
+              {
+                fullName: {
+                  contains: query.search,
+                  mode: "insensitive"
+                }
+              },
+              {
+                phoneNumber: {
+                  contains: query.search,
+                  mode: "insensitive"
+                }
+              },
+              {
+                shop: {
+                  is: {
+                    name: {
+                      contains: query.search,
+                      mode: "insensitive"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        : {})
+    };
+
+    const [users, total] = await this.prisma.$transaction([
+      this.prisma.user.findMany({
+        where,
+        orderBy: [{ createdAt: "desc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          shop: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              status: true
+            }
           }
         }
-      }
-    });
+      }),
+      this.prisma.user.count({ where })
+    ]);
 
-    return users.map((user) => ({
+    return {
+      items: users.map((user) => ({
       id: user.id,
       email: user.email,
       fullName: user.fullName,
@@ -67,7 +115,14 @@ export class UsersService {
             status: user.shop.status
           }
         : null
-    }));
+      })),
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize))
+      }
+    };
   }
 
   async updateAdminUser(actor: AuthPayload, userId: string, payload: UpdateAdminUserDto) {

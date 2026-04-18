@@ -11,6 +11,8 @@ import {
   updateAdminProductStatusAction,
   updateAdminShopStatusAction
 } from "@/app/actions/admin";
+import type { Route } from "next";
+import Link from "next/link";
 import { formatPrice } from "@/components/commerce/price";
 import { EmptyState } from "@/components/storefront/emptyState";
 import {
@@ -78,6 +80,37 @@ export default async function AdminPage() {
   const manageableRoleOptions = canManageAdminRoles
     ? ["CUSTOMER", "SELLER", "ADMIN", "SUPER_ADMIN"]
     : ["CUSTOMER", "SELLER"];
+  const backlogLinks: Array<{
+    href: Route;
+    label: string;
+    value: number;
+    description: string;
+  }> = [
+    {
+      href: "/admin/users" as Route,
+      label: "Users",
+      value: dashboard.stats.totalUsers,
+      description: "Deep-dive role changes, account suspension, and search filters."
+    },
+    {
+      href: "/admin/orders" as Route,
+      label: "Orders",
+      value: dashboard.stats.totalOrders,
+      description: "Full backlog with payment/status filters and terminal overrides."
+    },
+    {
+      href: "/admin/products" as Route,
+      label: "Products",
+      value: dashboard.stats.totalProducts,
+      description: "Moderation queue for drafts, inactive listings, and banned SKUs."
+    },
+    {
+      href: "/admin/reports" as Route,
+      label: "Reports",
+      value: dashboard.stats.totalReports,
+      description: "Triaged moderation queue with search and target-type filters."
+    }
+  ];
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -119,6 +152,23 @@ export default async function AdminPage() {
               </div>
               <div className="mt-3 text-3xl font-black text-slate-950">{item.value}</div>
             </div>
+          ))}
+        </section>
+
+        <section className="mt-8 grid gap-4 lg:grid-cols-4">
+          {backlogLinks.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-300"
+            >
+              <div className="text-sm font-semibold uppercase tracking-[0.18em] text-orange-500">
+                {item.label}
+              </div>
+              <div className="mt-3 text-3xl font-black text-slate-950">{item.value}</div>
+              <p className="mt-3 text-sm text-slate-500">{item.description}</p>
+              <div className="mt-4 text-sm font-semibold text-slate-950">Open backlog</div>
+            </Link>
           ))}
         </section>
 
@@ -193,8 +243,16 @@ export default async function AdminPage() {
                 Activate, suspend, and move accounts between customer and seller roles. Admin-level role changes stay restricted to super admin.
               </p>
             </div>
-            <div className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
-              {users.length}
+            <div className="flex items-center gap-3">
+              <Link
+                href={"/admin/users" as Route}
+                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+              >
+                Open full backlog
+              </Link>
+              <div className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
+                {users.length}
+              </div>
             </div>
           </div>
           <div className="mt-4 grid gap-4 xl:grid-cols-2">
@@ -344,12 +402,20 @@ export default async function AdminPage() {
 
         <div className="mt-8 grid gap-6 xl:grid-cols-[1fr_1fr]">
           <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between gap-4">
-              <h2 className="text-xl font-bold text-slate-950">Product moderation</h2>
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-xl font-bold text-slate-950">Product moderation</h2>
+            <div className="flex items-center gap-3">
+              <Link
+                href={"/admin/products" as Route}
+                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+              >
+                Open full backlog
+              </Link>
               <div className="rounded-full bg-orange-50 px-4 py-2 text-sm font-semibold text-orange-600">
                 {moderationProducts.length} review items
               </div>
             </div>
+          </div>
             <div className="mt-4 space-y-4">
               {moderationProducts.slice(0, 8).map((product) => (
                 <div key={product.id} className="rounded-[1.5rem] border border-slate-100 p-4">
@@ -714,8 +780,16 @@ export default async function AdminPage() {
         <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between gap-4">
             <h2 className="text-xl font-bold text-slate-950">Order backlog</h2>
-            <div className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
-              {orders.length}
+            <div className="flex items-center gap-3">
+              <Link
+                href={"/admin/orders" as Route}
+                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+              >
+                Open full backlog
+              </Link>
+              <div className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
+                {orders.length}
+              </div>
             </div>
           </div>
           <div className="mt-4 space-y-3">
@@ -767,8 +841,16 @@ export default async function AdminPage() {
         <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between gap-4">
             <h2 className="text-xl font-bold text-slate-950">Moderation reports</h2>
-            <div className="rounded-full bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
-              {reports.filter((report) => ["OPEN", "IN_REVIEW"].includes(report.status)).length} active
+            <div className="flex items-center gap-3">
+              <Link
+                href={"/admin/reports" as Route}
+                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+              >
+                Open full backlog
+              </Link>
+              <div className="rounded-full bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">
+                {reports.filter((report) => ["OPEN", "IN_REVIEW"].includes(report.status)).length} active
+              </div>
             </div>
           </div>
           <div className="mt-4 space-y-3">

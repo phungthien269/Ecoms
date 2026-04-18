@@ -1,5 +1,6 @@
 "use server";
 
+import type { Route } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -10,10 +11,19 @@ async function getToken() {
   return cookieStore.get("ecoms_access_token")?.value;
 }
 
+function getRedirectTarget(formData: FormData, fallback: string) {
+  return String(formData.get("redirectTo") ?? "").trim() || fallback;
+}
+
+function redirectToPath(path: string) {
+  redirect(path as Route);
+}
+
 export async function updateAdminShopStatusAction(formData: FormData) {
   const token = await getToken();
+  const redirectTo = getRedirectTarget(formData, "/admin");
   if (!token) {
-    redirect("/admin");
+    redirectToPath(redirectTo);
   }
 
   const shopId = String(formData.get("shopId") ?? "");
@@ -30,16 +40,17 @@ export async function updateAdminShopStatusAction(formData: FormData) {
   });
 
   if (!response.ok) {
-    redirect("/admin?shops=failed");
+    redirectToPath(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}shops=failed`);
   }
 
-  redirect("/admin?shops=updated");
+  redirectToPath(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}shops=updated`);
 }
 
 export async function updateAdminUserAction(formData: FormData) {
   const token = await getToken();
+  const redirectTo = getRedirectTarget(formData, "/admin");
   if (!token) {
-    redirect("/admin");
+    redirectToPath(redirectTo);
   }
 
   const userId = String(formData.get("userId") ?? "");
@@ -62,16 +73,17 @@ export async function updateAdminUserAction(formData: FormData) {
   });
 
   if (!response.ok) {
-    redirect("/admin?users=failed");
+    redirectToPath(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}users=failed`);
   }
 
-  redirect("/admin?users=updated");
+  redirectToPath(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}users=updated`);
 }
 
 export async function updateAdminProductStatusAction(formData: FormData) {
   const token = await getToken();
+  const redirectTo = getRedirectTarget(formData, "/admin");
   if (!token) {
-    redirect("/admin");
+    redirectToPath(redirectTo);
   }
 
   const productId = String(formData.get("productId") ?? "");
@@ -88,10 +100,10 @@ export async function updateAdminProductStatusAction(formData: FormData) {
   });
 
   if (!response.ok) {
-    redirect("/admin?products=failed");
+    redirectToPath(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}products=failed`);
   }
 
-  redirect("/admin?products=updated");
+  redirectToPath(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}products=updated`);
 }
 
 export async function createAdminCategoryAction(formData: FormData) {
@@ -150,8 +162,9 @@ export async function createAdminBrandAction(formData: FormData) {
 
 export async function updateAdminOrderStatusAction(formData: FormData) {
   const token = await getToken();
+  const redirectTo = getRedirectTarget(formData, "/admin");
   if (!token) {
-    redirect("/admin");
+    redirectToPath(redirectTo);
   }
 
   const orderId = String(formData.get("orderId") ?? "");
@@ -168,10 +181,10 @@ export async function updateAdminOrderStatusAction(formData: FormData) {
   });
 
   if (!response.ok) {
-    redirect("/admin?orders=failed");
+    redirectToPath(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}orders=failed`);
   }
 
-  redirect("/admin?orders=updated");
+  redirectToPath(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}orders=updated`);
 }
 
 export async function createAdminVoucherAction(formData: FormData) {
@@ -322,8 +335,9 @@ export async function updateAdminBannerAction(formData: FormData) {
 
 export async function updateAdminReportStatusAction(formData: FormData) {
   const token = await getToken();
+  const redirectTo = getRedirectTarget(formData, "/admin");
   if (!token) {
-    redirect("/admin");
+    redirectToPath(redirectTo);
   }
 
   const reportId = String(formData.get("reportId") ?? "");
@@ -346,8 +360,8 @@ export async function updateAdminReportStatusAction(formData: FormData) {
   });
 
   if (!response.ok) {
-    redirect("/admin?reports=failed");
+    redirectToPath(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}reports=failed`);
   }
 
-  redirect("/admin?reports=updated");
+  redirectToPath(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}reports=updated`);
 }

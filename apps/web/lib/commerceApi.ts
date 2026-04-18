@@ -3,6 +3,16 @@ import type { ApiEnvelope } from "./storefrontTypes";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
 
+export interface PaginatedResponse<T> {
+  items: T[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
 export interface CartSummary {
   shops: Array<{
     shop: {
@@ -739,6 +749,18 @@ async function requestAuthedJson<T>(path: string, init?: RequestInit): Promise<T
   }
 }
 
+function buildQueryString(query?: Record<string, string | number | undefined>) {
+  const searchParams = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(query ?? {})) {
+    if (value !== undefined && value !== null && value !== "") {
+      searchParams.set(key, String(value));
+    }
+  }
+
+  return searchParams.size > 0 ? `?${searchParams.toString()}` : "";
+}
+
 export async function getCart() {
   return requestAuthedJson<CartSummary>("/cart");
 }
@@ -839,7 +861,8 @@ export async function getAdminDashboard() {
 }
 
 export async function getAdminUsers() {
-  return (await requestAuthedJson<AdminUserItem[]>("/users/admin")) ?? [];
+  const result = await getAdminUsersPage({ page: 1, pageSize: 12 });
+  return result.items;
 }
 
 export async function getSystemDiagnostics() {
@@ -855,7 +878,8 @@ export async function getAdminShops() {
 }
 
 export async function getAdminProducts() {
-  return (await requestAuthedJson<AdminProductItem[]>("/products/admin")) ?? [];
+  const result = await getAdminProductsPage({ page: 1, pageSize: 12 });
+  return result.items;
 }
 
 export async function getAdminCategories() {
@@ -867,7 +891,8 @@ export async function getAdminBrands() {
 }
 
 export async function getAdminOrders() {
-  return (await requestAuthedJson<AdminOrderItem[]>("/orders/admin")) ?? [];
+  const result = await getAdminOrdersPage({ page: 1, pageSize: 12 });
+  return result.items;
 }
 
 export async function getAdminVouchers() {
@@ -879,11 +904,100 @@ export async function getAdminFlashSales() {
 }
 
 export async function getAdminReports() {
-  return (await requestAuthedJson<AdminReportItem[]>("/reports/admin")) ?? [];
+  const result = await getAdminReportsPage({ page: 1, pageSize: 12 });
+  return result.items;
 }
 
 export async function getAdminBanners() {
   return (await requestAuthedJson<AdminBannerItem[]>("/banners/admin")) ?? [];
+}
+
+export async function getAdminUsersPage(query?: {
+  search?: string;
+  role?: string;
+  isActive?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  return (
+    (await requestAuthedJson<PaginatedResponse<AdminUserItem>>(
+      `/users/admin${buildQueryString(query)}`
+    )) ?? {
+      items: [],
+      pagination: {
+        page: 1,
+        pageSize: query?.pageSize ?? 12,
+        total: 0,
+        totalPages: 1
+      }
+    }
+  );
+}
+
+export async function getAdminOrdersPage(query?: {
+  search?: string;
+  status?: string;
+  paymentMethod?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  return (
+    (await requestAuthedJson<PaginatedResponse<AdminOrderItem>>(
+      `/orders/admin${buildQueryString(query)}`
+    )) ?? {
+      items: [],
+      pagination: {
+        page: 1,
+        pageSize: query?.pageSize ?? 12,
+        total: 0,
+        totalPages: 1
+      }
+    }
+  );
+}
+
+export async function getAdminReportsPage(query?: {
+  search?: string;
+  status?: string;
+  targetType?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  return (
+    (await requestAuthedJson<PaginatedResponse<AdminReportItem>>(
+      `/reports/admin${buildQueryString(query)}`
+    )) ?? {
+      items: [],
+      pagination: {
+        page: 1,
+        pageSize: query?.pageSize ?? 12,
+        total: 0,
+        totalPages: 1
+      }
+    }
+  );
+}
+
+export async function getAdminProductsPage(query?: {
+  search?: string;
+  status?: string;
+  shopStatus?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  return (
+    (await requestAuthedJson<PaginatedResponse<AdminProductItem>>(
+      `/products/admin${buildQueryString(query)}`
+    )) ?? {
+      items: [],
+      pagination: {
+        page: 1,
+        pageSize: query?.pageSize ?? 12,
+        total: 0,
+        totalPages: 1
+      }
+    }
+  );
 }
 
 export async function getSellerVouchers() {

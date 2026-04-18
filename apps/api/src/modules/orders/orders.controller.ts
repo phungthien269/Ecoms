@@ -1,10 +1,11 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { UserRole } from "@ecoms/contracts";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { Roles } from "../rbac/decorators/roles.decorator";
 import { RolesGuard } from "../rbac/guards/roles.guard";
 import { CreateReturnRequestDto } from "./dto/create-return-request.dto";
+import { ListAdminOrdersDto } from "./dto/list-admin-orders.dto";
 import { UpdateAdminOrderStatusDto } from "./dto/update-admin-order-status.dto";
 import { UpdateSellerOrderStatusDto } from "./dto/update-seller-order-status.dto";
 import { OrdersService } from "./orders.service";
@@ -22,8 +23,8 @@ export class OrdersController {
   @Get("admin")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
-  listAdmin() {
-    return this.ordersService.listAdmin();
+  listAdmin(@Query() query: ListAdminOrdersDto) {
+    return this.ordersService.listAdmin(query);
   }
 
   @Patch("admin/:orderId/status")

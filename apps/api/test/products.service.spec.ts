@@ -309,4 +309,54 @@ describe("ProductsService", () => {
     expect(result.items.map((item) => item.id)).toEqual(["product-1", "product-2"]);
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
+
+  it("lists paginated admin products with shop moderation filters", async () => {
+    prisma.product.findMany.mockResolvedValue([
+      buildProductRecord({
+        id: "product-1",
+        name: "Gaming Mouse Pro",
+        status: ProductStatus.INACTIVE,
+        shop: {
+          id: "shop-1",
+          name: "Demo Shop",
+          status: ShopStatus.ACTIVE
+        },
+        category: {
+          id: "category-1",
+          name: "Accessories"
+        },
+        brand: {
+          id: "brand-1",
+          name: "LogiPro"
+        }
+      })
+    ]);
+    prisma.product.count.mockResolvedValue(1);
+    prisma.$transaction.mockImplementation(async (operations: unknown) => {
+      if (Array.isArray(operations)) {
+        return Promise.all(operations);
+      }
+
+      throw new Error("Unsupported transaction payload");
+    });
+
+    const result = await service.listAdmin({
+      search: "mouse",
+      status: ProductStatus.INACTIVE,
+      shopStatus: ShopStatus.ACTIVE,
+      page: 1,
+      pageSize: 12
+    });
+
+    expect(result.items[0]).toMatchObject({
+      id: "product-1",
+      shop: {
+        id: "shop-1"
+      },
+      category: {
+        id: "category-1"
+      }
+    });
+    expect(result.pagination.total).toBe(1);
+  });
 });

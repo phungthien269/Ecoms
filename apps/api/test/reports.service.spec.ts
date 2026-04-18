@@ -3,6 +3,13 @@ import { ReportsService } from "../src/modules/reports/reports.service";
 
 describe("ReportsService", () => {
   const prisma = {
+    $transaction: jest.fn(async (input: unknown) => {
+      if (Array.isArray(input)) {
+        return Promise.all(input);
+      }
+
+      throw new Error("Unsupported transaction payload");
+    }),
     product: {
       findFirst: jest.fn(),
       update: jest.fn()
@@ -19,7 +26,8 @@ describe("ReportsService", () => {
       create: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
-      update: jest.fn()
+      update: jest.fn(),
+      count: jest.fn()
     },
     user: {
       findMany: jest.fn()
@@ -108,6 +116,67 @@ describe("ReportsService", () => {
 
     expect(result.status).toBe("RESOLVED");
     expect(notificationsService.create).toHaveBeenCalled();
+  });
+
+  it("lists paginated admin reports with moderation metadata", async () => {
+    prisma.report.findMany.mockResolvedValue([
+      {
+        id: "report-1",
+        targetType: "PRODUCT",
+        productId: "product-1",
+        shopId: null,
+        reviewId: null,
+        reason: "Counterfeit risk",
+        details: "Suspicious branding",
+        status: "OPEN",
+        resolvedNote: null,
+        resolvedAt: null,
+        createdAt: new Date("2026-04-18T00:00:00.000Z"),
+        reporter: {
+          id: "buyer-1",
+          fullName: "Buyer Demo",
+          email: "buyer@example.com"
+        },
+        resolvedBy: null,
+        product: {
+          id: "product-1",
+          name: "Gaming Mouse Pro",
+          slug: "gaming-mouse-pro",
+          status: "ACTIVE"
+        },
+        shop: null,
+        review: null
+      }
+    ]);
+    prisma.report.count.mockResolvedValue(1);
+
+    const result = await service.listAdmin({
+      search: "mouse",
+      status: "OPEN",
+      targetType: "PRODUCT",
+      page: 1,
+      pageSize: 12
+    });
+
+    expect(prisma.report.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skip: 0,
+        take: 12,
+        where: expect.objectContaining({
+          status: "OPEN",
+          targetType: "PRODUCT",
+          OR: expect.any(Array)
+        })
+      })
+    );
+    expect(result.items[0]).toMatchObject({
+      id: "report-1",
+      targetType: "PRODUCT",
+      target: {
+        id: "product-1"
+      }
+    });
+    expect(result.pagination.totalPages).toBe(1);
   });
 
   it("can ban a reported product while resolving the report", async () => {
