@@ -332,6 +332,9 @@ export interface ChatMessageItem {
 export interface AdminDashboardData {
   stats: {
     totalUsers: number;
+    totalSellers: number;
+    totalAdmins: number;
+    inactiveUsers: number;
     totalShops: number;
     pendingShops: number;
     totalProducts: number;
@@ -390,6 +393,22 @@ export interface AdminDashboardData {
       slug: string;
     };
   }>;
+}
+
+export interface AdminUserItem {
+  id: string;
+  email: string;
+  fullName: string;
+  phoneNumber: string | null;
+  role: string;
+  isActive: boolean;
+  createdAt: string;
+  shop: {
+    id: string;
+    name: string;
+    slug: string;
+    status: string;
+  } | null;
 }
 
 export interface AdminReviewItem {
@@ -738,6 +757,10 @@ export async function getSellerReviews() {
 
 export async function getAdminDashboard() {
   return requestAuthedJson<AdminDashboardData>("/admin/dashboard");
+}
+
+export async function getAdminUsers() {
+  return (await requestAuthedJson<AdminUserItem[]>("/users/admin")) ?? [];
 }
 
 export async function getAdminReviews() {

@@ -1,6 +1,12 @@
 import type { Route } from "next";
 import Link from "next/link";
-import { loginAdminDemo, loginBuyerDemo, loginSellerDemo, logoutDemo } from "@/app/actions/auth";
+import {
+  loginAdminDemo,
+  loginBuyerDemo,
+  loginSellerDemo,
+  loginSuperAdminDemo,
+  logoutDemo
+} from "@/app/actions/auth";
 import { RealtimeBridge } from "@/components/layout/realtimeBridge";
 import type { DemoSession } from "@/lib/session";
 
@@ -105,6 +111,14 @@ export function AppShell({
                     className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
                   >
                     Admin demo
+                  </button>
+                </form>
+                <form action={loginSuperAdminDemo}>
+                  <button
+                    type="submit"
+                    className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+                  >
+                    Super Admin demo
                   </button>
                 </form>
                 {googleAuthEnabled ? (

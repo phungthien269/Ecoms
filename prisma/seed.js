@@ -53,6 +53,13 @@ async function main() {
     passwordHash: "$2a$12$eixZaYVK1fsbw1ZfbX3OXePaWxn96p36uJpqG8Q3G.NB0I6CLlcG6"
   });
 
+  await upsertUser({
+    email: "superadmin@ecoms.local",
+    fullName: "Ecoms Super Admin",
+    role: "SUPER_ADMIN",
+    passwordHash: "$2a$12$eixZaYVK1fsbw1ZfbX3OXePaWxn96p36uJpqG8Q3G.NB0I6CLlcG6"
+  });
+
   const seller = await upsertUser({
     email: "seller@ecoms.local",
     fullName: "Demo Seller",

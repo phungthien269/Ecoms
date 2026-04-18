@@ -179,26 +179,44 @@ export class ShopsService {
   }
 
   async updateStatus(shopId: string, payload: UpdateShopStatusDto) {
-    await this.ensureShopExists(shopId);
-
-    return this.prisma.shop.update({
-      where: { id: shopId },
-      data: {
-        status: payload.status as ShopStatus
-      }
-    });
-  }
-
-  private async ensureShopExists(shopId: string) {
     const shop = await this.prisma.shop.findUnique({
-      where: { id: shopId }
+      where: { id: shopId },
+      include: {
+        owner: {
+          select: {
+            id: true,
+            role: true,
+            isActive: true
+          }
+        }
+      }
     });
 
     if (!shop) {
       throw new NotFoundException("Shop not found");
     }
 
-    return shop;
+    if (payload.status === ShopStatus.ACTIVE && !shop.owner.isActive) {
+      throw new ConflictException("Cannot approve a shop while the owner account is inactive");
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      if (payload.status === ShopStatus.ACTIVE && shop.owner.role !== UserRole.SELLER) {
+        await tx.user.update({
+          where: { id: shop.owner.id },
+          data: {
+            role: UserRole.SELLER
+          }
+        });
+      }
+
+      return tx.shop.update({
+        where: { id: shopId },
+        data: {
+          status: payload.status as ShopStatus
+        }
+      });
+    });
   }
 
   private async generateUniqueSlug(name: string, shopId?: string) {

@@ -36,6 +36,38 @@ export async function updateAdminShopStatusAction(formData: FormData) {
   redirect("/admin?shops=updated");
 }
 
+export async function updateAdminUserAction(formData: FormData) {
+  const token = await getToken();
+  if (!token) {
+    redirect("/admin");
+  }
+
+  const userId = String(formData.get("userId") ?? "");
+  const role = String(formData.get("role") ?? "") || undefined;
+  const isActiveValue = String(formData.get("isActive") ?? "");
+  const isActive =
+    isActiveValue === "true" ? true : isActiveValue === "false" ? false : undefined;
+
+  const response = await fetch(`${API_URL}/users/admin/${userId}`, {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      role,
+      isActive
+    }),
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    redirect("/admin?users=failed");
+  }
+
+  redirect("/admin?users=updated");
+}
+
 export async function updateAdminProductStatusAction(formData: FormData) {
   const token = await getToken();
   if (!token) {

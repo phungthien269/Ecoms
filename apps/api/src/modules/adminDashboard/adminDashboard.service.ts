@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { ProductStatus, ShopStatus } from "@ecoms/contracts";
+import { ProductStatus, ShopStatus, UserRole } from "@ecoms/contracts";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
@@ -9,6 +9,9 @@ export class AdminDashboardService {
   async getSummary() {
     const [
       totalUsers,
+      totalSellers,
+      totalAdmins,
+      inactiveUsers,
       totalShops,
       pendingShops,
       totalProducts,
@@ -28,6 +31,11 @@ export class AdminDashboardService {
       productsNeedingReview
     ] = await Promise.all([
       this.prisma.user.count({ where: { deletedAt: null } }),
+      this.prisma.user.count({ where: { deletedAt: null, role: UserRole.SELLER } }),
+      this.prisma.user.count({
+        where: { deletedAt: null, role: { in: [UserRole.ADMIN, UserRole.SUPER_ADMIN] } }
+      }),
+      this.prisma.user.count({ where: { deletedAt: null, isActive: false } }),
       this.prisma.shop.count({ where: { deletedAt: null } }),
       this.prisma.shop.count({ where: { deletedAt: null, status: ShopStatus.PENDING_APPROVAL } }),
       this.prisma.product.count({ where: { deletedAt: null } }),
@@ -91,6 +99,9 @@ export class AdminDashboardService {
     return {
       stats: {
         totalUsers,
+        totalSellers,
+        totalAdmins,
+        inactiveUsers,
         totalShops,
         pendingShops,
         totalProducts,

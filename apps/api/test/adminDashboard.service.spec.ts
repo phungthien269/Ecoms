@@ -17,7 +17,11 @@ describe("AdminDashboardService", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    prisma.user.count.mockResolvedValue(12);
+    prisma.user.count
+      .mockResolvedValueOnce(12)
+      .mockResolvedValueOnce(4)
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(1);
     prisma.shop.count.mockResolvedValueOnce(5).mockResolvedValueOnce(2);
     prisma.product.count
       .mockResolvedValueOnce(18)
@@ -38,6 +42,9 @@ describe("AdminDashboardService", () => {
     const summary = await service.getSummary();
 
     expect(summary.stats.totalUsers).toBe(12);
+    expect(summary.stats.totalSellers).toBe(4);
+    expect(summary.stats.totalAdmins).toBe(2);
+    expect(summary.stats.inactiveUsers).toBe(1);
     expect(summary.stats.pendingShops).toBe(2);
     expect(summary.stats.pendingPayments).toBe(3);
     expect(summary.stats.totalFlashSales).toBe(4);

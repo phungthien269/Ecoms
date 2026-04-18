@@ -1,9 +1,13 @@
-import { Controller, Get } from "@nestjs/common";
+import { Body, Controller, Get, Patch, Param, UseGuards } from "@nestjs/common";
+import { UserRole } from "@ecoms/contracts";
 import type { UserProfileEntity } from "./entities/user-profile.entity";
 import { UsersService } from "./users.service";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
-import { UseGuards } from "@nestjs/common";
+import { Roles } from "../rbac/decorators/roles.decorator";
+import { RolesGuard } from "../rbac/guards/roles.guard";
+import type { AuthPayload } from "../auth/types/auth-payload";
+import { UpdateAdminUserDto } from "./dto/update-admin-user.dto";
 
 @Controller("users")
 export class UsersController {
@@ -13,5 +17,23 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   getCurrentUser(@CurrentUser("sub") userId: string): Promise<UserProfileEntity> {
     return this.usersService.findById(userId);
+  }
+
+  @Get("admin")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  listAdmin() {
+    return this.usersService.listAdmin();
+  }
+
+  @Patch("admin/:userId")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  updateAdminUser(
+    @CurrentUser() actor: AuthPayload,
+    @Param("userId") userId: string,
+    @Body() payload: UpdateAdminUserDto
+  ) {
+    return this.usersService.updateAdminUser(actor, userId, payload);
   }
 }

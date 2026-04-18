@@ -5,6 +5,7 @@ import {
   createAdminBrandAction,
   createAdminCategoryAction,
   updateAdminBannerAction,
+  updateAdminUserAction,
   updateAdminReportStatusAction,
   updateAdminOrderStatusAction,
   updateAdminProductStatusAction,
@@ -23,6 +24,7 @@ import {
   getAdminReports,
   getAdminReviews,
   getAdminShops,
+  getAdminUsers,
   getAdminVouchers
 } from "@/lib/commerceApi";
 import { getDemoSession } from "@/lib/session";
@@ -31,7 +33,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
   const session = await getDemoSession();
-  const [dashboard, shops, products, reviews, categories, brands, orders, vouchers, flashSales, reports, banners] = await Promise.all([
+  const [dashboard, shops, products, reviews, categories, brands, orders, vouchers, flashSales, reports, banners, users] = await Promise.all([
     getAdminDashboard(),
     getAdminShops(),
     getAdminProducts(),
@@ -42,7 +44,8 @@ export default async function AdminPage() {
     getAdminVouchers(),
     getAdminFlashSales(),
     getAdminReports(),
-    getAdminBanners()
+    getAdminBanners(),
+    getAdminUsers()
   ]);
 
   if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.role)) {
@@ -69,6 +72,10 @@ export default async function AdminPage() {
 
   const moderationShops = shops.filter((shop) => shop.status === "PENDING_APPROVAL");
   const moderationProducts = products.filter((product) => ["DRAFT", "INACTIVE"].includes(product.status));
+  const canManageAdminRoles = session.role === "SUPER_ADMIN";
+  const manageableRoleOptions = canManageAdminRoles
+    ? ["CUSTOMER", "SELLER", "ADMIN", "SUPER_ADMIN"]
+    : ["CUSTOMER", "SELLER"];
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -86,6 +93,9 @@ export default async function AdminPage() {
         <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           {[
             { label: "Users", value: dashboard.stats.totalUsers },
+            { label: "Sellers", value: dashboard.stats.totalSellers },
+            { label: "Admin Accounts", value: dashboard.stats.totalAdmins },
+            { label: "Inactive Users", value: dashboard.stats.inactiveUsers },
             { label: "Shops", value: dashboard.stats.totalShops },
             { label: "Pending Shops", value: dashboard.stats.pendingShops },
             { label: "Orders", value: dashboard.stats.totalOrders },
@@ -108,6 +118,88 @@ export default async function AdminPage() {
               <div className="mt-3 text-3xl font-black text-slate-950">{item.value}</div>
             </div>
           ))}
+        </section>
+
+        <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-950">User management</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Activate, suspend, and move accounts between customer and seller roles. Admin-level role changes stay restricted to super admin.
+              </p>
+            </div>
+            <div className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
+              {users.length}
+            </div>
+          </div>
+          <div className="mt-4 grid gap-4 xl:grid-cols-2">
+            {users.slice(0, 12).map((user) => {
+              const isSelf = user.email === session.email;
+
+              return (
+                <div key={user.id} className="rounded-[1.5rem] bg-slate-50 p-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <div className="font-semibold text-slate-950">{user.fullName}</div>
+                      <div className="mt-1 text-sm text-slate-500">{user.email}</div>
+                    </div>
+                    <div className="text-left sm:text-right">
+                      <div className="text-sm font-semibold text-orange-600">{user.role}</div>
+                      <div className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-400">
+                        {user.isActive ? "ACTIVE" : "SUSPENDED"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {user.shop ? (
+                    <div className="mt-3 rounded-[1rem] bg-white px-3 py-2 text-sm text-slate-600">
+                      Shop: {user.shop.name} • {user.shop.status}
+                    </div>
+                  ) : null}
+
+                  {isSelf ? (
+                    <div className="mt-3 rounded-[1rem] bg-white px-3 py-2 text-sm text-slate-500">
+                      Current session account. Admin controls are hidden here.
+                    </div>
+                  ) : (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <form action={updateAdminUserAction} className="flex flex-wrap gap-2">
+                        <input type="hidden" name="userId" value={user.id} />
+                        <input type="hidden" name="isActive" value={user.isActive ? "false" : "true"} />
+                        <button
+                          type="submit"
+                          className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+                        >
+                          {user.isActive ? "Suspend account" : "Reactivate account"}
+                        </button>
+                      </form>
+
+                      <form action={updateAdminUserAction} className="flex flex-wrap items-center gap-2">
+                        <input type="hidden" name="userId" value={user.id} />
+                        <select
+                          name="role"
+                          defaultValue={user.role}
+                          className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-700"
+                        >
+                          {manageableRoleOptions.map((role) => (
+                            <option key={role} value={role}>
+                              {role}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="submit"
+                          className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white"
+                        >
+                          Update role
+                        </button>
+                      </form>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </section>
 
         <div className="mt-8 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
