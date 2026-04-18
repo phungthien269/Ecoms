@@ -1,13 +1,21 @@
 import type { Route } from "next";
 import Link from "next/link";
+import { AdminFlashBanner } from "@/components/admin/adminFlashBanner";
 import { EmptyState } from "@/components/storefront/emptyState";
 import { getSystemDiagnostics } from "@/lib/commerceApi";
+import { normalizeAdminParams } from "@/lib/admin";
 import { getDemoSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminDiagnosticsPage() {
+export default async function AdminDiagnosticsPage({
+  searchParams
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await getDemoSession();
+  const resolvedParams = searchParams ? await searchParams : {};
+  const params = normalizeAdminParams(resolvedParams);
   const diagnostics = await getSystemDiagnostics();
 
   if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.role)) {
@@ -53,6 +61,14 @@ export default async function AdminDiagnosticsPage() {
               Back to dashboard
             </Link>
           </div>
+        </div>
+
+        <div className="mt-6">
+          <AdminFlashBanner
+            scope={params.adminScope}
+            status={params.adminStatus}
+            message={params.adminMessage}
+          />
         </div>
 
         <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">

@@ -2,8 +2,9 @@ import type { Route } from "next";
 import Link from "next/link";
 import { updateAdminReportStatusAction } from "@/app/actions/admin";
 import { AdminPagination } from "@/components/admin/adminPagination";
+import { AdminFlashBanner } from "@/components/admin/adminFlashBanner";
 import { EmptyState } from "@/components/storefront/emptyState";
-import { buildAdminHref, normalizeAdminParams } from "@/lib/admin";
+import { buildAdminHref, clearAdminFlash, normalizeAdminParams } from "@/lib/admin";
 import { getAdminReportsPage } from "@/lib/commerceApi";
 import { getDemoSession } from "@/lib/session";
 
@@ -36,7 +37,8 @@ export default async function AdminReportsPage({
     );
   }
 
-  const redirectTo = buildAdminHref("/admin/reports", params);
+  const cleanParams = clearAdminFlash(params);
+  const redirectTo = buildAdminHref("/admin/reports", cleanParams);
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -86,6 +88,14 @@ export default async function AdminReportsPage({
             Apply filters
           </button>
         </form>
+
+        <div className="mt-6">
+          <AdminFlashBanner
+            scope={params.adminScope}
+            status={params.adminStatus}
+            message={params.adminMessage}
+          />
+        </div>
 
         <div className="mt-6 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between gap-4">
@@ -216,7 +226,7 @@ export default async function AdminReportsPage({
               basePath="/admin/reports"
               page={reportsPage.pagination.page}
               totalPages={reportsPage.pagination.totalPages}
-              currentParams={params}
+              currentParams={cleanParams}
             />
           </div>
         </div>

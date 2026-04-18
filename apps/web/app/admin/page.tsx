@@ -14,6 +14,7 @@ import {
 import type { Route } from "next";
 import Link from "next/link";
 import { formatPrice } from "@/components/commerce/price";
+import { AdminFlashBanner } from "@/components/admin/adminFlashBanner";
 import { EmptyState } from "@/components/storefront/emptyState";
 import {
   getAuditLogsPage,
@@ -33,11 +34,18 @@ import {
   getSystemSettings
 } from "@/lib/commerceApi";
 import { getDemoSession } from "@/lib/session";
+import { normalizeAdminParams } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminPage() {
+export default async function AdminPage({
+  searchParams
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await getDemoSession();
+  const resolvedParams = searchParams ? await searchParams : {};
+  const params = normalizeAdminParams(resolvedParams);
   const [dashboard, shops, products, reviews, categories, brands, orders, vouchers, flashSales, reports, banners, users, diagnostics, settings, auditLogsPage] = await Promise.all([
     getAdminDashboard(),
     getAdminShops(),
@@ -127,6 +135,14 @@ export default async function AdminPage() {
           <p className="max-w-2xl text-sm text-slate-500">
             Review incoming shops, moderate product visibility, and keep an eye on orders, payments, and reviews.
           </p>
+        </div>
+
+        <div className="mt-6">
+          <AdminFlashBanner
+            scope={params.adminScope}
+            status={params.adminStatus}
+            message={params.adminMessage}
+          />
         </div>
 
         <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">

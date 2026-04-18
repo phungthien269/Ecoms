@@ -2,9 +2,10 @@ import type { Route } from "next";
 import Link from "next/link";
 import { updateAdminProductStatusAction } from "@/app/actions/admin";
 import { AdminPagination } from "@/components/admin/adminPagination";
+import { AdminFlashBanner } from "@/components/admin/adminFlashBanner";
 import { formatPrice } from "@/components/commerce/price";
 import { EmptyState } from "@/components/storefront/emptyState";
-import { buildAdminHref, normalizeAdminParams } from "@/lib/admin";
+import { buildAdminHref, clearAdminFlash, normalizeAdminParams } from "@/lib/admin";
 import { getAdminProductsPage } from "@/lib/commerceApi";
 import { getDemoSession } from "@/lib/session";
 
@@ -37,7 +38,8 @@ export default async function AdminProductsPage({
     );
   }
 
-  const redirectTo = buildAdminHref("/admin/products", params);
+  const cleanParams = clearAdminFlash(params);
+  const redirectTo = buildAdminHref("/admin/products", cleanParams);
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -87,6 +89,14 @@ export default async function AdminProductsPage({
             Apply filters
           </button>
         </form>
+
+        <div className="mt-6">
+          <AdminFlashBanner
+            scope={params.adminScope}
+            status={params.adminStatus}
+            message={params.adminMessage}
+          />
+        </div>
 
         <div className="mt-6 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between gap-4">
@@ -148,7 +158,7 @@ export default async function AdminProductsPage({
               basePath="/admin/products"
               page={productsPage.pagination.page}
               totalPages={productsPage.pagination.totalPages}
-              currentParams={params}
+              currentParams={cleanParams}
             />
           </div>
         </div>

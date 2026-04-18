@@ -1,14 +1,22 @@
 import type { Route } from "next";
 import Link from "next/link";
 import { updateSystemSettingAction } from "@/app/actions/admin";
+import { AdminFlashBanner } from "@/components/admin/adminFlashBanner";
 import { EmptyState } from "@/components/storefront/emptyState";
 import { getSystemSettings } from "@/lib/commerceApi";
 import { getDemoSession } from "@/lib/session";
+import { normalizeAdminParams } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminSettingsPage() {
+export default async function AdminSettingsPage({
+  searchParams
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await getDemoSession();
+  const resolvedParams = searchParams ? await searchParams : {};
+  const params = normalizeAdminParams(resolvedParams);
   const settings = await getSystemSettings();
   const groupedSettings = settings.reduce<Record<string, typeof settings>>((acc, setting) => {
     acc[setting.category] = [...(acc[setting.category] ?? []), setting];
@@ -53,6 +61,14 @@ export default async function AdminSettingsPage() {
               Back to dashboard
             </Link>
           </div>
+        </div>
+
+        <div className="mt-6">
+          <AdminFlashBanner
+            scope={params.adminScope}
+            status={params.adminStatus}
+            message={params.adminMessage}
+          />
         </div>
 
         <div className="mt-8 grid gap-6">

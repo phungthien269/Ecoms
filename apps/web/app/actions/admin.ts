@@ -19,6 +19,37 @@ function redirectToPath(path: string) {
   redirect(path as Route);
 }
 
+function appendAdminFlash(
+  redirectTo: string,
+  flash: {
+    scope: string;
+    status: "success" | "error";
+    message: string;
+  }
+) {
+  const url = new URL(
+    redirectTo.startsWith("http") ? redirectTo : `http://local${redirectTo.startsWith("/") ? "" : "/"}${redirectTo}`
+  );
+  url.searchParams.set("adminScope", flash.scope);
+  url.searchParams.set("adminStatus", flash.status);
+  url.searchParams.set("adminMessage", flash.message);
+  return `${url.pathname}${url.search}`;
+}
+
+async function parseErrorMessage(response: Response, fallback: string) {
+  try {
+    const payload = (await response.json()) as {
+      error?: {
+        message?: string;
+      };
+    };
+
+    return payload.error?.message ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export async function updateAdminShopStatusAction(formData: FormData) {
   const token = await getToken();
   const redirectTo = getRedirectTarget(formData, "/admin");
@@ -40,10 +71,22 @@ export async function updateAdminShopStatusAction(formData: FormData) {
   });
 
   if (!response.ok) {
-    redirectToPath(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}shops=failed`);
+    redirectToPath(
+      appendAdminFlash(redirectTo, {
+        scope: "shops",
+        status: "error",
+        message: await parseErrorMessage(response, "Shop status update failed.")
+      })
+    );
   }
 
-  redirectToPath(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}shops=updated`);
+  redirectToPath(
+    appendAdminFlash(redirectTo, {
+      scope: "shops",
+      status: "success",
+      message: `Shop moved to ${status}.`
+    })
+  );
 }
 
 export async function updateAdminUserAction(formData: FormData) {
@@ -73,10 +116,22 @@ export async function updateAdminUserAction(formData: FormData) {
   });
 
   if (!response.ok) {
-    redirectToPath(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}users=failed`);
+    redirectToPath(
+      appendAdminFlash(redirectTo, {
+        scope: "users",
+        status: "error",
+        message: await parseErrorMessage(response, "User update failed.")
+      })
+    );
   }
 
-  redirectToPath(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}users=updated`);
+  redirectToPath(
+    appendAdminFlash(redirectTo, {
+      scope: "users",
+      status: "success",
+      message: role ? `User role updated to ${role}.` : `User account ${isActive ? "reactivated" : "suspended"}.`
+    })
+  );
 }
 
 export async function updateAdminProductStatusAction(formData: FormData) {
@@ -100,10 +155,22 @@ export async function updateAdminProductStatusAction(formData: FormData) {
   });
 
   if (!response.ok) {
-    redirectToPath(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}products=failed`);
+    redirectToPath(
+      appendAdminFlash(redirectTo, {
+        scope: "products",
+        status: "error",
+        message: await parseErrorMessage(response, "Product status update failed.")
+      })
+    );
   }
 
-  redirectToPath(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}products=updated`);
+  redirectToPath(
+    appendAdminFlash(redirectTo, {
+      scope: "products",
+      status: "success",
+      message: `Product moved to ${status}.`
+    })
+  );
 }
 
 export async function createAdminCategoryAction(formData: FormData) {
@@ -127,10 +194,22 @@ export async function createAdminCategoryAction(formData: FormData) {
   });
 
   if (!response.ok) {
-    redirect("/admin?categories=failed");
+    redirect(
+      appendAdminFlash("/admin", {
+        scope: "categories",
+        status: "error",
+        message: await parseErrorMessage(response, "Category creation failed.")
+      }) as Route
+    );
   }
 
-  redirect("/admin?categories=created");
+  redirect(
+    appendAdminFlash("/admin", {
+      scope: "categories",
+      status: "success",
+      message: "Category created."
+    }) as Route
+  );
 }
 
 export async function createAdminBrandAction(formData: FormData) {
@@ -154,10 +233,22 @@ export async function createAdminBrandAction(formData: FormData) {
   });
 
   if (!response.ok) {
-    redirect("/admin?brands=failed");
+    redirect(
+      appendAdminFlash("/admin", {
+        scope: "brands",
+        status: "error",
+        message: await parseErrorMessage(response, "Brand creation failed.")
+      }) as Route
+    );
   }
 
-  redirect("/admin?brands=created");
+  redirect(
+    appendAdminFlash("/admin", {
+      scope: "brands",
+      status: "success",
+      message: "Brand created."
+    }) as Route
+  );
 }
 
 export async function updateAdminOrderStatusAction(formData: FormData) {
@@ -181,10 +272,22 @@ export async function updateAdminOrderStatusAction(formData: FormData) {
   });
 
   if (!response.ok) {
-    redirectToPath(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}orders=failed`);
+    redirectToPath(
+      appendAdminFlash(redirectTo, {
+        scope: "orders",
+        status: "error",
+        message: await parseErrorMessage(response, "Order status update failed.")
+      })
+    );
   }
 
-  redirectToPath(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}orders=updated`);
+  redirectToPath(
+    appendAdminFlash(redirectTo, {
+      scope: "orders",
+      status: "success",
+      message: `Order moved to ${status}.`
+    })
+  );
 }
 
 export async function createAdminVoucherAction(formData: FormData) {
@@ -216,10 +319,22 @@ export async function createAdminVoucherAction(formData: FormData) {
   });
 
   if (!response.ok) {
-    redirect("/admin?vouchers=failed");
+    redirect(
+      appendAdminFlash("/admin", {
+        scope: "vouchers",
+        status: "error",
+        message: await parseErrorMessage(response, "Voucher creation failed.")
+      }) as Route
+    );
   }
 
-  redirect("/admin?vouchers=created");
+  redirect(
+    appendAdminFlash("/admin", {
+      scope: "vouchers",
+      status: "success",
+      message: "Voucher created."
+    }) as Route
+  );
 }
 
 export async function createAdminFlashSaleAction(formData: FormData) {
@@ -264,10 +379,22 @@ export async function createAdminFlashSaleAction(formData: FormData) {
   });
 
   if (!response.ok) {
-    redirect("/admin?flashSale=failed");
+    redirect(
+      appendAdminFlash("/admin", {
+        scope: "flash sales",
+        status: "error",
+        message: await parseErrorMessage(response, "Flash sale creation failed.")
+      }) as Route
+    );
   }
 
-  redirect("/admin?flashSale=created");
+  redirect(
+    appendAdminFlash("/admin", {
+      scope: "flash sales",
+      status: "success",
+      message: "Flash sale created."
+    }) as Route
+  );
 }
 
 export async function createAdminBannerAction(formData: FormData) {
@@ -299,10 +426,22 @@ export async function createAdminBannerAction(formData: FormData) {
   });
 
   if (!response.ok) {
-    redirect("/admin?banners=failed");
+    redirect(
+      appendAdminFlash("/admin", {
+        scope: "banners",
+        status: "error",
+        message: await parseErrorMessage(response, "Banner creation failed.")
+      }) as Route
+    );
   }
 
-  redirect("/admin?banners=created");
+  redirect(
+    appendAdminFlash("/admin", {
+      scope: "banners",
+      status: "success",
+      message: "Banner created."
+    }) as Route
+  );
 }
 
 export async function updateAdminBannerAction(formData: FormData) {
@@ -327,10 +466,22 @@ export async function updateAdminBannerAction(formData: FormData) {
   });
 
   if (!response.ok) {
-    redirect("/admin?banners=failed");
+    redirect(
+      appendAdminFlash("/admin", {
+        scope: "banners",
+        status: "error",
+        message: await parseErrorMessage(response, "Banner update failed.")
+      }) as Route
+    );
   }
 
-  redirect("/admin?banners=updated");
+  redirect(
+    appendAdminFlash("/admin", {
+      scope: "banners",
+      status: "success",
+      message: "Banner updated."
+    }) as Route
+  );
 }
 
 export async function updateAdminReportStatusAction(formData: FormData) {
@@ -360,10 +511,24 @@ export async function updateAdminReportStatusAction(formData: FormData) {
   });
 
   if (!response.ok) {
-    redirectToPath(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}reports=failed`);
+    redirectToPath(
+      appendAdminFlash(redirectTo, {
+        scope: "reports",
+        status: "error",
+        message: await parseErrorMessage(response, "Report update failed.")
+      })
+    );
   }
 
-  redirectToPath(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}reports=updated`);
+  redirectToPath(
+    appendAdminFlash(redirectTo, {
+      scope: "reports",
+      status: "success",
+      message: moderationAction
+        ? `Report resolved with ${moderationAction.toLowerCase().replaceAll("_", " ")}.`
+        : `Report moved to ${status.toLowerCase().replaceAll("_", " ")}.`
+    })
+  );
 }
 
 export async function updateSystemSettingAction(formData: FormData) {
@@ -387,8 +552,20 @@ export async function updateSystemSettingAction(formData: FormData) {
   });
 
   if (!response.ok) {
-    redirectToPath(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}settings=failed`);
+    redirectToPath(
+      appendAdminFlash(redirectTo, {
+        scope: "settings",
+        status: "error",
+        message: await parseErrorMessage(response, "System setting update failed.")
+      })
+    );
   }
 
-  redirectToPath(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}settings=updated`);
+  redirectToPath(
+    appendAdminFlash(redirectTo, {
+      scope: "settings",
+      status: "success",
+      message: `System setting ${key} updated.`
+    })
+  );
 }

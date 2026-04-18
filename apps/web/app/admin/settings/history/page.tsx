@@ -1,13 +1,21 @@
 import type { Route } from "next";
 import Link from "next/link";
+import { AdminFlashBanner } from "@/components/admin/adminFlashBanner";
 import { EmptyState } from "@/components/storefront/emptyState";
 import { getSystemSettingHistory } from "@/lib/commerceApi";
+import { normalizeAdminParams } from "@/lib/admin";
 import { getDemoSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminSettingsHistoryPage() {
+export default async function AdminSettingsHistoryPage({
+  searchParams
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await getDemoSession();
+  const resolvedParams = searchParams ? await searchParams : {};
+  const params = normalizeAdminParams(resolvedParams);
   const historyGroups = await getSystemSettingHistory();
 
   if (!session || session.role !== "SUPER_ADMIN") {
@@ -42,6 +50,14 @@ export default async function AdminSettingsHistoryPage() {
               Back to settings
             </Link>
           </div>
+        </div>
+
+        <div className="mt-6">
+          <AdminFlashBanner
+            scope={params.adminScope}
+            status={params.adminStatus}
+            message={params.adminMessage}
+          />
         </div>
 
         <div className="mt-8 grid gap-6">
