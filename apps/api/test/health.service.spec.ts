@@ -10,15 +10,20 @@ describe("HealthService", () => {
       if (key === "REQUEST_LOGGING_ENABLED") {
         return true;
       }
+      if (key === "HEALTHCHECK_PROVIDER_PROBES_ENABLED") {
+        return true;
+      }
 
       return fallback;
     })
   };
   const mailerService = {
-    getDiagnostics: jest.fn()
+    getDiagnostics: jest.fn(),
+    probeDiagnostics: jest.fn()
   };
   const filesService = {
-    getDiagnostics: jest.fn()
+    getDiagnostics: jest.fn(),
+    probeDiagnostics: jest.fn()
   };
   const rateLimitService = {
     getDiagnostics: jest.fn()
@@ -45,11 +50,27 @@ describe("HealthService", () => {
       healthy: true,
       message: "Console mail driver active"
     });
+    mailerService.probeDiagnostics.mockResolvedValue({
+      driver: "console",
+      configured: true,
+      healthy: true,
+      message: "Console mail driver active",
+      probeStatus: "ok",
+      probeMessage: "Console mail driver does not require external probe"
+    });
     filesService.getDiagnostics.mockReturnValue({
       driver: "local",
       configured: true,
       healthy: true,
       message: "Local media driver active"
+    });
+    filesService.probeDiagnostics.mockResolvedValue({
+      driver: "local",
+      configured: true,
+      healthy: true,
+      message: "Local media driver active",
+      probeStatus: "ok",
+      probeMessage: "Local media driver does not require external probe"
     });
     rateLimitService.getDiagnostics.mockResolvedValue({
       preferredStore: "memory",
@@ -96,5 +117,36 @@ describe("HealthService", () => {
     const readiness = await service.getReadiness();
     expect(readiness.ready).toBe(true);
     expect(readiness.status).toBe("degraded");
+  });
+
+  it("uses probe diagnostics for mail and media when enabled", async () => {
+    const readiness = await service.getReadiness();
+
+    expect(mailerService.probeDiagnostics).toHaveBeenCalled();
+    expect(filesService.probeDiagnostics).toHaveBeenCalled();
+    expect(readiness.checks.find((check) => check.key === "mail_driver")?.message).toBe(
+      "Console mail driver does not require external probe"
+    );
+  });
+
+  it("falls back to static diagnostics when provider probes are disabled", async () => {
+    configService.get.mockImplementation((key: string, fallback?: unknown) => {
+      if (key === "REQUEST_LOGGING_ENABLED") {
+        return true;
+      }
+      if (key === "HEALTHCHECK_PROVIDER_PROBES_ENABLED") {
+        return false;
+      }
+
+      return fallback;
+    });
+
+    const readiness = await service.getReadiness();
+
+    expect(mailerService.probeDiagnostics).not.toHaveBeenCalled();
+    expect(filesService.probeDiagnostics).not.toHaveBeenCalled();
+    expect(readiness.checks.find((check) => check.key === "provider_probes")?.status).toBe(
+      "degraded"
+    );
   });
 });

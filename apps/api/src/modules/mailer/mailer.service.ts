@@ -17,6 +17,8 @@ interface MailerDiagnostics {
   fromEmail: string;
   fromName: string;
   replyTo: string | null;
+  probeStatus?: "ok" | "degraded";
+  probeMessage?: string;
 }
 
 @Injectable()
@@ -101,6 +103,52 @@ export class MailerService {
       fromName,
       replyTo
     };
+  }
+
+  async probeDiagnostics(): Promise<MailerDiagnostics> {
+    const diagnostics = this.getDiagnostics();
+
+    if (!diagnostics.configured) {
+      return {
+        ...diagnostics,
+        probeStatus: "degraded",
+        probeMessage: "Driver is not fully configured"
+      };
+    }
+
+    if (diagnostics.driver === "console") {
+      return {
+        ...diagnostics,
+        probeStatus: "ok",
+        probeMessage: "Console mail driver does not require external probe"
+      };
+    }
+
+    try {
+      const apiKey = this.configService.get<string>("RESEND_API_KEY");
+      const response = await fetch("https://api.resend.com/domains", {
+        method: "GET",
+        headers: {
+          authorization: `Bearer ${apiKey}`
+        }
+      });
+
+      return {
+        ...diagnostics,
+        healthy: response.ok,
+        probeStatus: response.ok ? "ok" : "degraded",
+        probeMessage: response.ok
+          ? "Resend API probe succeeded"
+          : `Resend API probe failed with status ${response.status}`
+      };
+    } catch (error) {
+      return {
+        ...diagnostics,
+        healthy: false,
+        probeStatus: "degraded",
+        probeMessage: error instanceof Error ? error.message : "Mail probe failed"
+      };
+    }
   }
 
   private async sendWithResend(input: SendEmailInput) {

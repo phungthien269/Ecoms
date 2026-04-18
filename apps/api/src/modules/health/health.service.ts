@@ -60,13 +60,21 @@ export class HealthService {
   }
 
   private async getChecks(): Promise<DependencyHealthEntry[]> {
+    const providerProbesEnabled = this.configService.get<boolean>(
+      "HEALTHCHECK_PROVIDER_PROBES_ENABLED",
+      true
+    );
     const [database, rateLimit, realtime] = await Promise.all([
       this.checkDatabase(),
       this.rateLimitService.getDiagnostics(),
       this.realtimeStateService.getDiagnostics()
     ]);
-    const mail = this.mailerService.getDiagnostics();
-    const media = this.filesService.getDiagnostics();
+    const [mail, media] = providerProbesEnabled
+      ? await Promise.all([
+          this.mailerService.probeDiagnostics(),
+          this.filesService.probeDiagnostics()
+        ])
+      : [this.mailerService.getDiagnostics(), this.filesService.getDiagnostics()];
     const loggingEnabled = this.configService.get<boolean>("REQUEST_LOGGING_ENABLED", true);
 
     return [
@@ -97,14 +105,17 @@ export class HealthService {
         key: "mail_driver",
         label: "Mail driver",
         status: mail.healthy ? "ok" : "degraded",
-        message: mail.message,
+        message: mail.probeMessage ?? mail.message,
         details: this.toDetails(mail)
       },
       {
         key: "media_driver",
         label: "Media driver",
         status: media.healthy ? "ok" : "degraded",
-        message: media.message,
+        message:
+          "probeMessage" in media && typeof media.probeMessage === "string"
+            ? media.probeMessage
+            : media.message,
         details: this.toDetails(media)
       },
       {
@@ -114,6 +125,17 @@ export class HealthService {
         message: loggingEnabled ? "Structured request logging enabled" : "Request logging disabled",
         details: {
           enabled: loggingEnabled
+        }
+      },
+      {
+        key: "provider_probes",
+        label: "Provider probes",
+        status: providerProbesEnabled ? "ok" : "degraded",
+        message: providerProbesEnabled
+          ? "External provider probes enabled"
+          : "External provider probes disabled",
+        details: {
+          enabled: providerProbesEnabled
         }
       }
     ];

@@ -198,6 +198,72 @@ export class FilesService {
     };
   }
 
+  async probeDiagnostics() {
+    const diagnostics = this.getDiagnostics();
+
+    if (!diagnostics.configured) {
+      return {
+        ...diagnostics,
+        probeStatus: "degraded" as const,
+        probeMessage: "Driver is not fully configured"
+      };
+    }
+
+    if (diagnostics.driver === "local") {
+      return {
+        ...diagnostics,
+        probeStatus: "ok" as const,
+        probeMessage: "Local media driver does not require external probe"
+      };
+    }
+
+    if (diagnostics.driver === "cloudinary") {
+      try {
+        const cloudName = this.configService.get<string>("CLOUDINARY_CLOUD_NAME");
+        const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/ping`, {
+          method: "GET"
+        });
+
+        return {
+          ...diagnostics,
+          healthy: response.ok,
+          probeStatus: response.ok ? ("ok" as const) : ("degraded" as const),
+          probeMessage: response.ok
+            ? "Cloudinary API probe succeeded"
+            : `Cloudinary API probe failed with status ${response.status}`
+        };
+      } catch (error) {
+        return {
+          ...diagnostics,
+          healthy: false,
+          probeStatus: "degraded" as const,
+          probeMessage: error instanceof Error ? error.message : "Cloudinary probe failed"
+        };
+      }
+    }
+
+    try {
+      await this.buildS3UploadInstruction(
+        `healthchecks/${Date.now()}-probe.txt`,
+        this.resolvePublicUrl("s3", `healthchecks/${Date.now()}-probe.txt`),
+        "text/plain"
+      );
+
+      return {
+        ...diagnostics,
+        probeStatus: "ok" as const,
+        probeMessage: "S3 signed upload probe succeeded"
+      };
+    } catch (error) {
+      return {
+        ...diagnostics,
+        healthy: false,
+        probeStatus: "degraded" as const,
+        probeMessage: error instanceof Error ? error.message : "S3 probe failed"
+      };
+    }
+  }
+
   private async buildUploadInstruction(
     driver: string,
     objectKey: string,
