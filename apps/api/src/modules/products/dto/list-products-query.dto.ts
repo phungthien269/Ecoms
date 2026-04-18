@@ -1,4 +1,4 @@
-import { Type } from "class-transformer";
+import { Transform, Type } from "class-transformer";
 import {
   IsEnum,
   IsInt,
@@ -10,6 +10,7 @@ import {
 } from "class-validator";
 
 export enum ProductSortOption {
+  RELEVANCE = "relevance",
   NEWEST = "newest",
   PRICE_ASC = "price_asc",
   PRICE_DESC = "price_desc",
@@ -32,11 +33,23 @@ export class ListProductsQueryDto {
 
   @IsOptional()
   @IsString()
+  brandSlug?: string;
+
+  @IsOptional()
+  @IsString()
   shopId?: string;
 
   @IsOptional()
   @IsString()
+  shopSlug?: string;
+
+  @IsOptional()
+  @IsString()
   search?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => value === "true" || value === true)
+  inStockOnly?: boolean;
 
   @IsOptional()
   @Type(() => Number)

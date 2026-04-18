@@ -71,6 +71,19 @@ export function StorefrontShell({
                   Explore electronics
                 </Link>
               </div>
+              <form action="/products" className="flex flex-col gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-4 sm:flex-row">
+                <input
+                  name="search"
+                  placeholder="Search products, tags, SKU..."
+                  className="w-full rounded-full border border-white/10 bg-white/90 px-4 py-3 text-sm text-slate-800 placeholder:text-slate-500"
+                />
+                <button
+                  type="submit"
+                  className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-orange-50"
+                >
+                  Search catalog
+                </button>
+              </form>
             </div>
             <div className="rounded-[1.5rem] bg-white/5 p-6 backdrop-blur">
               <div className="space-y-4">

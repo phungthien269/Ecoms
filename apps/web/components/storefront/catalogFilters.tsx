@@ -1,7 +1,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 import { buildCatalogHref, flattenCategories } from "@/lib/catalog";
-import type { CategoryNode, ProductCatalogSearchParams } from "@/lib/storefrontTypes";
+import type { BrandSummary, CategoryNode, ProductCatalogSearchParams } from "@/lib/storefrontTypes";
 
 const priceRanges = [
   { label: "Under 500.000₫", minPrice: undefined, maxPrice: "500000" },
@@ -12,10 +12,12 @@ const priceRanges = [
 
 export function CatalogFilters({
   categories,
+  brands,
   currentCategorySlug,
   currentParams
 }: {
   categories: CategoryNode[];
+  brands: BrandSummary[];
   currentCategorySlug?: string;
   currentParams: ProductCatalogSearchParams;
 }) {
@@ -49,6 +51,37 @@ export function CatalogFilters({
               className={pillClass(currentCategorySlug === category.slug)}
             >
               {category.name}
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
+          Brands
+        </p>
+        <div className="space-y-2">
+          <Link
+            href={buildCatalogHref({
+              ...currentParams,
+              brand: undefined,
+              page: undefined
+            }) as Route}
+            className={pillClass(!currentParams.brand)}
+          >
+            Any brand
+          </Link>
+          {brands.map((brand) => (
+            <Link
+              key={brand.id}
+              href={buildCatalogHref({
+                ...currentParams,
+                brand: brand.slug,
+                page: undefined
+              }) as Route}
+              className={pillClass(currentParams.brand === brand.slug)}
+            >
+              {brand.name}
             </Link>
           ))}
         </div>
@@ -90,7 +123,41 @@ export function CatalogFilters({
         </div>
       </div>
 
-      {currentParams.search || currentCategorySlug || currentParams.minPrice || currentParams.maxPrice ? (
+      <div className="space-y-3">
+        <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
+          Availability
+        </p>
+        <div className="space-y-2">
+          <Link
+            href={buildCatalogHref({
+              ...currentParams,
+              inStock: undefined,
+              page: undefined
+            }) as Route}
+            className={pillClass(currentParams.inStock !== "true")}
+          >
+            Include all stock states
+          </Link>
+          <Link
+            href={buildCatalogHref({
+              ...currentParams,
+              inStock: "true",
+              page: undefined
+            }) as Route}
+            className={pillClass(currentParams.inStock === "true")}
+          >
+            In stock only
+          </Link>
+        </div>
+      </div>
+
+      {currentParams.search ||
+      currentCategorySlug ||
+      currentParams.brand ||
+      currentParams.shop ||
+      currentParams.minPrice ||
+      currentParams.maxPrice ||
+      currentParams.inStock ? (
         <Link
           href={"/products" as Route}
           className="inline-flex rounded-full border border-orange-200 px-4 py-2 text-sm font-semibold text-orange-600 transition hover:border-orange-400 hover:text-orange-700"

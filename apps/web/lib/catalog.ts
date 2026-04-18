@@ -15,11 +15,14 @@ export function normalizeCatalogParams(
 ): ProductCatalogSearchParams {
   return {
     category: getSingleValue(searchParams?.category),
+    brand: getSingleValue(searchParams?.brand),
+    shop: getSingleValue(searchParams?.shop),
     search: getSingleValue(searchParams?.search),
     sort: getSingleValue(searchParams?.sort) as ProductCatalogSearchParams["sort"],
     minPrice: getSingleValue(searchParams?.minPrice),
     maxPrice: getSingleValue(searchParams?.maxPrice),
     tag: getSingleValue(searchParams?.tag),
+    inStock: getSingleValue(searchParams?.inStock),
     page: getSingleValue(searchParams?.page)
   };
 }

@@ -36,6 +36,7 @@ function buildProductRecord(overrides?: Partial<Record<string, unknown>>) {
 
 describe("ProductsService", () => {
   const prisma = {
+    $transaction: jest.fn(),
     shop: {
       findUnique: jest.fn()
     },
@@ -48,6 +49,8 @@ describe("ProductsService", () => {
     product: {
       findUnique: jest.fn(),
       findFirst: jest.fn(),
+      findMany: jest.fn(),
+      count: jest.fn(),
       create: jest.fn()
     },
     productVariant: {
@@ -82,6 +85,9 @@ describe("ProductsService", () => {
     prisma.product.findUnique.mockResolvedValue(null);
     prisma.product.findFirst.mockResolvedValue(null);
     prisma.productVariant.findUnique.mockResolvedValue(null);
+    prisma.product.findMany.mockResolvedValue([]);
+    prisma.product.count.mockResolvedValue(0);
+    prisma.$transaction.mockResolvedValue([[], 0]);
     filesService.requireOwnedReadyAssets.mockResolvedValue([]);
     prisma.product.create.mockResolvedValue(
       buildProductRecord({
@@ -270,5 +276,37 @@ describe("ProductsService", () => {
       }),
       include: expect.any(Object)
     });
+  });
+
+  it("ranks search results by relevance before pagination", async () => {
+    prisma.product.findMany.mockResolvedValue([
+      buildProductRecord({
+        id: "product-1",
+        name: "Gaming Mouse Pro",
+        sku: "MOUSE-001",
+        soldCount: 40,
+        ratingAverage: new Prisma.Decimal(4.8)
+      }),
+      buildProductRecord({
+        id: "product-2",
+        name: "Office Mouse",
+        sku: "GAMING-MOUSE-ALT",
+        description: "Budget mouse for office use with gaming sensor.",
+        soldCount: 5,
+        ratingAverage: new Prisma.Decimal(4.1),
+        createdAt: new Date("2026-04-18T00:00:00.000Z"),
+        updatedAt: new Date("2026-04-18T00:00:00.000Z")
+      })
+    ]);
+
+    const result = await service.listPublic({
+      search: "gaming mouse",
+      sort: undefined,
+      page: 1,
+      pageSize: 12
+    });
+
+    expect(result.items.map((item) => item.id)).toEqual(["product-1", "product-2"]);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 });

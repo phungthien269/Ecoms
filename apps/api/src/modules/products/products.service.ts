@@ -46,17 +46,23 @@ export class ProductsService {
   async listPublic(query: ListProductsQueryDto) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 12;
-    const sort = query.sort ?? ProductSortOption.NEWEST;
+    const searchTokens = this.tokenizeSearchQuery(query.search);
+    const sort =
+      query.sort ?? (searchTokens.length > 0 ? ProductSortOption.RELEVANCE : ProductSortOption.NEWEST);
     const categoryIds = query.categoryIds
       ?.split(",")
       .map((value) => value.trim())
       .filter(Boolean);
+    const shopFilter: Prisma.ShopWhereInput = {
+      status: ShopStatus.ACTIVE,
+      deletedAt: null,
+      ...(query.shopSlug ? { slug: query.shopSlug } : {})
+    };
     const where: Prisma.ProductWhereInput = {
       deletedAt: null,
       status: ProductStatus.ACTIVE,
       shop: {
-        status: ShopStatus.ACTIVE,
-        deletedAt: null
+        is: shopFilter
       },
       ...(categoryIds && categoryIds.length > 0
         ? {
@@ -67,7 +73,17 @@ export class ProductsService {
         : query.categoryId
           ? { categoryId: query.categoryId }
           : {}),
-      ...(query.brandId ? { brandId: query.brandId } : {}),
+      ...(query.brandId
+        ? { brandId: query.brandId }
+        : query.brandSlug
+          ? {
+              brand: {
+                is: {
+                  slug: query.brandSlug
+                }
+              }
+            }
+          : {}),
       ...(query.shopId ? { shopId: query.shopId } : {}),
       ...(query.minPrice !== undefined || query.maxPrice !== undefined
         ? {
@@ -84,30 +100,49 @@ export class ProductsService {
             }
           }
         : {}),
-      ...(query.search
+      ...(query.inStockOnly
         ? {
             OR: [
               {
-                name: {
-                  contains: query.search,
-                  mode: "insensitive"
+                stock: {
+                  gt: 0
                 }
               },
               {
-                description: {
-                  contains: query.search,
-                  mode: "insensitive"
-                }
-              },
-              {
-                tags: {
-                  has: query.search.toLowerCase()
+                variants: {
+                  some: {
+                    stock: {
+                      gt: 0
+                    }
+                  }
                 }
               }
             ]
           }
-        : {})
+        : {}),
+      ...(searchTokens.length > 0 ? this.buildSearchWhere(searchTokens) : {})
     };
+    const usesSearchRanking = searchTokens.length > 0 || sort === ProductSortOption.RELEVANCE;
+
+    if (usesSearchRanking) {
+      const candidates = await this.prisma.product.findMany({
+        where,
+        include: productDetailInclude
+      });
+      const sorted = this.sortSearchCandidates(candidates, sort, searchTokens);
+      const total = sorted.length;
+      const pagedItems = sorted.slice((page - 1) * pageSize, page * pageSize);
+
+      return {
+        items: await this.attachFlashSales(pagedItems),
+        pagination: {
+          page,
+          pageSize,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / pageSize))
+        }
+      };
+    }
 
     const [items, total] = await this.prisma.$transaction([
       this.prisma.product.findMany({
@@ -456,6 +491,8 @@ export class ProductsService {
 
   private resolvePublicSort(sort: ProductSortOption): Prisma.ProductOrderByWithRelationInput[] {
     switch (sort) {
+      case ProductSortOption.RELEVANCE:
+        return [{ soldCount: "desc" }, { ratingAverage: "desc" }, { createdAt: "desc" }];
       case ProductSortOption.PRICE_ASC:
         return [{ salePrice: "asc" }, { createdAt: "desc" }];
       case ProductSortOption.PRICE_DESC:
@@ -468,6 +505,160 @@ export class ProductsService {
       default:
         return [{ createdAt: "desc" }];
     }
+  }
+
+  private buildSearchWhere(tokens: string[]): Prisma.ProductWhereInput {
+    return {
+      AND: tokens.map((token) => ({
+        OR: [
+          {
+            name: {
+              contains: token,
+              mode: "insensitive"
+            }
+          },
+          {
+            description: {
+              contains: token,
+              mode: "insensitive"
+            }
+          },
+          {
+            sku: {
+              contains: token,
+              mode: "insensitive"
+            }
+          },
+          {
+            tags: {
+              has: token
+            }
+          }
+        ]
+      }))
+    };
+  }
+
+  private tokenizeSearchQuery(search?: string) {
+    return (search ?? "")
+      .trim()
+      .toLowerCase()
+      .split(/\s+/)
+      .map((token) => token.trim())
+      .filter(Boolean)
+      .slice(0, 6);
+  }
+
+  private sortSearchCandidates(
+    items: ProductDetailRecord[],
+    sort: ProductSortOption,
+    searchTokens: string[]
+  ) {
+    const scoredItems = items.map((item) => ({
+      item,
+      score: this.computeSearchScore(item, searchTokens)
+    }));
+
+    return scoredItems
+      .sort((left, right) => this.compareSearchCandidates(left, right, sort))
+      .map((entry) => entry.item);
+  }
+
+  private compareSearchCandidates(
+    left: { item: ProductDetailRecord; score: number },
+    right: { item: ProductDetailRecord; score: number },
+    sort: ProductSortOption
+  ) {
+    switch (sort) {
+      case ProductSortOption.PRICE_ASC:
+        return (
+          left.item.salePrice.comparedTo(right.item.salePrice) ||
+          right.score - left.score ||
+          right.item.createdAt.getTime() - left.item.createdAt.getTime()
+        );
+      case ProductSortOption.PRICE_DESC:
+        return (
+          right.item.salePrice.comparedTo(left.item.salePrice) ||
+          right.score - left.score ||
+          right.item.createdAt.getTime() - left.item.createdAt.getTime()
+        );
+      case ProductSortOption.BEST_SELLING:
+        return (
+          right.item.soldCount - left.item.soldCount ||
+          right.score - left.score ||
+          right.item.createdAt.getTime() - left.item.createdAt.getTime()
+        );
+      case ProductSortOption.TOP_RATED:
+        return (
+          right.item.ratingAverage.comparedTo(left.item.ratingAverage) ||
+          right.item.soldCount - left.item.soldCount ||
+          right.score - left.score ||
+          right.item.createdAt.getTime() - left.item.createdAt.getTime()
+        );
+      case ProductSortOption.NEWEST:
+        return (
+          right.item.createdAt.getTime() - left.item.createdAt.getTime() ||
+          right.score - left.score
+        );
+      case ProductSortOption.RELEVANCE:
+      default:
+        return (
+          right.score - left.score ||
+          right.item.soldCount - left.item.soldCount ||
+          right.item.ratingAverage.comparedTo(left.item.ratingAverage) ||
+          right.item.createdAt.getTime() - left.item.createdAt.getTime()
+        );
+    }
+  }
+
+  private computeSearchScore(product: ProductDetailRecord, searchTokens: string[]) {
+    if (searchTokens.length === 0) {
+      return 0;
+    }
+
+    const normalizedName = product.name.toLowerCase();
+    const normalizedDescription = product.description.toLowerCase();
+    const normalizedSku = product.sku.toLowerCase();
+    const normalizedTags = product.tags.map((tag) => tag.toLowerCase());
+    const joinedSearch = searchTokens.join(" ");
+
+    let score = 0;
+
+    if (normalizedName === joinedSearch) {
+      score += 180;
+    } else if (normalizedName.startsWith(joinedSearch)) {
+      score += 120;
+    }
+
+    if (normalizedSku === joinedSearch) {
+      score += 140;
+    } else if (normalizedSku.includes(joinedSearch)) {
+      score += 80;
+    }
+
+    for (const token of searchTokens) {
+      if (normalizedName.includes(token)) {
+        score += 42;
+      }
+
+      if (normalizedSku.includes(token)) {
+        score += 34;
+      }
+
+      if (normalizedTags.includes(token)) {
+        score += 24;
+      }
+
+      if (normalizedDescription.includes(token)) {
+        score += 12;
+      }
+    }
+
+    score += Math.min(product.soldCount, 500) * 0.12;
+    score += Number(product.ratingAverage.toString()) * 3;
+    score += Math.min(product.viewCount, 1000) * 0.01;
+
+    return score;
   }
 
   private async ensureOwnedShop(ownerId: string) {

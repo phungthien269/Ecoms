@@ -34,6 +34,13 @@ export function AppShell({
             <Link href={"/" as Route} className="text-xl font-black tracking-tight text-slate-950">
               Ecoms
             </Link>
+            <form action="/products" className="hidden lg:block">
+              <input
+                name="search"
+                placeholder="Search products, tags, SKU..."
+                className="min-w-[280px] rounded-full border border-orange-100 bg-orange-50 px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400"
+              />
+            </form>
             <nav className="hidden items-center gap-4 text-sm font-medium text-slate-600 md:flex">
               <Link href={"/products" as Route} className="transition hover:text-orange-600">
                 Products

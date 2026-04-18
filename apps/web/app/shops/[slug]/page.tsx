@@ -60,6 +60,14 @@ export default async function ShopDetailPage({
               <p className="max-w-3xl text-sm leading-7 text-slate-600">
                 {shop.description ?? "This seller storefront is ready for product merchandising."}
               </p>
+              <div className="pt-2">
+                <Link
+                  href={`/products?shop=${shop.slug}` as Route}
+                  className="text-sm font-semibold text-orange-600 transition hover:text-orange-700"
+                >
+                  View full shop catalog
+                </Link>
+              </div>
               <form action={createReportAction} className="pt-3">
                 <input type="hidden" name="targetType" value="SHOP" />
                 <input type="hidden" name="targetId" value={shop.id} />

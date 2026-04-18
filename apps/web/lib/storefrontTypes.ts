@@ -101,6 +101,7 @@ export interface ProductListResponse {
 }
 
 export type ProductSortOption =
+  | "relevance"
   | "newest"
   | "price_asc"
   | "price_desc"
@@ -109,11 +110,14 @@ export type ProductSortOption =
 
 export interface ProductCatalogSearchParams {
   category?: string;
+  brand?: string;
+  shop?: string;
   search?: string;
   sort?: ProductSortOption;
   minPrice?: string;
   maxPrice?: string;
   tag?: string;
+  inStock?: string;
   page?: string;
 }
 

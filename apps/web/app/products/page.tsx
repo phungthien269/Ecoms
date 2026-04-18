@@ -5,7 +5,7 @@ import { CatalogPagination } from "@/components/storefront/catalogPagination";
 import { CatalogToolbar } from "@/components/storefront/catalogToolbar";
 import { EmptyState } from "@/components/storefront/emptyState";
 import { ProductCard } from "@/components/storefront/productCard";
-import { findCategoryBySlug, getCategoryTree, getProducts } from "@/lib/storefrontApi";
+import { findCategoryBySlug, getBrands, getCategoryTree, getProducts } from "@/lib/storefrontApi";
 import { collectCategoryIds, normalizeCatalogParams } from "@/lib/catalog";
 
 export const dynamic = "force-dynamic";
@@ -19,16 +19,19 @@ export default async function ProductsPage({
   const params = normalizeCatalogParams(resolvedParams);
   const categorySlug = params.category;
 
-  const categories = await getCategoryTree();
+  const [categories, brands] = await Promise.all([getCategoryTree(), getBrands()]);
   const category = categorySlug ? findCategoryBySlug(categories, categorySlug) : null;
   const categoryIds = category ? collectCategoryIds(category).join(",") : undefined;
   const products = await getProducts({
     categoryIds,
+    brandSlug: params.brand,
+    shopSlug: params.shop,
     search: params.search,
     sort: params.sort,
     minPrice: params.minPrice,
     maxPrice: params.maxPrice,
     tag: params.tag,
+    inStockOnly: params.inStock === "true" ? "true" : undefined,
     page: params.page
   });
 
@@ -68,12 +71,17 @@ export default async function ProductsPage({
         <div className="mt-8 grid gap-6 lg:grid-cols-[280px_1fr]">
           <CatalogFilters
             categories={categories}
+            brands={brands}
             currentCategorySlug={categorySlug}
             currentParams={params}
           />
 
           <div className="space-y-6">
-            <CatalogToolbar total={products.pagination.total} currentParams={params} />
+            <CatalogToolbar
+              total={products.pagination.total}
+              currentParams={params}
+              title={category ? category.name : "All products"}
+            />
 
             {products.items.length > 0 ? (
               <>

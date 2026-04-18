@@ -4,6 +4,7 @@ import { DEFAULT_SORT, buildCatalogHref } from "@/lib/catalog";
 import type { ProductCatalogSearchParams, ProductSortOption } from "@/lib/storefrontTypes";
 
 const sortOptions: Array<{ label: string; value: ProductSortOption }> = [
+  { label: "Relevance", value: "relevance" },
   { label: "Newest", value: "newest" },
   { label: "Price: low to high", value: "price_asc" },
   { label: "Price: high to low", value: "price_desc" },
@@ -13,26 +14,60 @@ const sortOptions: Array<{ label: string; value: ProductSortOption }> = [
 
 export function CatalogToolbar({
   total,
-  currentParams
+  currentParams,
+  title
 }: {
   total: number;
   currentParams: ProductCatalogSearchParams;
+  title: string;
 }) {
-  const currentSort = currentParams.sort ?? DEFAULT_SORT;
+  const currentSort =
+    currentParams.sort ?? (currentParams.search ? "relevance" : DEFAULT_SORT);
+  const availableSorts = currentParams.search
+    ? sortOptions
+    : sortOptions.filter((option) => option.value !== "relevance");
 
   return (
-    <div className="flex flex-col gap-4 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm lg:flex-row lg:items-center lg:justify-between">
-      <div className="space-y-1">
-        <p className="text-sm font-semibold uppercase tracking-[0.24em] text-orange-500">
-          Discover
-        </p>
-        <p className="text-sm text-slate-600">
-          {total > 0 ? `${total} products matched the current catalog query.` : "No products match the current query yet."}
-        </p>
+    <div className="space-y-5 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="space-y-1">
+          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-orange-500">
+            Discover
+          </p>
+          <h2 className="text-xl font-bold text-slate-950">{title}</h2>
+          <p className="text-sm text-slate-600">
+            {total > 0
+              ? `${total} products matched the current catalog query.`
+              : "No products match the current query yet."}
+          </p>
+        </div>
+
+        <form action="/products" className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          {currentParams.category ? <input type="hidden" name="category" value={currentParams.category} /> : null}
+          {currentParams.brand ? <input type="hidden" name="brand" value={currentParams.brand} /> : null}
+          {currentParams.shop ? <input type="hidden" name="shop" value={currentParams.shop} /> : null}
+          {currentParams.minPrice ? <input type="hidden" name="minPrice" value={currentParams.minPrice} /> : null}
+          {currentParams.maxPrice ? <input type="hidden" name="maxPrice" value={currentParams.maxPrice} /> : null}
+          {currentParams.tag ? <input type="hidden" name="tag" value={currentParams.tag} /> : null}
+          {currentParams.inStock ? <input type="hidden" name="inStock" value={currentParams.inStock} /> : null}
+          {currentParams.sort ? <input type="hidden" name="sort" value={currentParams.sort} /> : null}
+          <input
+            name="search"
+            defaultValue={currentParams.search ?? ""}
+            placeholder="Search product, SKU, tag..."
+            className="w-full rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700 placeholder:text-slate-400 sm:min-w-[280px]"
+          />
+          <button
+            type="submit"
+            className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+          >
+            Search
+          </button>
+        </form>
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {sortOptions.map((option) => (
+        {availableSorts.map((option) => (
           <Link
             key={option.value}
             href={buildCatalogHref({
@@ -51,6 +86,13 @@ export function CatalogToolbar({
           </Link>
         ))}
       </div>
+
+      {currentParams.search ? (
+        <div className="rounded-[1.2rem] bg-orange-50 px-4 py-3 text-sm text-orange-700">
+          Search query: <span className="font-semibold">{currentParams.search}</span>
+          {currentSort === "relevance" ? " • ranked by relevance" : null}
+        </div>
+      ) : null}
     </div>
   );
 }
