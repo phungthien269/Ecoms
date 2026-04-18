@@ -36,12 +36,16 @@ describe("PaymentsService", () => {
       return fallback;
     })
   };
+  const paymentLifecycleService = {
+    expireStalePendingPayments: jest.fn()
+  };
 
   const service = new PaymentsService(
     prisma as never,
     notificationsService as never,
     configService as never,
-    orderStatusHistoryService as never
+    orderStatusHistoryService as never,
+    paymentLifecycleService as never
   );
 
   beforeEach(() => {
@@ -208,6 +212,21 @@ describe("PaymentsService", () => {
         "bad-signature"
       )
     ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it("delegates stale pending sweep", async () => {
+    paymentLifecycleService.expireStalePendingPayments.mockResolvedValue({
+      expiredCount: 2,
+      cancelledOrderCount: 2
+    });
+
+    const result = await service.expireStalePendingPayments();
+
+    expect(paymentLifecycleService.expireStalePendingPayments).toHaveBeenCalledWith();
+    expect(result).toEqual({
+      expiredCount: 2,
+      cancelledOrderCount: 2
+    });
   });
 });
 

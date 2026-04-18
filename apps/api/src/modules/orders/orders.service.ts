@@ -10,6 +10,7 @@ import { Prisma } from "@prisma/client";
 import { MailerService } from "../mailer/mailer.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { OrderStatusHistoryService } from "../orderStatusHistory/order-status-history.service";
+import { PaymentLifecycleService } from "../payments/payment-lifecycle.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { SystemSettingsService } from "../systemSettings/system-settings.service";
 import { AuditLogsService } from "../auditLogs/audit-logs.service";
@@ -23,11 +24,16 @@ export class OrdersService {
     private readonly notificationsService: NotificationsService,
     private readonly mailerService: MailerService,
     private readonly orderStatusHistoryService: OrderStatusHistoryService,
+    private readonly paymentLifecycleService: PaymentLifecycleService,
     private readonly systemSettingsService: SystemSettingsService,
     private readonly auditLogsService: AuditLogsService
   ) {}
 
   async listOwn(userId: string) {
+    await this.paymentLifecycleService.expireStalePendingPayments({
+      userId
+    });
+
     const orders = await this.prisma.order.findMany({
       where: { userId },
       orderBy: [{ createdAt: "desc" }],
@@ -74,6 +80,8 @@ export class OrdersService {
   }
 
   async listAdmin(query: ListAdminOrdersDto) {
+    await this.paymentLifecycleService.expireStalePendingPayments();
+
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 12;
     const where: Prisma.OrderWhereInput = {
@@ -190,6 +198,11 @@ export class OrdersService {
   }
 
   async getOwnDetail(userId: string, orderId: string) {
+    await this.paymentLifecycleService.expireStalePendingPayments({
+      orderIds: [orderId],
+      userId
+    });
+
     const order = await this.prisma.order.findFirst({
       where: {
         id: orderId,
@@ -616,6 +629,10 @@ export class OrdersService {
   }
 
   async listSellerOrders(userId: string) {
+    await this.paymentLifecycleService.expireStalePendingPayments({
+      shopOwnerId: userId
+    });
+
     const orders = await this.prisma.order.findMany({
       where: {
         shop: {
@@ -692,6 +709,11 @@ export class OrdersService {
   }
 
   async getSellerOrderDetail(userId: string, orderId: string) {
+    await this.paymentLifecycleService.expireStalePendingPayments({
+      orderIds: [orderId],
+      shopOwnerId: userId
+    });
+
     const order = await this.prisma.order.findFirst({
       where: {
         id: orderId,

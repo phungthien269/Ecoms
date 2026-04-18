@@ -52,18 +52,29 @@ describe("OrdersService", () => {
   const auditLogsService = {
     record: jest.fn()
   };
+  const paymentLifecycleService = {
+    expireStalePendingPayments: jest.fn().mockResolvedValue({
+      expiredCount: 0,
+      cancelledOrderCount: 0
+    })
+  };
 
   const service = new OrdersService(
     prisma as never,
     notificationsService as never,
     mailerService as never,
     orderStatusHistoryService as never,
+    paymentLifecycleService as never,
     systemSettingsService as never,
     auditLogsService as never
   );
 
   beforeEach(() => {
     jest.clearAllMocks();
+    paymentLifecycleService.expireStalePendingPayments.mockResolvedValue({
+      expiredCount: 0,
+      cancelledOrderCount: 0
+    });
     systemSettingsService.getNumberValue.mockImplementation(async (key: string) => {
       const mapping: Record<string, number> = {
         order_auto_complete_days: 3,
@@ -284,6 +295,7 @@ describe("OrdersService", () => {
       }
     });
     expect(result.pagination.total).toBe(1);
+    expect(paymentLifecycleService.expireStalePendingPayments).toHaveBeenCalledWith();
   });
 
   it("allows buyer to request return within 7 days after delivery", async () => {
@@ -709,6 +721,10 @@ describe("OrdersService", () => {
           nextValue: "District 3"
         })
       ]
+    });
+    expect(paymentLifecycleService.expireStalePendingPayments).toHaveBeenCalledWith({
+      orderIds: ["order-1"],
+      shopOwnerId: "seller-1"
     });
   });
 });

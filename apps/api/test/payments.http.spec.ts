@@ -10,7 +10,8 @@ describe("PaymentsController (http)", () => {
   let app: INestApplication;
   const paymentsService = {
     confirm: jest.fn(),
-    handleMockWebhook: jest.fn()
+    handleMockWebhook: jest.fn(),
+    expireStalePendingPayments: jest.fn()
   } satisfies Partial<PaymentsService>;
 
   beforeAll(async () => {
@@ -69,6 +70,26 @@ describe("PaymentsController (http)", () => {
 
     expect(response.status).toBe(401);
     expect(paymentsService.confirm).not.toHaveBeenCalled();
+  });
+
+  it("lets admins trigger stale payment expiry sweep", async () => {
+    paymentsService.expireStalePendingPayments.mockResolvedValue({
+      expiredCount: 3,
+      cancelledOrderCount: 2
+    });
+
+    const response = await request(app.getHttpServer())
+      .post("/api/payments/admin/expire-stale")
+      .set("x-test-user-id", "admin-1")
+      .set("x-test-user-role", "ADMIN");
+
+    expect(response.status).toBe(201);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data).toEqual({
+      expiredCount: 3,
+      cancelledOrderCount: 2
+    });
+    expect(paymentsService.expireStalePendingPayments).toHaveBeenCalledWith();
   });
 });
 

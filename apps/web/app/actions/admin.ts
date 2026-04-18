@@ -569,3 +569,44 @@ export async function updateSystemSettingAction(formData: FormData) {
     })
   );
 }
+
+export async function expireStalePaymentsAction(formData: FormData) {
+  const token = await getToken();
+  const redirectTo = getRedirectTarget(formData, "/admin/diagnostics");
+  if (!token) {
+    redirectToPath(redirectTo);
+  }
+
+  const response = await fetch(`${API_URL}/payments/admin/expire-stale`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${token}`
+    },
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    redirectToPath(
+      appendAdminFlash(redirectTo, {
+        scope: "payments",
+        status: "error",
+        message: await parseErrorMessage(response, "Payment timeout sweep failed.")
+      })
+    );
+  }
+
+  const payload = (await response.json()) as {
+    data?: {
+      expiredCount?: number;
+      cancelledOrderCount?: number;
+    };
+  };
+
+  redirectToPath(
+    appendAdminFlash(redirectTo, {
+      scope: "payments",
+      status: "success",
+      message: `Expired ${payload.data?.expiredCount ?? 0} payment(s), cancelled ${payload.data?.cancelledOrderCount ?? 0} order(s).`
+    })
+  );
+}

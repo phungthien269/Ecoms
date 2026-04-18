@@ -1,5 +1,6 @@
 import type { Route } from "next";
 import Link from "next/link";
+import { expireStalePaymentsAction } from "@/app/actions/admin";
 import { AdminFlashBanner } from "@/components/admin/adminFlashBanner";
 import { EmptyState } from "@/components/storefront/emptyState";
 import { getSystemDiagnostics } from "@/lib/commerceApi";
@@ -54,6 +55,15 @@ export default async function AdminDiagnosticsPage({
             </p>
           </div>
           <div className="flex gap-3">
+            <form action={expireStalePaymentsAction}>
+              <input type="hidden" name="redirectTo" value="/admin/diagnostics" />
+              <button
+                type="submit"
+                className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+              >
+                Expire stale payments
+              </button>
+            </form>
             <Link
               href={"/admin" as Route}
               className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"

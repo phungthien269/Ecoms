@@ -17,6 +17,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { NotificationsService } from "../notifications/notifications.service";
 import { OrderStatusHistoryService } from "../orderStatusHistory/order-status-history.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { PaymentLifecycleService } from "./payment-lifecycle.service";
 import type { MockPaymentWebhookDto } from "./dto/mock-payment-webhook.dto";
 
 type PaymentWithOrder = Prisma.PaymentGetPayload<{
@@ -31,7 +32,8 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
     private readonly configService: ConfigService,
-    private readonly orderStatusHistoryService: OrderStatusHistoryService
+    private readonly orderStatusHistoryService: OrderStatusHistoryService,
+    private readonly paymentLifecycleService: PaymentLifecycleService
   ) {}
 
   async confirm(userId: string, paymentId: string) {
@@ -96,6 +98,10 @@ export class PaymentsService {
         providerReference: payload.providerReference ?? null
       }
     });
+  }
+
+  async expireStalePendingPayments() {
+    return this.paymentLifecycleService.expireStalePendingPayments();
   }
 
   private async applyPaymentTransition(
