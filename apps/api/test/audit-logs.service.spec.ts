@@ -110,4 +110,39 @@ describe("AuditLogsService", () => {
     });
     expect(result.pagination.total).toBe(1);
   });
+
+  it("lists recent diagnostics activity", async () => {
+    prisma.auditLog.findMany.mockResolvedValue([
+      {
+        id: "audit-health-1",
+        actorRole: "ADMIN",
+        action: "health.diagnostics.test_email",
+        entityType: "HEALTH_DIAGNOSTIC",
+        entityId: "ops@example.com",
+        summary: "Triggered diagnostics test email to ops@example.com",
+        metadata: { accepted: true, driver: "console" },
+        createdAt: new Date("2026-04-19T01:00:00.000Z"),
+        actorUser: {
+          id: "admin-1",
+          fullName: "Ops Admin",
+          email: "admin@example.com"
+        }
+      }
+    ]);
+
+    const result = await service.listDiagnosticsActivity(5);
+
+    expect(prisma.auditLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          entityType: "HEALTH_DIAGNOSTIC"
+        },
+        take: 5
+      })
+    );
+    expect(result[0]).toMatchObject({
+      action: "health.diagnostics.test_email",
+      entityType: "HEALTH_DIAGNOSTIC"
+    });
+  });
 });

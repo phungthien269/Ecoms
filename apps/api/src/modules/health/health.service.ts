@@ -1,6 +1,8 @@
 import { Injectable, ServiceUnavailableException } from "@nestjs/common";
 import type { DependencyHealthEntry, HealthStatus, ReadinessStatus } from "@ecoms/contracts";
 import { ConfigService } from "@nestjs/config";
+import type { AuthPayload } from "../auth/types/auth-payload";
+import { AuditLogsService } from "../auditLogs/audit-logs.service";
 import { FilesService } from "../files/files.service";
 import { MailerService } from "../mailer/mailer.service";
 import { PaymentExpirySchedulerService } from "../payments/payment-expiry-scheduler.service";
@@ -14,6 +16,7 @@ export class HealthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly auditLogsService: AuditLogsService,
     private readonly mailerService: MailerService,
     private readonly filesService: FilesService,
     private readonly rateLimitService: RateLimitService,
@@ -59,7 +62,7 @@ export class HealthService {
     return this.getReadiness();
   }
 
-  async sendTestEmail(recipientEmail: string, subject?: string) {
+  async sendTestEmail(actor: AuthPayload, recipientEmail: string, subject?: string) {
     const marketplaceName = await this.getMarketplaceName();
     const resolvedSubject = subject?.trim() || `${marketplaceName} diagnostics test email`;
     const result = await this.mailerService.sendSafely({
@@ -70,6 +73,21 @@ export class HealthService {
       tags: ["diagnostics", "test-email"]
     });
 
+    await this.auditLogsService.record({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: "health.diagnostics.test_email",
+      entityType: "HEALTH_DIAGNOSTIC",
+      entityId: recipientEmail,
+      summary: `Triggered diagnostics test email to ${recipientEmail}`,
+      metadata: {
+        driver: result.driver,
+        accepted: result.accepted,
+        recipientEmail,
+        subject: resolvedSubject
+      }
+    });
+
     return {
       accepted: result.accepted,
       driver: result.driver,
@@ -78,8 +96,30 @@ export class HealthService {
     };
   }
 
-  async getMediaUploadSample() {
-    return this.filesService.createDiagnosticUploadSample();
+  async getMediaUploadSample(actor: AuthPayload) {
+    const sample = await this.filesService.createDiagnosticUploadSample();
+
+    await this.auditLogsService.record({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: "health.diagnostics.media_upload_sample",
+      entityType: "HEALTH_DIAGNOSTIC",
+      entityId: sample.objectKey,
+      summary: `Generated diagnostics media upload sample for ${sample.driver}`,
+      metadata: {
+        driver: sample.driver,
+        objectKey: sample.objectKey,
+        strategy: sample.upload.strategy,
+        method: sample.upload.method,
+        expiresAt: sample.upload.expiresAt
+      }
+    });
+
+    return sample;
+  }
+
+  async getDiagnosticsActivity() {
+    return this.auditLogsService.listDiagnosticsActivity();
   }
 
   private toDetails(value: object): Record<string, unknown> {

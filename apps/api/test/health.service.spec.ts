@@ -39,10 +39,15 @@ describe("HealthService", () => {
   const systemSettingsService = {
     getBooleanValue: jest.fn().mockResolvedValue(true)
   };
+  const auditLogsService = {
+    record: jest.fn(),
+    listDiagnosticsActivity: jest.fn()
+  };
 
   const service = new HealthService(
     prisma as never,
     configService as never,
+    auditLogsService as never,
     mailerService as never,
     filesService as never,
     rateLimitService as never,
@@ -54,6 +59,7 @@ describe("HealthService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     systemSettingsService.getBooleanValue.mockResolvedValue(true);
+    auditLogsService.listDiagnosticsActivity.mockResolvedValue([]);
     prisma.ping.mockResolvedValue(true);
     mailerService.getDiagnostics.mockReturnValue({
       driver: "console",
@@ -291,13 +297,23 @@ describe("HealthService", () => {
   });
 
   it("sends a diagnostics test email through the configured mailer", async () => {
-    const result = await service.sendTestEmail("ops@example.com", "Ops drill");
+    const result = await service.sendTestEmail(
+      { sub: "admin-1", email: "admin@example.com", role: "ADMIN" },
+      "ops@example.com",
+      "Ops drill"
+    );
 
     expect(mailerService.sendSafely).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "ops@example.com",
         subject: "Ops drill",
         tags: ["diagnostics", "test-email"]
+      })
+    );
+    expect(auditLogsService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "health.diagnostics.test_email",
+        entityType: "HEALTH_DIAGNOSTIC"
       })
     );
     expect(result).toEqual({
@@ -309,14 +325,49 @@ describe("HealthService", () => {
   });
 
   it("returns a live media upload sample for diagnostics surfaces", async () => {
-    const result = await service.getMediaUploadSample();
+    const result = await service.getMediaUploadSample({
+      sub: "admin-1",
+      email: "admin@example.com",
+      role: "ADMIN"
+    });
 
     expect(filesService.createDiagnosticUploadSample).toHaveBeenCalled();
+    expect(auditLogsService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "health.diagnostics.media_upload_sample",
+        entityType: "HEALTH_DIAGNOSTIC"
+      })
+    );
     expect(result).toEqual(
       expect.objectContaining({
         driver: "local",
         objectKey: "healthchecks/sample.txt"
       })
     );
+  });
+
+  it("returns recent diagnostics activity for operator trace", async () => {
+    auditLogsService.listDiagnosticsActivity.mockResolvedValue([
+      {
+        id: "audit-health-1",
+        actorRole: "ADMIN",
+        action: "health.diagnostics.test_email",
+        entityType: "HEALTH_DIAGNOSTIC",
+        entityId: "ops@example.com",
+        summary: "Triggered diagnostics test email to ops@example.com",
+        metadata: { accepted: true, driver: "console" },
+        createdAt: "2026-04-19T01:00:00.000Z",
+        actorUser: {
+          id: "admin-1",
+          fullName: "Ops Admin",
+          email: "admin@example.com"
+        }
+      }
+    ]);
+
+    const result = await service.getDiagnosticsActivity();
+
+    expect(auditLogsService.listDiagnosticsActivity).toHaveBeenCalledWith();
+    expect(result).toHaveLength(1);
   });
 });

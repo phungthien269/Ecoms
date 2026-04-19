@@ -30,6 +30,13 @@ export class HealthController {
     return this.healthService.getDiagnostics();
   }
 
+  @Get("diagnostics/history")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  async getDiagnosticsHistory() {
+    return this.healthService.getDiagnosticsActivity();
+  }
+
   @Post("diagnostics/test-email")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
@@ -38,6 +45,7 @@ export class HealthController {
     @CurrentUser() user: AuthPayload
   ) {
     return this.healthService.sendTestEmail(
+      user,
       payload.recipientEmail,
       payload.subject || `Diagnostics test from ${user.email}`
     );
@@ -46,7 +54,7 @@ export class HealthController {
   @Get("diagnostics/media-upload-sample")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
-  async getMediaUploadSample() {
-    return this.healthService.getMediaUploadSample();
+  async getMediaUploadSample(@CurrentUser() user: AuthPayload) {
+    return this.healthService.getMediaUploadSample(user);
   }
 }

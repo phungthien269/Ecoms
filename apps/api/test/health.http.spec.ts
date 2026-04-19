@@ -11,6 +11,7 @@ describe("HealthController (http)", () => {
     getHealth: jest.fn(),
     assertReady: jest.fn(),
     getDiagnostics: jest.fn(),
+    getDiagnosticsActivity: jest.fn(),
     sendTestEmail: jest.fn(),
     getMediaUploadSample: jest.fn()
   } satisfies Partial<HealthService>;
@@ -78,6 +79,35 @@ describe("HealthController (http)", () => {
     expect(healthService.getDiagnostics).toHaveBeenCalled();
   });
 
+  it("allows admin diagnostics history access", async () => {
+    healthService.getDiagnosticsActivity.mockResolvedValue([
+      {
+        id: "audit-health-1",
+        actorRole: "ADMIN",
+        action: "health.diagnostics.test_email",
+        entityType: "HEALTH_DIAGNOSTIC",
+        entityId: "ops@example.com",
+        summary: "Triggered diagnostics test email to ops@example.com",
+        metadata: { accepted: true, driver: "console" },
+        createdAt: "2026-04-19T01:00:00.000Z",
+        actorUser: {
+          id: "admin-1",
+          fullName: "Ops Admin",
+          email: "admin@example.com"
+        }
+      }
+    ]);
+
+    const response = await request(app.getHttpServer())
+      .get("/api/health/diagnostics/history")
+      .set("x-test-user-id", "admin-1")
+      .set("x-test-user-role", UserRole.ADMIN);
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(healthService.getDiagnosticsActivity).toHaveBeenCalled();
+  });
+
   it("allows admin to send a diagnostics test email", async () => {
     healthService.sendTestEmail.mockResolvedValue({
       accepted: true,
@@ -97,7 +127,14 @@ describe("HealthController (http)", () => {
 
     expect(response.status).toBe(201);
     expect(response.body.success).toBe(true);
-    expect(healthService.sendTestEmail).toHaveBeenCalledWith("ops@example.com", "Ops drill");
+    expect(healthService.sendTestEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sub: "admin-1",
+        role: UserRole.ADMIN
+      }),
+      "ops@example.com",
+      "Ops drill"
+    );
   });
 
   it("allows admin to request a media upload sample", async () => {

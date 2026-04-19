@@ -118,6 +118,27 @@ export class AuditLogsService {
     };
   }
 
+  async listDiagnosticsActivity(limit = 10) {
+    const items = await this.prisma.auditLog.findMany({
+      where: {
+        entityType: "HEALTH_DIAGNOSTIC"
+      },
+      include: {
+        actorUser: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true
+          }
+        }
+      },
+      orderBy: [{ createdAt: "desc" }],
+      take: limit
+    });
+
+    return items.map((item) => this.serialize(item));
+  }
+
   async record(
     payload: {
       actorUserId?: string | null;

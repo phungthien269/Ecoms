@@ -3,7 +3,11 @@ import Link from "next/link";
 import { expireStalePaymentsAction, sendDiagnosticsTestEmailAction } from "@/app/actions/admin";
 import { AdminFlashBanner } from "@/components/admin/adminFlashBanner";
 import { EmptyState } from "@/components/storefront/emptyState";
-import { getDiagnosticsMediaUploadSample, getSystemDiagnostics } from "@/lib/commerceApi";
+import {
+  getDiagnosticsActivity,
+  getDiagnosticsMediaUploadSample,
+  getSystemDiagnostics
+} from "@/lib/commerceApi";
 import { normalizeAdminParams } from "@/lib/admin";
 import { getDemoSession } from "@/lib/session";
 
@@ -17,9 +21,10 @@ export default async function AdminDiagnosticsPage({
   const session = await getDemoSession();
   const resolvedParams = searchParams ? await searchParams : {};
   const params = normalizeAdminParams(resolvedParams);
-  const [diagnostics, mediaUploadSample] = await Promise.all([
+  const [diagnostics, mediaUploadSample, diagnosticsActivity] = await Promise.all([
     getSystemDiagnostics(),
-    getDiagnosticsMediaUploadSample()
+    getDiagnosticsMediaUploadSample(),
+    getDiagnosticsActivity()
   ]);
 
   if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.role)) {
@@ -280,6 +285,66 @@ export default async function AdminDiagnosticsPage({
             ) : (
               <div className="mt-6 rounded-[1.25rem] bg-slate-50 p-4 text-sm text-slate-500">
                 Upload sample unavailable right now.
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">
+                Operator trace
+              </div>
+              <h2 className="mt-2 text-2xl font-black text-slate-950">Recent diagnostics activity</h2>
+            </div>
+            <Link
+              href={"/admin/audit?action=health.diagnostics&entityType=HEALTH_DIAGNOSTIC" as Route}
+              className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+            >
+              Open full audit
+            </Link>
+          </div>
+
+          <div className="mt-6 space-y-3">
+            {diagnosticsActivity.length > 0 ? (
+              diagnosticsActivity.map((item) => (
+                <div key={item.id} className="rounded-[1.5rem] bg-slate-50 p-4">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <div className="font-semibold text-slate-950">{item.summary}</div>
+                      <div className="mt-1 text-sm text-slate-500">
+                        {item.actorUser?.fullName ?? item.actorRole} • {item.action}
+                      </div>
+                      {item.metadata ? (
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                          {Object.entries(item.metadata)
+                            .filter(([key]) => key !== "requestId")
+                            .map(([key, value]) => (
+                              <div
+                                key={key}
+                                className="rounded-[1rem] bg-white px-3 py-3 text-xs text-slate-600"
+                              >
+                                <div className="font-semibold uppercase tracking-[0.14em] text-slate-400">
+                                  {key}
+                                </div>
+                                <div className="mt-1 break-all text-slate-700">
+                                  {typeof value === "object" ? JSON.stringify(value) : String(value)}
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
+                      {new Date(item.createdAt).toLocaleString("vi-VN")}
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="rounded-[1.5rem] bg-slate-50 p-5 text-sm text-slate-500">
+                No diagnostics drills have been recorded yet.
               </div>
             )}
           </div>

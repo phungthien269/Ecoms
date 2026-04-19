@@ -580,6 +580,8 @@ export interface AuditLogItem {
   } | null;
 }
 
+export type DiagnosticsActivityItem = AuditLogItem;
+
 export interface SystemSettingItem {
   key: string;
   category: string;
@@ -968,6 +970,10 @@ export async function getSystemDiagnostics() {
 
 export async function getDiagnosticsMediaUploadSample() {
   return requestAuthedJson<MediaUploadSampleData>("/health/diagnostics/media-upload-sample");
+}
+
+export async function getDiagnosticsActivity() {
+  return (await requestAuthedJson<DiagnosticsActivityItem[]>("/health/diagnostics/history")) ?? [];
 }
 
 export async function getAdminReviews() {
