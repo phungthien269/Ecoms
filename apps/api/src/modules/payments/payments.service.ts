@@ -19,6 +19,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { AuditLogsService } from "../auditLogs/audit-logs.service";
 import type { AuthPayload } from "../auth/types/auth-payload";
 import type { AdminReplayMockWebhookDto } from "./dto/admin-replay-mock-webhook.dto";
+import type { ListAdminPaymentsDto } from "./dto/list-admin-payments.dto";
 import { PaymentEventsService } from "./payment-events.service";
 import { PaymentGatewayService } from "./payment-gateway.service";
 import { PaymentLifecycleService } from "./payment-lifecycle.service";
@@ -133,6 +134,159 @@ export class PaymentsService {
     });
 
     return result;
+  }
+
+  async listAdmin(query: ListAdminPaymentsDto) {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 12;
+    const where: Prisma.PaymentWhereInput = {
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.paymentMethod ? { method: query.paymentMethod } : {}),
+      ...(query.eventType
+        ? {
+            events: {
+              some: {
+                eventType: {
+                  contains: query.eventType,
+                  mode: "insensitive"
+                }
+              }
+            }
+          }
+        : {}),
+      ...(query.search
+        ? {
+            OR: [
+              {
+                referenceCode: {
+                  contains: query.search,
+                  mode: "insensitive"
+                }
+              },
+              {
+                order: {
+                  is: {
+                    orderNumber: {
+                      contains: query.search,
+                      mode: "insensitive"
+                    }
+                  }
+                }
+              },
+              {
+                user: {
+                  is: {
+                    fullName: {
+                      contains: query.search,
+                      mode: "insensitive"
+                    }
+                  }
+                }
+              },
+              {
+                user: {
+                  is: {
+                    email: {
+                      contains: query.search,
+                      mode: "insensitive"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        : {})
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.payment.findMany({
+        where,
+        orderBy: [{ createdAt: "desc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          user: {
+            select: {
+              id: true,
+              fullName: true,
+              email: true
+            }
+          },
+          order: {
+            select: {
+              id: true,
+              orderNumber: true,
+              status: true,
+              shop: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true
+                }
+              }
+            }
+          },
+          events: {
+            include: {
+              actorUser: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  role: true
+                }
+              }
+            },
+            orderBy: [{ createdAt: "desc" }],
+            take: 5
+          }
+        }
+      }),
+      this.prisma.payment.count({ where })
+    ]);
+
+    return {
+      items: items.map((payment) => ({
+        id: payment.id,
+        method: payment.method,
+        status: payment.status,
+        amount: payment.amount.toString(),
+        referenceCode: payment.referenceCode,
+        expiresAt: payment.expiresAt?.toISOString() ?? null,
+        paidAt: payment.paidAt?.toISOString() ?? null,
+        createdAt: payment.createdAt.toISOString(),
+        updatedAt: payment.updatedAt.toISOString(),
+        user: payment.user,
+        order: {
+          id: payment.order.id,
+          orderNumber: payment.order.orderNumber,
+          status: payment.order.status,
+          shop: payment.order.shop
+        },
+        recentEvents: payment.events.map((event) => ({
+          id: event.id,
+          eventType: event.eventType,
+          source: event.source,
+          actorType: event.actorType,
+          actorUser: event.actorUser
+            ? {
+                id: event.actorUser.id,
+                fullName: event.actorUser.fullName,
+                role: event.actorUser.role
+              }
+            : null,
+          previousStatus: event.previousStatus,
+          nextStatus: event.nextStatus,
+          payload: (event.payload as Record<string, unknown> | null) ?? null,
+          createdAt: event.createdAt.toISOString()
+        }))
+      })),
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize))
+      }
+    };
   }
 
   async getAdminTrace(query: { paymentId?: string; referenceCode?: string }) {

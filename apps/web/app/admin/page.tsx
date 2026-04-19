@@ -111,6 +111,12 @@ export default async function AdminPage({
       description: "Full backlog with payment/status filters and terminal overrides."
     },
     {
+      href: "/admin/payments" as Route,
+      label: "Payments",
+      value: dashboard.stats.pendingPayments,
+      description: "Gateway references, payment traces, expiry state, and recent payment events."
+    },
+    {
       href: "/admin/products" as Route,
       label: "Products",
       value: dashboard.stats.totalProducts,

@@ -12,6 +12,8 @@ describe("PaymentsService", () => {
   const prisma = {
     payment: {
       findFirst: jest.fn(),
+      findMany: jest.fn(),
+      count: jest.fn(),
       update: jest.fn()
     },
     shop: {
@@ -55,9 +57,13 @@ describe("PaymentsService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     paymentGatewayService.signWebhookPayload.mockImplementation(signWebhookPayload);
-    prisma.$transaction.mockImplementation(async (callback: (tx: typeof prisma) => unknown) =>
-      callback(prisma)
-    );
+    prisma.$transaction.mockImplementation(async (input: unknown) => {
+      if (Array.isArray(input)) {
+        return Promise.all(input);
+      }
+
+      return (input as (tx: typeof prisma) => unknown)(prisma);
+    });
   });
 
   it("confirms a pending non-COD payment and updates the order", async () => {
@@ -374,6 +380,98 @@ describe("PaymentsService", () => {
         updatedAt: "2026-04-20T10:05:00.000Z"
       },
       events: [
+        {
+          id: "event-1",
+          eventType: "PAYMENT_CREATED",
+          source: "checkout",
+          actorType: "CHECKOUT",
+          actorUser: null,
+          previousStatus: null,
+          nextStatus: PaymentStatus.PENDING,
+          payload: null,
+          createdAt: "2026-04-20T10:00:00.000Z"
+        }
+      ]
+    });
+  });
+
+  it("lists admin payments with recent events", async () => {
+    prisma.payment.findMany.mockResolvedValue([
+      {
+        id: "payment-list-1",
+        method: PaymentMethod.ONLINE_GATEWAY,
+        status: PaymentStatus.PENDING,
+        amount: new (require("@prisma/client").Prisma.Decimal)(722000),
+        referenceCode: "PAY-LIST-1",
+        expiresAt: new Date("2026-04-20T10:15:00.000Z"),
+        paidAt: null,
+        createdAt: new Date("2026-04-20T10:00:00.000Z"),
+        updatedAt: new Date("2026-04-20T10:00:00.000Z"),
+        user: {
+          id: "user-1",
+          fullName: "Demo Buyer",
+          email: "buyer@ecoms.local"
+        },
+        order: {
+          id: "order-1",
+          orderNumber: "ORD-1",
+          status: OrderStatus.PENDING,
+          shop: {
+            id: "shop-1",
+            name: "Demo Shop",
+            slug: "demo-shop"
+          }
+        },
+        events: [
+          {
+            id: "event-1",
+            eventType: "PAYMENT_CREATED",
+            source: "checkout",
+            actorType: "CHECKOUT",
+            actorUser: null,
+            previousStatus: null,
+            nextStatus: PaymentStatus.PENDING,
+            payload: null,
+            createdAt: new Date("2026-04-20T10:00:00.000Z")
+          }
+        ]
+      }
+    ]);
+    prisma.payment.count.mockResolvedValue(1);
+
+    const result = await service.listAdmin({
+      page: 1,
+      pageSize: 12,
+      status: PaymentStatus.PENDING
+    });
+
+    expect(result.pagination.total).toBe(1);
+    expect(result.items[0]).toEqual({
+      id: "payment-list-1",
+      method: PaymentMethod.ONLINE_GATEWAY,
+      status: PaymentStatus.PENDING,
+      amount: "722000",
+      referenceCode: "PAY-LIST-1",
+      expiresAt: "2026-04-20T10:15:00.000Z",
+      paidAt: null,
+      createdAt: "2026-04-20T10:00:00.000Z",
+      updatedAt: "2026-04-20T10:00:00.000Z",
+      user: {
+        id: "user-1",
+        fullName: "Demo Buyer",
+        email: "buyer@ecoms.local"
+      },
+      order: {
+        id: "order-1",
+        orderNumber: "ORD-1",
+        status: OrderStatus.PENDING,
+        shop: {
+          id: "shop-1",
+          name: "Demo Shop",
+          slug: "demo-shop"
+        }
+      },
+      recentEvents: [
         {
           id: "event-1",
           eventType: "PAYMENT_CREATED",

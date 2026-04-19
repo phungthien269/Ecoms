@@ -6,6 +6,7 @@ import type { AuthPayload } from "../auth/types/auth-payload";
 import { Roles } from "../rbac/decorators/roles.decorator";
 import { RolesGuard } from "../rbac/guards/roles.guard";
 import { AdminReplayMockWebhookDto } from "./dto/admin-replay-mock-webhook.dto";
+import { ListAdminPaymentsDto } from "./dto/list-admin-payments.dto";
 import { MockPaymentWebhookDto } from "./dto/mock-payment-webhook.dto";
 import { PaymentTraceQueryDto } from "./dto/payment-trace-query.dto";
 import { PaymentsService } from "./payments.service";
@@ -50,5 +51,12 @@ export class PaymentsController {
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   getAdminTrace(@Query() query: PaymentTraceQueryDto) {
     return this.paymentsService.getAdminTrace(query);
+  }
+
+  @Get("admin")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  listAdmin(@Query() query: ListAdminPaymentsDto) {
+    return this.paymentsService.listAdmin(query);
   }
 }

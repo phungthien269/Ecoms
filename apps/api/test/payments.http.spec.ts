@@ -13,7 +13,8 @@ describe("PaymentsController (http)", () => {
     handleMockWebhook: jest.fn(),
     expireStalePendingPayments: jest.fn(),
     replayMockWebhook: jest.fn(),
-    getAdminTrace: jest.fn()
+    getAdminTrace: jest.fn(),
+    listAdmin: jest.fn()
   } satisfies Partial<PaymentsService>;
 
   beforeAll(async () => {
@@ -161,6 +162,33 @@ describe("PaymentsController (http)", () => {
     expect(response.body.success).toBe(true);
     expect(paymentsService.getAdminTrace).toHaveBeenCalledWith({
       referenceCode: "PAY-9"
+    });
+  });
+
+  it("lets admins list payments backlog", async () => {
+    paymentsService.listAdmin.mockResolvedValue({
+      items: [],
+      pagination: {
+        page: 1,
+        pageSize: 12,
+        total: 0,
+        totalPages: 1
+      }
+    });
+
+    const response = await request(app.getHttpServer())
+      .get("/api/payments/admin?status=PENDING&paymentMethod=ONLINE_GATEWAY&eventType=PAYMENT_CREATED")
+      .set("x-test-user-id", "admin-1")
+      .set("x-test-user-role", "ADMIN");
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(paymentsService.listAdmin).toHaveBeenCalledWith({
+      status: "PENDING",
+      paymentMethod: "ONLINE_GATEWAY",
+      eventType: "PAYMENT_CREATED",
+      page: 1,
+      pageSize: 12
     });
   });
 });

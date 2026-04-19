@@ -296,6 +296,34 @@ export interface PaymentTraceSummary {
   events: PaymentEventSummary[];
 }
 
+export interface AdminPaymentSummary {
+  id: string;
+  method: PaymentMethod;
+  status: PaymentStatus;
+  amount: string;
+  referenceCode: string;
+  expiresAt: string | null;
+  paidAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  user: {
+    id: string;
+    fullName: string;
+    email: string;
+  };
+  order: {
+    id: string;
+    orderNumber: string;
+    status: OrderStatus;
+    shop: {
+      id: string;
+      name: string;
+      slug: string;
+    };
+  };
+  recentEvents: PaymentEventSummary[];
+}
+
 export interface OrderShippingUpdateWindowSummary {
   canEdit: boolean;
   lockedReason: string | null;

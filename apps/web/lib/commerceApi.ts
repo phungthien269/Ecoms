@@ -753,6 +753,34 @@ export interface AdminOrderItem {
   }>;
 }
 
+export interface AdminPaymentItem {
+  id: string;
+  method: string;
+  status: string;
+  amount: string;
+  referenceCode: string;
+  expiresAt: string | null;
+  paidAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  user: {
+    id: string;
+    fullName: string;
+    email: string;
+  };
+  order: {
+    id: string;
+    orderNumber: string;
+    status: string;
+    shop: {
+      id: string;
+      name: string;
+      slug: string;
+    };
+  };
+  recentEvents: PaymentEventItem[];
+}
+
 export interface VoucherSummary {
   id: string;
   code: string;
@@ -1152,6 +1180,29 @@ export async function getAdminOrdersPage(query?: {
   return (
     (await requestAuthedJson<PaginatedResponse<AdminOrderItem>>(
       `/orders/admin${buildQueryString(query)}`
+    )) ?? {
+      items: [],
+      pagination: {
+        page: 1,
+        pageSize: query?.pageSize ?? 12,
+        total: 0,
+        totalPages: 1
+      }
+    }
+  );
+}
+
+export async function getAdminPaymentsPage(query?: {
+  search?: string;
+  status?: string;
+  paymentMethod?: string;
+  eventType?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  return (
+    (await requestAuthedJson<PaginatedResponse<AdminPaymentItem>>(
+      `/payments/admin${buildQueryString(query)}`
     )) ?? {
       items: [],
       pagination: {

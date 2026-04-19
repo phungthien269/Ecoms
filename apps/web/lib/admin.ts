@@ -11,6 +11,10 @@ export interface AdminListSearchParams {
   role?: string;
   isActive?: string;
   paymentMethod?: string;
+  eventType?: string;
+  referenceCode?: string;
+  tracePaymentId?: string;
+  traceReferenceCode?: string;
   targetType?: string;
   shopStatus?: string;
   page?: string;
@@ -36,6 +40,10 @@ export function normalizeAdminParams(
     role: getSingleValue(searchParams?.role),
     isActive: getSingleValue(searchParams?.isActive),
     paymentMethod: getSingleValue(searchParams?.paymentMethod),
+    eventType: getSingleValue(searchParams?.eventType),
+    referenceCode: getSingleValue(searchParams?.referenceCode),
+    tracePaymentId: getSingleValue(searchParams?.tracePaymentId),
+    traceReferenceCode: getSingleValue(searchParams?.traceReferenceCode),
     targetType: getSingleValue(searchParams?.targetType),
     shopStatus: getSingleValue(searchParams?.shopStatus),
     page: getSingleValue(searchParams?.page)

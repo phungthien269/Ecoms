@@ -264,6 +264,31 @@ export default async function SellerOrderDetailPage({
                   </div>
                 )}
               </div>
+              {latestPayment?.events.length ? (
+                <div className="mt-5 space-y-2 border-t border-orange-200 pt-4">
+                  <div className="text-xs font-semibold uppercase tracking-[0.16em] text-orange-600">
+                    Payment timeline
+                  </div>
+                  {latestPayment.events.map((event) => (
+                    <div key={event.id} className="rounded-[1rem] bg-white px-3 py-3">
+                      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                        {event.eventType}
+                      </div>
+                      <div className="mt-1 text-sm font-medium text-slate-950">
+                        {event.previousStatus ? `${event.previousStatus} -> ` : ""}{event.nextStatus}
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        {event.actorUser
+                          ? `${event.actorUser.fullName} • ${event.actorType}`
+                          : `${event.actorType} • ${event.source}`}
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        {new Date(event.createdAt).toLocaleString("vi-VN")}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </section>
 
             <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
