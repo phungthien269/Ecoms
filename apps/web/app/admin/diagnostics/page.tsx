@@ -516,12 +516,20 @@ export default async function AdminDiagnosticsPage({
                       {paymentTrace.payment.method} • {paymentTrace.payment.status} • {paymentTrace.payment.orderNumber}
                     </div>
                   </div>
-                  <Link
-                    href={`/orders/${paymentTrace.payment.orderId}` as Route}
-                    className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
-                  >
-                    Open order
-                  </Link>
+                  <div className="flex flex-wrap gap-2">
+                    <Link
+                      href={`/admin/payments/${paymentTrace.payment.id}` as Route}
+                      className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+                    >
+                      Open payment
+                    </Link>
+                    <Link
+                      href={`/orders/${paymentTrace.payment.orderId}` as Route}
+                      className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+                    >
+                      Open order
+                    </Link>
+                  </div>
                 </div>
                 <div className="mt-4 grid gap-2 sm:grid-cols-2">
                   <div className="rounded-[1rem] bg-slate-50 px-3 py-3 text-xs text-slate-600">

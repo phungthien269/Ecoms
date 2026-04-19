@@ -42,10 +42,6 @@ export default async function AdminPaymentsPage({
   }
 
   const cleanParams = clearAdminFlash(params);
-  const traceBaseParams = {
-    ...cleanParams,
-    page: undefined
-  };
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -57,7 +53,7 @@ export default async function AdminPaymentsPage({
             </p>
             <h1 className="text-3xl font-black text-slate-950">Payments</h1>
             <p className="max-w-2xl text-sm text-slate-500">
-              Search gateway references, filter by status or event type, and jump straight into payment trace diagnostics.
+              Search gateway references, filter by status or event type, and open a dedicated payment investigation workspace for each payment.
             </p>
           </div>
           <Link
@@ -171,7 +167,7 @@ export default async function AdminPaymentsPage({
                   <h3 className="text-lg font-bold text-slate-950">Pending gateway queue</h3>
                   <Link
                     href={buildAdminHref("/admin/payments", {
-                      ...traceBaseParams,
+                      ...cleanParams,
                       page: "1",
                       paymentMethod: "ONLINE_GATEWAY",
                       status: "PENDING"
@@ -193,13 +189,10 @@ export default async function AdminPaymentsPage({
                             </div>
                           </div>
                           <Link
-                            href={buildAdminHref("/admin/diagnostics", {
-                              ...traceBaseParams,
-                              traceReferenceCode: payment.referenceCode
-                            }) as Route}
+                            href={`/admin/payments/${payment.id}` as Route}
                             className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
                           >
-                            Trace
+                            Open
                           </Link>
                         </div>
                         <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-500">
@@ -283,13 +276,10 @@ export default async function AdminPaymentsPage({
                         {new Date(payment.createdAt).toLocaleString("vi-VN")}
                       </div>
                       <Link
-                        href={buildAdminHref("/admin/diagnostics", {
-                          ...traceBaseParams,
-                          traceReferenceCode: payment.referenceCode
-                        }) as Route}
+                        href={`/admin/payments/${payment.id}` as Route}
                         className="mt-3 inline-flex rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
                       >
-                        Open trace
+                        Open payment
                       </Link>
                     </div>
                   </div>

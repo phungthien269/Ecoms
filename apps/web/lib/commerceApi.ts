@@ -587,6 +587,16 @@ export interface PaymentTraceData {
     orderId: string;
     orderNumber: string;
     orderStatus: string;
+    user: {
+      id: string;
+      fullName: string;
+      email: string;
+    };
+    shop: {
+      id: string;
+      name: string;
+      slug: string;
+    };
     method: string;
     status: string;
     amount: string;

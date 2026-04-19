@@ -442,10 +442,20 @@ describe("PaymentsService", () => {
       metadata: { provider: "mock_gateway" },
       createdAt: new Date("2026-04-20T10:00:00.000Z"),
       updatedAt: new Date("2026-04-20T10:05:00.000Z"),
+      user: {
+        id: "user-1",
+        fullName: "Demo Buyer",
+        email: "buyer@ecoms.local"
+      },
       order: {
         id: "order-trace-1",
         orderNumber: "ORD-TRACE-1",
-        status: OrderStatus.CONFIRMED
+        status: OrderStatus.CONFIRMED,
+        shop: {
+          id: "shop-1",
+          name: "Demo Shop",
+          slug: "demo-shop"
+        }
       }
     });
     paymentEventsService.listForPayment.mockResolvedValue([
@@ -473,6 +483,16 @@ describe("PaymentsService", () => {
         orderId: "order-trace-1",
         orderNumber: "ORD-TRACE-1",
         orderStatus: OrderStatus.CONFIRMED,
+        user: {
+          id: "user-1",
+          fullName: "Demo Buyer",
+          email: "buyer@ecoms.local"
+        },
+        shop: {
+          id: "shop-1",
+          name: "Demo Shop",
+          slug: "demo-shop"
+        },
         method: PaymentMethod.ONLINE_GATEWAY,
         status: PaymentStatus.PAID,
         amount: "722000",

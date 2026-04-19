@@ -430,11 +430,25 @@ export class PaymentsService {
             referenceCode: query.referenceCode
           },
       include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true
+          }
+        },
         order: {
           select: {
             id: true,
             orderNumber: true,
-            status: true
+            status: true,
+            shop: {
+              select: {
+                id: true,
+                name: true,
+                slug: true
+              }
+            }
           }
         }
       }
@@ -452,6 +466,8 @@ export class PaymentsService {
         orderId: payment.orderId,
         orderNumber: payment.order.orderNumber,
         orderStatus: payment.order.status,
+        user: payment.user,
+        shop: payment.order.shop,
         method: payment.method,
         status: payment.status,
         amount: payment.amount.toString(),
