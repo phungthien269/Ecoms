@@ -45,6 +45,8 @@ describe("SystemSettingsService", () => {
     expect(result.find((item) => item.key === "shipping_fee_hcm")?.value).toBe(18000);
     expect(result.find((item) => item.key === "payment_expiry_sweep_enabled")?.value).toBe(true);
     expect(result.find((item) => item.key === "payment_expiry_sweep_interval_seconds")?.value).toBe(60);
+    expect(result.find((item) => item.key === "payment_online_gateway_enabled")?.value).toBe(true);
+    expect(result.find((item) => item.key === "payment_incident_message")?.value).toBe("");
   });
 
   it("updates a setting and records an audit log", async () => {
@@ -96,6 +98,14 @@ describe("SystemSettingsService", () => {
         return { key: "order_auto_complete_days", value: 5 };
       }
 
+      if (where.key === "payment_online_gateway_enabled") {
+        return { key: "payment_online_gateway_enabled", value: false };
+      }
+
+      if (where.key === "payment_incident_message") {
+        return { key: "payment_incident_message", value: "Gateway under maintenance" };
+      }
+
       return null;
     });
 
@@ -105,7 +115,9 @@ describe("SystemSettingsService", () => {
       marketplaceName: "Ops Demo",
       supportEmail: "ops@example.com",
       paymentTimeoutMinutes: 20,
-      orderAutoCompleteDays: 5
+      orderAutoCompleteDays: 5,
+      paymentOnlineGatewayEnabled: false,
+      paymentIncidentMessage: "Gateway under maintenance"
     });
   });
 
@@ -160,5 +172,30 @@ describe("SystemSettingsService", () => {
       previousValue: 15,
       nextValue: 25
     });
+  });
+
+  it("allows clearing the payment incident message", async () => {
+    prisma.systemSetting.findUnique.mockResolvedValue({
+      key: "payment_incident_message",
+      value: "Old incident"
+    });
+    prisma.systemSetting.upsert.mockResolvedValue({
+      key: "payment_incident_message",
+      value: "",
+      updatedAt: new Date("2026-04-19T01:00:00.000Z"),
+      updatedBy: {
+        id: "super-1",
+        fullName: "Super Admin",
+        email: "super@example.com"
+      }
+    });
+
+    const result = await service.update(
+      { sub: "super-1", email: "super@example.com", role: "SUPER_ADMIN" },
+      "payment_incident_message",
+      ""
+    );
+
+    expect(result.value).toBe("");
   });
 });

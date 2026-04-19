@@ -95,7 +95,9 @@ export async function getPublicSystemSettings(): Promise<PublicSystemSettingsSum
       marketplaceName: "Ecoms Marketplace",
       supportEmail: "support@ecoms.local",
       paymentTimeoutMinutes: 15,
-      orderAutoCompleteDays: 3
+      orderAutoCompleteDays: 3,
+      paymentOnlineGatewayEnabled: true,
+      paymentIncidentMessage: null
     }
   );
 }

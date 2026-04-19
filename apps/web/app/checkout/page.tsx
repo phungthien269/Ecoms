@@ -13,6 +13,7 @@ import {
 } from "@/lib/commerceApi";
 import { readFlash } from "@/lib/feedback";
 import { getDemoSession } from "@/lib/session";
+import { getPublicSystemSettings } from "@/lib/storefrontApi";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,8 @@ const paymentMethodOptions = [
   {
     value: "ONLINE_GATEWAY",
     label: "Mock gateway",
-    description: "Creates pending payment for callback simulation."
+    description: "Creates pending payment for callback simulation.",
+    disabledDescription: "Temporarily unavailable while payment incident mode is active."
   }
 ] as const;
 
@@ -56,11 +58,12 @@ export default async function CheckoutPage({
   const session = await getDemoSession();
   const resolvedSearchParams = (await searchParams) ?? {};
   const flash = readFlash(resolvedSearchParams);
-  const [cart, platformVouchers, freeshipVouchers, savedAddresses] = await Promise.all([
+  const [cart, platformVouchers, freeshipVouchers, savedAddresses, publicSettings] = await Promise.all([
     getCart(),
     getCheckoutPlatformVouchers(),
     getCheckoutFreeshipVouchers(),
-    getAddresses()
+    getAddresses(),
+    getPublicSystemSettings()
   ]);
   const selectedAddressId = getOptionalQueryValue(resolvedSearchParams.addressId);
   const selectedSavedAddress =
@@ -113,12 +116,19 @@ export default async function CheckoutPage({
     resolvedSearchParams.paymentMethod,
     defaultCheckoutPayload.paymentMethod
   );
+  const effectivePaymentMethod =
+    selectedPaymentMethod === "ONLINE_GATEWAY" && !publicSettings.paymentOnlineGatewayEnabled
+      ? "BANK_TRANSFER"
+      : selectedPaymentMethod;
+  const paymentIncidentMessage =
+    publicSettings.paymentIncidentMessage ??
+    "Online gateway is temporarily unavailable. Please use bank transfer or COD.";
   const note = getOptionalQueryValue(resolvedSearchParams.note) ?? "";
   const platformCode = getOptionalQueryValue(resolvedSearchParams.platformCode) ?? "";
   const freeshipCode = getOptionalQueryValue(resolvedSearchParams.freeshipCode) ?? "";
   const shopVoucherMap = getShopVoucherMap(resolvedSearchParams.shopVoucher);
   const preview = await getCheckoutPreview({
-    paymentMethod: selectedPaymentMethod,
+    paymentMethod: effectivePaymentMethod,
     shippingAddress,
     vouchers: {
       platformCode: platformCode || undefined,
@@ -256,21 +266,39 @@ export default async function CheckoutPage({
                 <div>
                   <h2 className="text-xl font-bold text-slate-950">Payment method</h2>
                 </div>
+                {!publicSettings.paymentOnlineGatewayEnabled ? (
+                  <div className="rounded-[1.5rem] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    {paymentIncidentMessage}
+                  </div>
+                ) : null}
                 <div className="grid gap-3 sm:grid-cols-3">
                   {paymentMethodOptions.map((method) => (
                     <label
                       key={method.value}
-                      className="rounded-[1.5rem] border border-slate-200 p-4 text-sm text-slate-600"
+                      className={`rounded-[1.5rem] border p-4 text-sm ${
+                        method.value === "ONLINE_GATEWAY" && !publicSettings.paymentOnlineGatewayEnabled
+                          ? "border-slate-200 bg-slate-100 text-slate-400"
+                          : "border-slate-200 text-slate-600"
+                      }`}
                     >
                       <input
                         type="radio"
                         name="paymentMethod"
                         value={method.value}
-                        defaultChecked={method.value === selectedPaymentMethod}
+                        defaultChecked={method.value === effectivePaymentMethod}
+                        disabled={
+                          method.value === "ONLINE_GATEWAY" &&
+                          !publicSettings.paymentOnlineGatewayEnabled
+                        }
                         className="mb-3"
                       />
                       <div className="font-semibold text-slate-950">{method.label}</div>
-                      <div className="mt-1">{method.description}</div>
+                      <div className="mt-1">
+                        {method.value === "ONLINE_GATEWAY" &&
+                        !publicSettings.paymentOnlineGatewayEnabled
+                          ? method.disabledDescription
+                          : method.description}
+                      </div>
                     </label>
                   ))}
                 </div>
@@ -422,6 +450,10 @@ export default async function CheckoutPage({
               <div className="mb-4 rounded-[1.5rem] bg-white/80 px-4 py-3 text-sm text-slate-600">
                 {selectedPaymentMethod === "COD"
                   ? "COD orders will land directly in confirmed state."
+                  : effectivePaymentMethod === "BANK_TRANSFER" &&
+                      selectedPaymentMethod === "ONLINE_GATEWAY" &&
+                      !publicSettings.paymentOnlineGatewayEnabled
+                    ? "Online gateway is paused, so checkout preview was switched to bank transfer."
                   : "Online and bank-transfer orders stay pending until you confirm the payment from order detail."}
               </div>
               <div className="space-y-3">

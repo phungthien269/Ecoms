@@ -1,4 +1,4 @@
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, ConflictException } from "@nestjs/common";
 import {
   PaymentMethod,
   PaymentStatus,
@@ -99,11 +99,15 @@ describe("CheckoutService", () => {
   };
   const systemSettingsService = {
     getNumberValue: jest.fn().mockResolvedValue(15),
+    getBooleanValue: jest.fn().mockResolvedValue(true),
+    getStringValue: jest.fn().mockResolvedValue(""),
     getPublicSummary: jest.fn().mockResolvedValue({
       marketplaceName: "Ecoms Marketplace",
       supportEmail: "support@ecoms.local",
       paymentTimeoutMinutes: 15,
-      orderAutoCompleteDays: 3
+      orderAutoCompleteDays: 3,
+      paymentOnlineGatewayEnabled: true,
+      paymentIncidentMessage: null
     })
   };
 
@@ -133,6 +137,8 @@ describe("CheckoutService", () => {
 
       return mapping[key] ?? 15;
     });
+    systemSettingsService.getBooleanValue.mockResolvedValue(true);
+    systemSettingsService.getStringValue.mockResolvedValue("");
     paymentGatewayService.createPendingPaymentMetadata.mockImplementation(
       ({
         paymentMethod,
@@ -412,7 +418,9 @@ describe("CheckoutService", () => {
       marketplaceName: "Ops Demo",
       supportEmail: "ops@example.com",
       paymentTimeoutMinutes: 25,
-      orderAutoCompleteDays: 3
+      orderAutoCompleteDays: 3,
+      paymentOnlineGatewayEnabled: true,
+      paymentIncidentMessage: null
     });
     prisma.order.create.mockResolvedValue({
       id: "order-2",
@@ -534,5 +542,43 @@ describe("CheckoutService", () => {
     });
 
     expect(preview.totals.shippingFee).toBe("36000");
+  });
+
+  it("blocks online gateway preview when incident mode disables it", async () => {
+    systemSettingsService.getBooleanValue.mockResolvedValue(false);
+    systemSettingsService.getStringValue.mockResolvedValue("Gateway under maintenance");
+
+    await expect(
+      service.preview("user-1", {
+        paymentMethod: PaymentMethod.ONLINE_GATEWAY,
+        shippingAddress: {
+          recipientName: "Demo Buyer",
+          phoneNumber: "0900000000",
+          addressLine1: "123 Demo Street",
+          district: "District 1",
+          province: "Ho Chi Minh City",
+          regionCode: "HCM"
+        }
+      })
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it("blocks online gateway placement when incident mode disables it", async () => {
+    systemSettingsService.getBooleanValue.mockResolvedValue(false);
+    systemSettingsService.getStringValue.mockResolvedValue("Gateway under maintenance");
+
+    await expect(
+      service.placeOrder("user-1", {
+        paymentMethod: PaymentMethod.ONLINE_GATEWAY,
+        shippingAddress: {
+          recipientName: "Demo Buyer",
+          phoneNumber: "0900000000",
+          addressLine1: "123 Demo Street",
+          district: "District 1",
+          province: "Ho Chi Minh City",
+          regionCode: "HCM"
+        }
+      })
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 });

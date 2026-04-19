@@ -15,6 +15,7 @@ type SettingDefinition = {
   description: string;
   valueType: "STRING" | "NUMBER" | "BOOLEAN";
   defaultValue: string | number | boolean;
+  allowEmpty?: boolean;
   min?: number;
   max?: number;
 };
@@ -45,6 +46,23 @@ const settingDefinitions: SettingDefinition[] = [
     defaultValue: 15,
     min: 5,
     max: 60
+  },
+  {
+    key: "payment_online_gateway_enabled",
+    category: "checkout",
+    label: "Enable online gateway",
+    description: "Controls whether buyers may start new online gateway checkouts.",
+    valueType: "BOOLEAN",
+    defaultValue: true
+  },
+  {
+    key: "payment_incident_message",
+    category: "checkout",
+    label: "Payment incident message",
+    description: "Optional public message shown when online gateway checkout is unavailable.",
+    valueType: "STRING",
+    defaultValue: "",
+    allowEmpty: true
   },
   {
     key: "payment_expiry_sweep_enabled",
@@ -177,7 +195,9 @@ const publicSettingKeys = [
   "marketplace_name",
   "support_email",
   "payment_timeout_minutes",
-  "order_auto_complete_days"
+  "order_auto_complete_days",
+  "payment_online_gateway_enabled",
+  "payment_incident_message"
 ] as const;
 
 @Injectable()
@@ -224,19 +244,30 @@ export class SystemSettingsService {
   }
 
   async getPublicSummary(): Promise<PublicSystemSettingsSummary> {
-    const [marketplaceName, supportEmail, paymentTimeoutMinutes, orderAutoCompleteDays] =
+    const [
+      marketplaceName,
+      supportEmail,
+      paymentTimeoutMinutes,
+      orderAutoCompleteDays,
+      paymentOnlineGatewayEnabled,
+      paymentIncidentMessage
+    ] =
       await Promise.all([
         this.getStringValue("marketplace_name"),
         this.getStringValue("support_email"),
         this.getNumberValue("payment_timeout_minutes"),
-        this.getNumberValue("order_auto_complete_days")
+        this.getNumberValue("order_auto_complete_days"),
+        this.getBooleanValue("payment_online_gateway_enabled"),
+        this.getStringValue("payment_incident_message")
       ]);
 
     return {
       marketplaceName,
       supportEmail,
       paymentTimeoutMinutes,
-      orderAutoCompleteDays
+      orderAutoCompleteDays,
+      paymentOnlineGatewayEnabled,
+      paymentIncidentMessage: paymentIncidentMessage.trim() || null
     };
   }
 
@@ -459,7 +490,7 @@ export class SystemSettingsService {
   private parseValue(definition: SettingDefinition, rawValue: string) {
     if (definition.valueType === "STRING") {
       const value = rawValue.trim();
-      if (!value) {
+      if (!value && !definition.allowEmpty) {
         throw new BadRequestException(`${definition.label} cannot be empty`);
       }
       return value;

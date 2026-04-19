@@ -616,4 +616,6 @@ export interface PublicSystemSettingsSummary {
   supportEmail: string;
   paymentTimeoutMinutes: number;
   orderAutoCompleteDays: number;
+  paymentOnlineGatewayEnabled: boolean;
+  paymentIncidentMessage: string | null;
 }

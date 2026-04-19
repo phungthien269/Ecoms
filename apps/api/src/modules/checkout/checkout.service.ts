@@ -75,11 +75,13 @@ export class CheckoutService {
   ) {}
 
   async preview(userId: string, payload: CheckoutPreviewDto): Promise<CheckoutPreview> {
+    await this.assertPaymentMethodAvailable(payload.paymentMethod);
     const cartItems = await this.getValidatedCartItems(userId);
     return this.buildPreview(userId, cartItems, payload);
   }
 
   async placeOrder(userId: string, payload: CheckoutPreviewDto) {
+    await this.assertPaymentMethodAvailable(payload.paymentMethod);
     const cartItems = await this.getValidatedCartItems(userId);
     const preview = await this.buildPreview(userId, cartItems, payload);
     const placedAt = new Date();
@@ -389,6 +391,25 @@ export class CheckoutService {
     }
 
     return cartItems;
+  }
+
+  private async assertPaymentMethodAvailable(paymentMethod: PaymentMethod) {
+    if (paymentMethod !== PaymentMethod.ONLINE_GATEWAY) {
+      return;
+    }
+
+    const [isOnlineGatewayEnabled, incidentMessage] = await Promise.all([
+      this.systemSettingsService.getBooleanValue("payment_online_gateway_enabled"),
+      this.systemSettingsService.getStringValue("payment_incident_message")
+    ]);
+
+    if (isOnlineGatewayEnabled) {
+      return;
+    }
+
+    throw new ConflictException(
+      incidentMessage.trim() || "Online gateway is temporarily unavailable. Please use bank transfer or COD."
+    );
   }
 
   private async buildPreview(
