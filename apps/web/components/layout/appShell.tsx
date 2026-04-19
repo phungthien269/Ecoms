@@ -16,7 +16,9 @@ export function AppShell({
   unreadNotificationsCount,
   unreadChatCount,
   siteName,
-  supportEmail
+  supportEmail,
+  paymentOnlineGatewayEnabled,
+  paymentIncidentMessage
 }: {
   children: React.ReactNode;
   session: DemoSession | null;
@@ -24,6 +26,8 @@ export function AppShell({
   unreadChatCount: number;
   siteName: string;
   supportEmail: string;
+  paymentOnlineGatewayEnabled: boolean;
+  paymentIncidentMessage: string | null;
 }) {
   const googleAuthEnabled = process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true";
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
@@ -32,6 +36,14 @@ export function AppShell({
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#fff7f3_0%,#ffffff_28%,#fffaf5_100%)]">
       {session ? <RealtimeBridge token={session.accessToken} /> : null}
+      {!paymentOnlineGatewayEnabled ? (
+        <div className="border-b border-amber-200 bg-amber-50">
+          <div className="mx-auto max-w-7xl px-4 py-3 text-sm font-medium text-amber-900 sm:px-6 lg:px-8">
+            {paymentIncidentMessage ??
+              "Online gateway is temporarily unavailable. Please use bank transfer or COD while operations are recovering."}
+          </div>
+        </div>
+      ) : null}
       <header className="sticky top-0 z-20 border-b border-orange-100/80 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-6">

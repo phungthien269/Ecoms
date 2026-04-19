@@ -58,6 +58,8 @@ export default async function RootLayout({
           unreadChatCount={unreadChatCount}
           siteName={publicSettings.marketplaceName}
           supportEmail={publicSettings.supportEmail}
+          paymentOnlineGatewayEnabled={publicSettings.paymentOnlineGatewayEnabled}
+          paymentIncidentMessage={publicSettings.paymentIncidentMessage}
         >
           {children}
         </AppShell>

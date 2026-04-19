@@ -22,6 +22,17 @@ export default async function AdminSettingsPage({
     acc[setting.category] = [...(acc[setting.category] ?? []), setting];
     return acc;
   }, {});
+  const paymentGatewayEnabledSetting = settings.find(
+    (setting) => setting.key === "payment_online_gateway_enabled"
+  );
+  const paymentIncidentMessageSetting = settings.find(
+    (setting) => setting.key === "payment_incident_message"
+  );
+  const paymentGatewayEnabled = paymentGatewayEnabledSetting?.value === true;
+  const paymentIncidentMessage =
+    typeof paymentIncidentMessageSetting?.value === "string"
+      ? paymentIncidentMessageSetting.value
+      : "";
 
   if (!session || session.role !== "SUPER_ADMIN") {
     return (
@@ -72,6 +83,71 @@ export default async function AdminSettingsPage({
         </div>
 
         <div className="mt-8 grid gap-6">
+          <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div className="max-w-2xl">
+                <div className="text-sm font-semibold uppercase tracking-[0.18em] text-orange-500">
+                  Checkout incident control
+                </div>
+                <h2 className="mt-2 text-2xl font-black text-slate-950">
+                  Online gateway {paymentGatewayEnabled ? "is live" : "is paused"}
+                </h2>
+                <p className="mt-3 text-sm text-slate-500">
+                  Toggle buyer-facing online gateway availability and publish a public incident notice without redeploying the storefront.
+                </p>
+                <div
+                  className={`mt-4 rounded-[1.5rem] px-4 py-3 text-sm ${
+                    paymentGatewayEnabled
+                      ? "border border-emerald-200 bg-emerald-50 text-emerald-900"
+                      : "border border-amber-200 bg-amber-50 text-amber-900"
+                  }`}
+                >
+                  {paymentGatewayEnabled
+                    ? "Checkout will offer online gateway normally."
+                    : paymentIncidentMessage ||
+                      "Storefront is currently warning buyers to use bank transfer or COD."}
+                </div>
+              </div>
+              <div className="grid w-full gap-3 lg:max-w-md">
+                <form action={updateSystemSettingAction} className="grid gap-3 rounded-[1.5rem] bg-slate-50 p-4">
+                  <input type="hidden" name="redirectTo" value="/admin/settings" />
+                  <input type="hidden" name="key" value="payment_online_gateway_enabled" />
+                  <input
+                    type="hidden"
+                    name="value"
+                    value={paymentGatewayEnabled ? "false" : "true"}
+                  />
+                  <button
+                    type="submit"
+                    className={`rounded-full px-5 py-3 text-sm font-semibold text-white ${
+                      paymentGatewayEnabled
+                        ? "bg-amber-600 hover:bg-amber-700"
+                        : "bg-emerald-600 hover:bg-emerald-700"
+                    }`}
+                  >
+                    {paymentGatewayEnabled ? "Pause online gateway" : "Resume online gateway"}
+                  </button>
+                </form>
+                <form action={updateSystemSettingAction} className="grid gap-3 rounded-[1.5rem] bg-slate-50 p-4">
+                  <input type="hidden" name="redirectTo" value="/admin/settings" />
+                  <input type="hidden" name="key" value="payment_incident_message" />
+                  <textarea
+                    name="value"
+                    defaultValue={paymentIncidentMessage}
+                    rows={4}
+                    placeholder="Optional public incident message shown across storefront and checkout."
+                    className="rounded-[1.5rem] border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white"
+                  >
+                    Save incident message
+                  </button>
+                </form>
+              </div>
+            </div>
+          </section>
           {Object.entries(groupedSettings).map(([category, categorySettings]) => (
             <section
               key={category}
