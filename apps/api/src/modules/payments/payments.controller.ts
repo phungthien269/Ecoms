@@ -59,4 +59,11 @@ export class PaymentsController {
   listAdmin(@Query() query: ListAdminPaymentsDto) {
     return this.paymentsService.listAdmin(query);
   }
+
+  @Get("admin/incidents")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  getAdminIncidentCenter() {
+    return this.paymentsService.getAdminIncidentCenter();
+  }
 }

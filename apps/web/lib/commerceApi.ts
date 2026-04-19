@@ -796,6 +796,70 @@ export interface AdminPaymentItem {
   recentEvents: PaymentEventItem[];
 }
 
+export interface AdminPaymentIncidentCenter {
+  gateway: {
+    enabled: boolean;
+    incidentMessage: string | null;
+    provider: string;
+    displayName: string;
+    mode: "mock_gateway" | "demo_gateway";
+    configured: boolean;
+    actionHint: string;
+  };
+  impact: {
+    pendingCount: number;
+    recentFailedOrExpiredCount: number;
+    oldestPendingAt: string | null;
+    nextPendingExpiryAt: string | null;
+  };
+  pendingPayments: Array<{
+    id: string;
+    referenceCode: string;
+    amount: string;
+    status: string;
+    createdAt: string;
+    expiresAt: string | null;
+    user: {
+      id: string;
+      fullName: string;
+      email: string;
+    };
+    order: {
+      id: string;
+      orderNumber: string;
+      status: string;
+      shop: {
+        id: string;
+        name: string;
+        slug: string;
+      };
+    };
+  }>;
+  recentFailures: Array<{
+    id: string;
+    referenceCode: string;
+    amount: string;
+    status: string;
+    updatedAt: string;
+    user: {
+      id: string;
+      fullName: string;
+      email: string;
+    };
+    order: {
+      id: string;
+      orderNumber: string;
+      status: string;
+      shop: {
+        id: string;
+        name: string;
+        slug: string;
+      };
+    };
+  }>;
+  activity: DiagnosticsActivityItem[];
+}
+
 export interface VoucherSummary {
   id: string;
   code: string;
@@ -1232,6 +1296,10 @@ export async function getAdminPaymentsPage(query?: {
       }
     }
   );
+}
+
+export async function getAdminPaymentIncidentCenter() {
+  return requestAuthedJson<AdminPaymentIncidentCenter>("/payments/admin/incidents");
 }
 
 export async function getAdminReportsPage(query?: {

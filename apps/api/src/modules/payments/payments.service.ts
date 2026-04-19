@@ -24,6 +24,7 @@ import { PaymentEventsService } from "./payment-events.service";
 import { PaymentGatewayService } from "./payment-gateway.service";
 import { PaymentLifecycleService } from "./payment-lifecycle.service";
 import type { MockPaymentWebhookDto } from "./dto/mock-payment-webhook.dto";
+import { SystemSettingsService } from "../systemSettings/system-settings.service";
 
 type PaymentWithOrder = Prisma.PaymentGetPayload<{
   include: {
@@ -40,7 +41,8 @@ export class PaymentsService {
     private readonly auditLogsService: AuditLogsService,
     private readonly paymentEventsService: PaymentEventsService,
     private readonly paymentGatewayService: PaymentGatewayService,
-    private readonly paymentLifecycleService: PaymentLifecycleService
+    private readonly paymentLifecycleService: PaymentLifecycleService,
+    private readonly systemSettingsService: SystemSettingsService
   ) {}
 
   async confirm(userId: string, paymentId: string) {
@@ -286,6 +288,135 @@ export class PaymentsService {
         total,
         totalPages: Math.max(1, Math.ceil(total / pageSize))
       }
+    };
+  }
+
+  async getAdminIncidentCenter() {
+    const [publicSettings, providerDiagnostics, incidentActivity, pendingOnlinePayments, recentNonSuccessPayments] =
+      await Promise.all([
+        this.systemSettingsService.getPublicSummary(),
+        Promise.resolve(this.paymentGatewayService.getProviderDiagnostics()),
+        this.auditLogsService.listPaymentIncidentActivity(),
+        this.prisma.payment.findMany({
+          where: {
+            method: PaymentMethod.ONLINE_GATEWAY,
+            status: PaymentStatus.PENDING
+          },
+          orderBy: [{ createdAt: "asc" }],
+          take: 6,
+          include: {
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+                email: true
+              }
+            },
+            order: {
+              select: {
+                id: true,
+                orderNumber: true,
+                status: true,
+                shop: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true
+                  }
+                }
+              }
+            }
+          }
+        }),
+        this.prisma.payment.findMany({
+          where: {
+            method: PaymentMethod.ONLINE_GATEWAY,
+            status: {
+              in: [PaymentStatus.FAILED, PaymentStatus.EXPIRED]
+            },
+            updatedAt: {
+              gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+            }
+          },
+          orderBy: [{ updatedAt: "desc" }],
+          take: 6,
+          include: {
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+                email: true
+              }
+            },
+            order: {
+              select: {
+                id: true,
+                orderNumber: true,
+                status: true,
+                shop: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true
+                  }
+                }
+              }
+            }
+          }
+        })
+      ]);
+
+    return {
+      gateway: {
+        enabled: publicSettings.paymentOnlineGatewayEnabled,
+        incidentMessage: publicSettings.paymentIncidentMessage,
+        provider: providerDiagnostics.provider,
+        displayName: providerDiagnostics.displayName,
+        mode: providerDiagnostics.mode,
+        configured: providerDiagnostics.configured,
+        actionHint: providerDiagnostics.actionHint
+      },
+      impact: {
+        pendingCount: pendingOnlinePayments.length,
+        recentFailedOrExpiredCount: recentNonSuccessPayments.length,
+        oldestPendingAt: pendingOnlinePayments[0]?.createdAt.toISOString() ?? null,
+        nextPendingExpiryAt:
+          pendingOnlinePayments
+            .map((payment) => payment.expiresAt)
+            .filter((value): value is Date => Boolean(value))
+            .sort((left, right) => left.getTime() - right.getTime())[0]
+            ?.toISOString() ?? null
+      },
+      pendingPayments: pendingOnlinePayments.map((payment) => ({
+        id: payment.id,
+        referenceCode: payment.referenceCode,
+        amount: payment.amount.toString(),
+        status: payment.status,
+        createdAt: payment.createdAt.toISOString(),
+        expiresAt: payment.expiresAt?.toISOString() ?? null,
+        user: payment.user,
+        order: {
+          id: payment.order.id,
+          orderNumber: payment.order.orderNumber,
+          status: payment.order.status,
+          shop: payment.order.shop
+        }
+      })),
+      recentFailures: recentNonSuccessPayments.map((payment) => ({
+        id: payment.id,
+        referenceCode: payment.referenceCode,
+        amount: payment.amount.toString(),
+        status: payment.status,
+        updatedAt: payment.updatedAt.toISOString(),
+        user: payment.user,
+        order: {
+          id: payment.order.id,
+          orderNumber: payment.order.orderNumber,
+          status: payment.order.status,
+          shop: payment.order.shop
+        }
+      })),
+      activity: incidentActivity
     };
   }
 

@@ -37,11 +37,15 @@ describe("PaymentsService", () => {
     expireStalePendingPayments: jest.fn()
   };
   const auditLogsService = {
-    record: jest.fn()
+    record: jest.fn(),
+    listPaymentIncidentActivity: jest.fn()
   };
   const paymentEventsService = {
     record: jest.fn(),
     listForPayment: jest.fn()
+  };
+  const systemSettingsService = {
+    getPublicSummary: jest.fn()
   };
 
   const service = new PaymentsService(
@@ -51,12 +55,34 @@ describe("PaymentsService", () => {
     auditLogsService as never,
     paymentEventsService as never,
     paymentGatewayService as never,
-    paymentLifecycleService as never
+    paymentLifecycleService as never,
+    systemSettingsService as never
   );
 
   beforeEach(() => {
     jest.clearAllMocks();
     paymentGatewayService.signWebhookPayload.mockImplementation(signWebhookPayload);
+    paymentGatewayService.getProviderDiagnostics = jest.fn().mockReturnValue({
+      provider: "mock_gateway",
+      displayName: "Mock Gateway",
+      mode: "mock_gateway",
+      configured: true,
+      webhookMode: "internal_mock",
+      supportsHostedCheckout: true,
+      supportsBankTransfer: true,
+      supportsWebhookReplay: true,
+      merchantCode: "demo-merchant",
+      baseUrl: "https://gateway.local",
+      actionHint: "No action required"
+    });
+    systemSettingsService.getPublicSummary.mockResolvedValue({
+      marketplaceName: "Ecoms Marketplace",
+      supportEmail: "support@ecoms.local",
+      paymentTimeoutMinutes: 15,
+      orderAutoCompleteDays: 3,
+      paymentOnlineGatewayEnabled: false,
+      paymentIncidentMessage: "Gateway paused"
+    });
     prisma.$transaction.mockImplementation(async (input: unknown) => {
       if (Array.isArray(input)) {
         return Promise.all(input);
@@ -64,6 +90,84 @@ describe("PaymentsService", () => {
 
       return (input as (tx: typeof prisma) => unknown)(prisma);
     });
+  });
+
+  it("returns payment incident center with pending queue and activity", async () => {
+    auditLogsService.listPaymentIncidentActivity.mockResolvedValue([
+      {
+        id: "audit-1",
+        actorRole: UserRole.SUPER_ADMIN,
+        action: "system_settings.admin.update",
+        entityType: "SYSTEM_SETTING",
+        entityId: "payment_online_gateway_enabled",
+        summary: "Paused online gateway",
+        metadata: null,
+        createdAt: "2026-04-20T12:00:00.000Z",
+        actorUser: {
+          id: "super-1",
+          fullName: "Super Admin",
+          email: "super@ecoms.local"
+        }
+      }
+    ]);
+    prisma.payment.findMany
+      .mockResolvedValueOnce([
+        {
+          id: "payment-pending-1",
+          referenceCode: "PAY-PENDING-1",
+          amount: new (require("@prisma/client").Prisma.Decimal)(722000),
+          status: PaymentStatus.PENDING,
+          createdAt: new Date("2026-04-20T11:00:00.000Z"),
+          expiresAt: new Date("2026-04-20T11:15:00.000Z"),
+          user: {
+            id: "user-1",
+            fullName: "Demo Buyer",
+            email: "buyer@ecoms.local"
+          },
+          order: {
+            id: "order-1",
+            orderNumber: "ORD-1",
+            status: OrderStatus.PENDING,
+            shop: {
+              id: "shop-1",
+              name: "Demo Shop",
+              slug: "demo-shop"
+            }
+          }
+        }
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: "payment-failed-1",
+          referenceCode: "PAY-FAILED-1",
+          amount: new (require("@prisma/client").Prisma.Decimal)(722000),
+          status: PaymentStatus.FAILED,
+          updatedAt: new Date("2026-04-20T12:30:00.000Z"),
+          user: {
+            id: "user-2",
+            fullName: "Buyer 2",
+            email: "buyer2@ecoms.local"
+          },
+          order: {
+            id: "order-2",
+            orderNumber: "ORD-2",
+            status: OrderStatus.CANCELLED,
+            shop: {
+              id: "shop-1",
+              name: "Demo Shop",
+              slug: "demo-shop"
+            }
+          }
+        }
+      ]);
+
+    const result = await service.getAdminIncidentCenter();
+
+    expect(result.gateway.enabled).toBe(false);
+    expect(result.impact.pendingCount).toBe(1);
+    expect(result.impact.recentFailedOrExpiredCount).toBe(1);
+    expect(result.pendingPayments[0]?.referenceCode).toBe("PAY-PENDING-1");
+    expect(result.activity).toHaveLength(1);
   });
 
   it("confirms a pending non-COD payment and updates the order", async () => {

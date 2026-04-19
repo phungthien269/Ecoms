@@ -5,7 +5,7 @@ import { AdminPagination } from "@/components/admin/adminPagination";
 import { formatPrice } from "@/components/commerce/price";
 import { EmptyState } from "@/components/storefront/emptyState";
 import { buildAdminHref, clearAdminFlash, normalizeAdminParams } from "@/lib/admin";
-import { getAdminPaymentsPage } from "@/lib/commerceApi";
+import { getAdminPaymentIncidentCenter, getAdminPaymentsPage } from "@/lib/commerceApi";
 import { getDemoSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -18,14 +18,17 @@ export default async function AdminPaymentsPage({
   const session = await getDemoSession();
   const resolvedParams = searchParams ? await searchParams : {};
   const params = normalizeAdminParams(resolvedParams);
-  const paymentsPage = await getAdminPaymentsPage({
-    search: params.search,
-    status: params.status,
-    paymentMethod: params.paymentMethod,
-    eventType: params.eventType,
-    page: Number(params.page ?? "1"),
-    pageSize: 12
-  });
+  const [paymentsPage, incidentCenter] = await Promise.all([
+    getAdminPaymentsPage({
+      search: params.search,
+      status: params.status,
+      paymentMethod: params.paymentMethod,
+      eventType: params.eventType,
+      page: Number(params.page ?? "1"),
+      pageSize: 12
+    }),
+    getAdminPaymentIncidentCenter()
+  ]);
 
   if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.role)) {
     return (
@@ -105,6 +108,147 @@ export default async function AdminPaymentsPage({
             message={params.adminMessage}
           />
         </div>
+
+        {incidentCenter ? (
+          <section className="mt-6 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="space-y-3">
+                <div className="text-sm font-semibold uppercase tracking-[0.18em] text-orange-500">
+                  Incident center
+                </div>
+                <h2 className="text-2xl font-black text-slate-950">
+                  Online gateway {incidentCenter.gateway.enabled ? "live" : "paused"}
+                </h2>
+                <p className="max-w-2xl text-sm text-slate-500">
+                  {incidentCenter.gateway.incidentMessage ??
+                    "No public incident message is active. Operators can still inspect pending volume, replay callbacks, and trace payment state here."}
+                </p>
+                <div className="rounded-[1.5rem] border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-900">
+                  {incidentCenter.gateway.displayName} • {incidentCenter.gateway.mode} •{" "}
+                  {incidentCenter.gateway.configured ? "configured" : "not fully configured"}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  href={"/admin/settings" as Route}
+                  className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+                >
+                  Open settings
+                </Link>
+                <Link
+                  href={"/admin/diagnostics" as Route}
+                  className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                >
+                  Open diagnostics
+                </Link>
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-4">
+              <MetricCard label="Pending gateway payments" value={String(incidentCenter.impact.pendingCount)} />
+              <MetricCard label="Recent failed/expired" value={String(incidentCenter.impact.recentFailedOrExpiredCount)} />
+              <MetricCard
+                label="Oldest pending"
+                value={
+                  incidentCenter.impact.oldestPendingAt
+                    ? new Date(incidentCenter.impact.oldestPendingAt).toLocaleString("vi-VN")
+                    : "None"
+                }
+              />
+              <MetricCard
+                label="Next expiry"
+                value={
+                  incidentCenter.impact.nextPendingExpiryAt
+                    ? new Date(incidentCenter.impact.nextPendingExpiryAt).toLocaleString("vi-VN")
+                    : "None"
+                }
+              />
+            </div>
+
+            <div className="mt-6 grid gap-6 xl:grid-cols-2">
+              <div className="rounded-[1.5rem] bg-slate-50 p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-lg font-bold text-slate-950">Pending gateway queue</h3>
+                  <Link
+                    href={buildAdminHref("/admin/payments", {
+                      ...traceBaseParams,
+                      page: "1",
+                      paymentMethod: "ONLINE_GATEWAY",
+                      status: "PENDING"
+                    }) as Route}
+                    className="text-sm font-semibold text-orange-600"
+                  >
+                    View all
+                  </Link>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {incidentCenter.pendingPayments.length > 0 ? (
+                    incidentCenter.pendingPayments.map((payment) => (
+                      <div key={payment.id} className="rounded-[1rem] bg-white px-4 py-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="font-semibold text-slate-950">{payment.referenceCode}</div>
+                            <div className="mt-1 text-sm text-slate-500">
+                              {payment.user.fullName} • {payment.order.orderNumber} • {payment.order.shop.name}
+                            </div>
+                          </div>
+                          <Link
+                            href={buildAdminHref("/admin/diagnostics", {
+                              ...traceBaseParams,
+                              traceReferenceCode: payment.referenceCode
+                            }) as Route}
+                            className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+                          >
+                            Trace
+                          </Link>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-500">
+                          <span>{formatPrice(payment.amount)}</span>
+                          <span>
+                            Expires{" "}
+                            {payment.expiresAt
+                              ? new Date(payment.expiresAt).toLocaleString("vi-VN")
+                              : "N/A"}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-[1rem] bg-white px-4 py-4 text-sm text-slate-500">
+                      No pending online-gateway payments right now.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-[1.5rem] bg-slate-50 p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-lg font-bold text-slate-950">Incident activity</h3>
+                  <div className="text-sm text-slate-500">{incidentCenter.activity.length} recent event(s)</div>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {incidentCenter.activity.length > 0 ? (
+                    incidentCenter.activity.map((item) => (
+                      <div key={item.id} className="rounded-[1rem] bg-white px-4 py-3">
+                        <div className="font-semibold text-slate-950">{item.summary}</div>
+                        <div className="mt-1 text-xs uppercase tracking-[0.12em] text-slate-400">
+                          {item.actorUser?.fullName ?? item.actorRole} • {item.action}
+                        </div>
+                        <div className="mt-2 text-xs text-slate-500">
+                          {new Date(item.createdAt).toLocaleString("vi-VN")}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-[1rem] bg-white px-4 py-4 text-sm text-slate-500">
+                      No incident-related payment activity has been recorded yet.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         <div className="mt-6 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between gap-4">
@@ -196,5 +340,16 @@ export default async function AdminPaymentsPage({
         </div>
       </div>
     </main>
+  );
+}
+
+function MetricCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[1.5rem] bg-slate-50 p-5">
+      <div className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">
+        {label}
+      </div>
+      <div className="mt-3 text-2xl font-black text-slate-950">{value}</div>
+    </div>
   );
 }

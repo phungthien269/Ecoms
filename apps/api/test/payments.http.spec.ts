@@ -14,7 +14,8 @@ describe("PaymentsController (http)", () => {
     expireStalePendingPayments: jest.fn(),
     replayMockWebhook: jest.fn(),
     getAdminTrace: jest.fn(),
-    listAdmin: jest.fn()
+    listAdmin: jest.fn(),
+    getAdminIncidentCenter: jest.fn()
   } satisfies Partial<PaymentsService>;
 
   beforeAll(async () => {
@@ -190,6 +191,38 @@ describe("PaymentsController (http)", () => {
       page: 1,
       pageSize: 12
     });
+  });
+
+  it("lets admins load payment incident center", async () => {
+    paymentsService.getAdminIncidentCenter.mockResolvedValue({
+      gateway: {
+        enabled: false,
+        incidentMessage: "Gateway paused",
+        provider: "mock_gateway",
+        displayName: "Mock Gateway",
+        mode: "mock_gateway",
+        configured: true,
+        actionHint: "Open settings to resume gateway."
+      },
+      impact: {
+        pendingCount: 2,
+        recentFailedOrExpiredCount: 3,
+        oldestPendingAt: "2026-04-20T11:00:00.000Z",
+        nextPendingExpiryAt: "2026-04-20T11:15:00.000Z"
+      },
+      pendingPayments: [],
+      recentFailures: [],
+      activity: []
+    });
+
+    const response = await request(app.getHttpServer())
+      .get("/api/payments/admin/incidents")
+      .set("x-test-user-id", "admin-1")
+      .set("x-test-user-role", "ADMIN");
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(paymentsService.getAdminIncidentCenter).toHaveBeenCalledWith();
   });
 });
 

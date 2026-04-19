@@ -139,6 +139,44 @@ export class AuditLogsService {
     return items.map((item) => this.serialize(item));
   }
 
+  async listPaymentIncidentActivity(limit = 12) {
+    const items = await this.prisma.auditLog.findMany({
+      where: {
+        OR: [
+          {
+            entityType: "SYSTEM_SETTING",
+            entityId: {
+              in: ["payment_online_gateway_enabled", "payment_incident_message"]
+            }
+          },
+          {
+            entityType: "HEALTH_DIAGNOSTIC",
+            action: {
+              in: [
+                "health.diagnostics.payment_gateway_sample",
+                "health.diagnostics.payment_gateway_replay",
+                "health.diagnostics.payment_provider"
+              ]
+            }
+          }
+        ]
+      },
+      include: {
+        actorUser: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true
+          }
+        }
+      },
+      orderBy: [{ createdAt: "desc" }],
+      take: limit
+    });
+
+    return items.map((item) => this.serialize(item));
+  }
+
   async record(
     payload: {
       actorUserId?: string | null;
