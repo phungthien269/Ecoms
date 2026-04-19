@@ -539,6 +539,16 @@ export interface MediaUploadSampleData {
   };
 }
 
+export interface PaymentGatewaySampleData {
+  provider: string;
+  paymentMethod: "ONLINE_GATEWAY" | "BANK_TRANSFER";
+  referenceCode: string;
+  expiresAt: string;
+  metadata: Record<string, unknown>;
+  webhookPayload: Record<string, unknown>;
+  webhookSignature: string;
+}
+
 export interface AdminReviewItem {
   id: string;
   rating: number;
@@ -970,6 +980,14 @@ export async function getSystemDiagnostics() {
 
 export async function getDiagnosticsMediaUploadSample() {
   return requestAuthedJson<MediaUploadSampleData>("/health/diagnostics/media-upload-sample");
+}
+
+export async function getDiagnosticsPaymentGatewaySample(
+  paymentMethod: "ONLINE_GATEWAY" | "BANK_TRANSFER" = "ONLINE_GATEWAY"
+) {
+  return requestAuthedJson<PaymentGatewaySampleData>(
+    `/health/diagnostics/payment-gateway-sample?paymentMethod=${paymentMethod}`
+  );
 }
 
 export async function getDiagnosticsActivity() {

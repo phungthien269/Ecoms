@@ -1,10 +1,16 @@
 import { Injectable, ServiceUnavailableException } from "@nestjs/common";
-import type { DependencyHealthEntry, HealthStatus, ReadinessStatus } from "@ecoms/contracts";
+import {
+  PaymentMethod,
+  type DependencyHealthEntry,
+  type HealthStatus,
+  type ReadinessStatus
+} from "@ecoms/contracts";
 import { ConfigService } from "@nestjs/config";
 import type { AuthPayload } from "../auth/types/auth-payload";
 import { AuditLogsService } from "../auditLogs/audit-logs.service";
 import { FilesService } from "../files/files.service";
 import { MailerService } from "../mailer/mailer.service";
+import { PaymentGatewayService } from "../payments/payment-gateway.service";
 import { PaymentExpirySchedulerService } from "../payments/payment-expiry-scheduler.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { RateLimitService } from "../rateLimit/rate-limit.service";
@@ -19,6 +25,7 @@ export class HealthService {
     private readonly auditLogsService: AuditLogsService,
     private readonly mailerService: MailerService,
     private readonly filesService: FilesService,
+    private readonly paymentGatewayService: PaymentGatewayService,
     private readonly rateLimitService: RateLimitService,
     private readonly realtimeStateService: RealtimeStateService,
     private readonly paymentExpirySchedulerService: PaymentExpirySchedulerService,
@@ -112,6 +119,32 @@ export class HealthService {
         strategy: sample.upload.strategy,
         method: sample.upload.method,
         expiresAt: sample.upload.expiresAt
+      }
+    });
+
+    return sample;
+  }
+
+  async getPaymentGatewaySample(
+    actor: AuthPayload,
+    paymentMethod?: PaymentMethod.ONLINE_GATEWAY | PaymentMethod.BANK_TRANSFER
+  ) {
+    const sample = this.paymentGatewayService.createDiagnosticGatewaySample({
+      paymentMethod
+    });
+
+    await this.auditLogsService.record({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: "health.diagnostics.payment_gateway_sample",
+      entityType: "HEALTH_DIAGNOSTIC",
+      entityId: sample.referenceCode,
+      summary: `Generated diagnostics payment gateway sample for ${sample.paymentMethod}`,
+      metadata: {
+        provider: sample.provider,
+        paymentMethod: sample.paymentMethod,
+        referenceCode: sample.referenceCode,
+        expiresAt: sample.expiresAt
       }
     });
 

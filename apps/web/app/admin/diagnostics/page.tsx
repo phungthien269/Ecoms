@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/storefront/emptyState";
 import {
   getDiagnosticsActivity,
   getDiagnosticsMediaUploadSample,
+  getDiagnosticsPaymentGatewaySample,
   getSystemDiagnostics
 } from "@/lib/commerceApi";
 import { normalizeAdminParams } from "@/lib/admin";
@@ -21,9 +22,11 @@ export default async function AdminDiagnosticsPage({
   const session = await getDemoSession();
   const resolvedParams = searchParams ? await searchParams : {};
   const params = normalizeAdminParams(resolvedParams);
-  const [diagnostics, mediaUploadSample, diagnosticsActivity] = await Promise.all([
+  const [diagnostics, mediaUploadSample, paymentGatewaySample, bankTransferSample, diagnosticsActivity] = await Promise.all([
     getSystemDiagnostics(),
     getDiagnosticsMediaUploadSample(),
+    getDiagnosticsPaymentGatewaySample("ONLINE_GATEWAY"),
+    getDiagnosticsPaymentGatewaySample("BANK_TRANSFER"),
     getDiagnosticsActivity()
   ]);
 
@@ -186,7 +189,7 @@ export default async function AdminDiagnosticsPage({
           </div>
         </section>
 
-        <section className="mt-8 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <section className="mt-8 grid gap-6 xl:grid-cols-3">
           <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
             <div className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">
               Mail drill
@@ -287,6 +290,71 @@ export default async function AdminDiagnosticsPage({
                 Upload sample unavailable right now.
               </div>
             )}
+          </div>
+
+          <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">
+              Payment drill
+            </div>
+            <h2 className="mt-2 text-2xl font-black text-slate-950">Gateway samples</h2>
+            <p className="mt-2 text-sm text-slate-500">
+              Live mock-gateway payloads generated from the current payment adapter, including webhook
+              signature material for operator verification.
+            </p>
+
+            <div className="mt-6 space-y-4">
+              {[paymentGatewaySample, bankTransferSample].map((sample) =>
+                sample ? (
+                  <div key={sample.paymentMethod} className="rounded-[1.25rem] bg-slate-50 p-4 text-sm text-slate-700">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="font-semibold text-slate-950">{sample.paymentMethod}</div>
+                      <div className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                        {sample.provider}
+                      </div>
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                          Reference
+                        </div>
+                        <div className="mt-1 break-all font-medium text-slate-950">{sample.referenceCode}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                          Expires at
+                        </div>
+                        <div className="mt-1 font-medium text-slate-950">
+                          {new Date(sample.expiresAt).toLocaleString("vi-VN")}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                          Webhook signature
+                        </div>
+                        <div className="mt-1 break-all font-medium text-slate-950">
+                          {sample.webhookSignature}
+                        </div>
+                      </div>
+                      <details className="rounded-[1rem] bg-white p-3">
+                        <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                          Metadata + webhook payload
+                        </summary>
+                        <pre className="mt-3 overflow-x-auto text-xs text-slate-600">
+                          {JSON.stringify(
+                            {
+                              metadata: sample.metadata,
+                              webhookPayload: sample.webhookPayload
+                            },
+                            null,
+                            2
+                          )}
+                        </pre>
+                      </details>
+                    </div>
+                  </div>
+                ) : null
+              )}
+            </div>
           </div>
         </section>
 

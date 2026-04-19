@@ -27,6 +27,9 @@ describe("HealthService", () => {
     probeDiagnostics: jest.fn(),
     createDiagnosticUploadSample: jest.fn()
   };
+  const paymentGatewayService = {
+    createDiagnosticGatewaySample: jest.fn()
+  };
   const rateLimitService = {
     getDiagnostics: jest.fn()
   };
@@ -50,6 +53,7 @@ describe("HealthService", () => {
     auditLogsService as never,
     mailerService as never,
     filesService as never,
+    paymentGatewayService as never,
     rateLimitService as never,
     realtimeStateService as never,
     paymentExpirySchedulerService as never,
@@ -145,6 +149,22 @@ describe("HealthService", () => {
         },
         expiresAt: null
       }
+    });
+    paymentGatewayService.createDiagnosticGatewaySample.mockReturnValue({
+      provider: "mock_gateway",
+      paymentMethod: "ONLINE_GATEWAY",
+      referenceCode: "PAY-DIAG-HOST",
+      expiresAt: "2026-04-20T00:15:00.000Z",
+      metadata: {
+        provider: "mock_gateway",
+        checkoutMode: "hosted_checkout"
+      },
+      webhookPayload: {
+        paymentId: "payment-online_gateway",
+        referenceCode: "PAY-DIAG-HOST",
+        event: "PAID"
+      },
+      webhookSignature: "signed-webhook"
     });
   });
 
@@ -369,5 +389,29 @@ describe("HealthService", () => {
 
     expect(auditLogsService.listDiagnosticsActivity).toHaveBeenCalledWith();
     expect(result).toHaveLength(1);
+  });
+
+  it("returns payment gateway diagnostics sample and records audit event", async () => {
+    const result = await service.getPaymentGatewaySample(
+      { sub: "admin-1", email: "admin@example.com", role: "ADMIN" },
+      "ONLINE_GATEWAY"
+    );
+
+    expect(paymentGatewayService.createDiagnosticGatewaySample).toHaveBeenCalledWith({
+      paymentMethod: "ONLINE_GATEWAY"
+    });
+    expect(auditLogsService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "health.diagnostics.payment_gateway_sample",
+        entityType: "HEALTH_DIAGNOSTIC"
+      })
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        provider: "mock_gateway",
+        paymentMethod: "ONLINE_GATEWAY",
+        webhookSignature: "signed-webhook"
+      })
+    );
   });
 });

@@ -13,7 +13,8 @@ describe("HealthController (http)", () => {
     getDiagnostics: jest.fn(),
     getDiagnosticsActivity: jest.fn(),
     sendTestEmail: jest.fn(),
-    getMediaUploadSample: jest.fn()
+    getMediaUploadSample: jest.fn(),
+    getPaymentGatewaySample: jest.fn()
   } satisfies Partial<HealthService>;
 
   beforeAll(async () => {
@@ -162,5 +163,40 @@ describe("HealthController (http)", () => {
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
     expect(healthService.getMediaUploadSample).toHaveBeenCalled();
+  });
+
+  it("allows admin to request a payment gateway sample", async () => {
+    healthService.getPaymentGatewaySample.mockResolvedValue({
+      provider: "mock_gateway",
+      paymentMethod: "ONLINE_GATEWAY",
+      referenceCode: "PAY-DIAG-HOST",
+      expiresAt: "2026-04-20T00:15:00.000Z",
+      metadata: {
+        provider: "mock_gateway",
+        checkoutMode: "hosted_checkout"
+      },
+      webhookPayload: {
+        paymentId: "payment-online_gateway",
+        referenceCode: "PAY-DIAG-HOST",
+        event: "PAID"
+      },
+      webhookSignature: "signed-webhook"
+    });
+
+    const response = await request(app.getHttpServer())
+      .get("/api/health/diagnostics/payment-gateway-sample")
+      .query({ paymentMethod: "ONLINE_GATEWAY" })
+      .set("x-test-user-id", "admin-1")
+      .set("x-test-user-role", UserRole.ADMIN);
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(healthService.getPaymentGatewaySample).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sub: "admin-1",
+        role: UserRole.ADMIN
+      }),
+      "ONLINE_GATEWAY"
+    );
   });
 });

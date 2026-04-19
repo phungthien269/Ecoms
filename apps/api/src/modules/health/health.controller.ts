@@ -1,8 +1,8 @@
-import { Body, Controller, Get, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Post, Query, UseGuards } from "@nestjs/common";
 import type { HealthStatus, ReadinessStatus } from "@ecoms/contracts";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
-import { UserRole } from "@ecoms/contracts";
+import { PaymentMethod, UserRole } from "@ecoms/contracts";
 import { Roles } from "../rbac/decorators/roles.decorator";
 import { RolesGuard } from "../rbac/guards/roles.guard";
 import type { AuthPayload } from "../auth/types/auth-payload";
@@ -56,5 +56,21 @@ export class HealthController {
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   async getMediaUploadSample(@CurrentUser() user: AuthPayload) {
     return this.healthService.getMediaUploadSample(user);
+  }
+
+  @Get("diagnostics/payment-gateway-sample")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  async getPaymentGatewaySample(
+    @CurrentUser() user: AuthPayload,
+    @Query("paymentMethod") paymentMethod?: string
+  ) {
+    const normalizedMethod =
+      paymentMethod === PaymentMethod.BANK_TRANSFER
+        ? PaymentMethod.BANK_TRANSFER
+        : paymentMethod === PaymentMethod.ONLINE_GATEWAY
+          ? PaymentMethod.ONLINE_GATEWAY
+          : undefined;
+    return this.healthService.getPaymentGatewaySample(user, normalizedMethod);
   }
 }
