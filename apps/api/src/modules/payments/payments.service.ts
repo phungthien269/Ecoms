@@ -18,6 +18,7 @@ import { OrderStatusHistoryService } from "../orderStatusHistory/order-status-hi
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditLogsService } from "../auditLogs/audit-logs.service";
 import type { AuthPayload } from "../auth/types/auth-payload";
+import type { AdminBatchReplayMockWebhookDto } from "./dto/admin-batch-replay-mock-webhook.dto";
 import type { AdminReplayMockWebhookDto } from "./dto/admin-replay-mock-webhook.dto";
 import type { ListAdminPaymentsDto } from "./dto/list-admin-payments.dto";
 import { PaymentEventsService } from "./payment-events.service";
@@ -136,6 +137,88 @@ export class PaymentsService {
     });
 
     return result;
+  }
+
+  async batchReplayMockWebhook(actor: AuthPayload, payload: AdminBatchReplayMockWebhookDto) {
+    type ReplayTarget = {
+      paymentId?: string;
+      referenceCode?: string;
+    };
+
+    const targets: ReplayTarget[] = [
+      ...(payload.paymentIds ?? []).map((paymentId) => ({ paymentId })),
+      ...(payload.referenceCodes ?? []).map((referenceCode) => ({ referenceCode }))
+    ];
+    const uniqueTargets = Array.from(
+      new Map(
+        targets.map((target) => [
+          target.paymentId ? `payment:${target.paymentId}` : `reference:${target.referenceCode}`,
+          target
+        ])
+      ).values()
+    );
+
+    if (uniqueTargets.length === 0) {
+      throw new ConflictException("At least one payment target is required");
+    }
+
+    const results: Array<{
+      target: string;
+      ok: boolean;
+      paymentStatus?: string;
+      orderStatus?: string;
+      processed?: boolean;
+      error?: string;
+    }> = [];
+
+    for (let index = 0; index < uniqueTargets.length; index += 1) {
+      const target = uniqueTargets[index]!;
+      try {
+        const result = await this.replayMockWebhook(actor, {
+          ...target,
+          event: payload.event,
+          providerReference: payload.providerReferencePrefix
+            ? `${payload.providerReferencePrefix}-${index + 1}`
+            : undefined
+        });
+        results.push({
+          target: target.paymentId ?? target.referenceCode ?? "",
+          ok: true,
+          paymentStatus: result.paymentStatus,
+          orderStatus: result.orderStatus,
+          processed: result.processed
+        });
+      } catch (error) {
+        results.push({
+          target: target.paymentId ?? target.referenceCode ?? "",
+          ok: false,
+          error: error instanceof Error ? error.message : "Batch replay failed"
+        });
+      }
+    }
+
+    await this.auditLogsService.record({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: "health.diagnostics.payment_gateway_batch_replay",
+      entityType: "HEALTH_DIAGNOSTIC",
+      summary: `Batch replayed ${payload.event} mock gateway callbacks for ${uniqueTargets.length} payment target(s)`,
+      metadata: {
+        event: payload.event,
+        targetCount: uniqueTargets.length,
+        successCount: results.filter((item) => item.ok).length,
+        failureCount: results.filter((item) => !item.ok).length,
+        results
+      }
+    });
+
+    return {
+      event: payload.event,
+      targetCount: uniqueTargets.length,
+      successCount: results.filter((item) => item.ok).length,
+      failureCount: results.filter((item) => !item.ok).length,
+      results
+    };
   }
 
   async listAdmin(query: ListAdminPaymentsDto) {

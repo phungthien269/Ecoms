@@ -1,6 +1,9 @@
 import type { Route } from "next";
 import Link from "next/link";
-import { updateSystemSettingAction } from "@/app/actions/admin";
+import {
+  batchReplayPaymentGatewayWebhookAction,
+  updateSystemSettingAction
+} from "@/app/actions/admin";
 import { AdminFlashBanner } from "@/components/admin/adminFlashBanner";
 import { AdminPagination } from "@/components/admin/adminPagination";
 import { formatPrice } from "@/components/commerce/price";
@@ -44,6 +47,14 @@ export default async function AdminPaymentsPage({
 
   const cleanParams = clearAdminFlash(params);
   const incidentMessage = incidentCenter?.gateway.incidentMessage ?? "";
+  const visiblePendingPaymentIds =
+    incidentCenter?.pendingPayments.map((payment) => payment.id).join(",") ?? "";
+  const visiblePendingReferenceCodes =
+    incidentCenter?.pendingPayments.map((payment) => payment.referenceCode).join(",") ?? "";
+  const visibleFailurePaymentIds =
+    incidentCenter?.recentFailures.map((payment) => payment.id).join(",") ?? "";
+  const visibleFailureReferenceCodes =
+    incidentCenter?.recentFailures.map((payment) => payment.referenceCode).join(",") ?? "";
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -317,6 +328,62 @@ export default async function AdminPaymentsPage({
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-[1.5rem] bg-slate-50 p-5">
+              <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <div className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">
+                    Batch triage
+                  </div>
+                  <h3 className="mt-2 text-lg font-bold text-slate-950">
+                    Replay visible incident queues in one shot
+                  </h3>
+                  <p className="mt-1 max-w-2xl text-sm text-slate-500">
+                    Use batch callbacks when the visible queue needs the same operator action, instead of opening each payment detail page.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-4 xl:grid-cols-2">
+                <form action={batchReplayPaymentGatewayWebhookAction} className="rounded-[1rem] bg-white p-4">
+                  <input type="hidden" name="redirectTo" value="/admin/payments" />
+                  <input type="hidden" name="event" value="EXPIRED" />
+                  <input type="hidden" name="paymentIds" value={visiblePendingPaymentIds} />
+                  <input type="hidden" name="referenceCodes" value={visiblePendingReferenceCodes} />
+                  <input type="hidden" name="providerReferencePrefix" value="incident-expire" />
+                  <div className="text-sm font-semibold text-slate-950">Expire visible pending queue</div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    Marks the currently visible pending gateway payments as expired using the standard webhook path.
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={!visiblePendingPaymentIds}
+                    className="mt-4 rounded-full bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                  >
+                    Expire {incidentCenter.pendingPayments.length} visible payment(s)
+                  </button>
+                </form>
+
+                <form action={batchReplayPaymentGatewayWebhookAction} className="rounded-[1rem] bg-white p-4">
+                  <input type="hidden" name="redirectTo" value="/admin/payments" />
+                  <input type="hidden" name="event" value="PAID" />
+                  <input type="hidden" name="paymentIds" value={visibleFailurePaymentIds} />
+                  <input type="hidden" name="referenceCodes" value={visibleFailureReferenceCodes} />
+                  <input type="hidden" name="providerReferencePrefix" value="incident-recover" />
+                  <div className="text-sm font-semibold text-slate-950">Recover visible failed queue</div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    Replays a paid callback for the visible failed/expired queue when the provider recovered and upstream confirmation arrived late.
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={!visibleFailurePaymentIds}
+                    className="mt-4 rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                  >
+                    Replay PAID for {incidentCenter.recentFailures.length} visible payment(s)
+                  </button>
+                </form>
               </div>
             </div>
 

@@ -13,6 +13,7 @@ describe("PaymentsController (http)", () => {
     handleMockWebhook: jest.fn(),
     expireStalePendingPayments: jest.fn(),
     replayMockWebhook: jest.fn(),
+    batchReplayMockWebhook: jest.fn(),
     getAdminTrace: jest.fn(),
     listAdmin: jest.fn(),
     getAdminIncidentCenter: jest.fn()
@@ -134,6 +135,37 @@ describe("PaymentsController (http)", () => {
     );
   });
 
+  it("lets admins batch replay mock payment callbacks", async () => {
+    const payload = {
+      paymentIds: ["payment-1", "payment-2"],
+      event: PaymentWebhookEvent.EXPIRED,
+      providerReferencePrefix: "incident-expire"
+    };
+    paymentsService.batchReplayMockWebhook.mockResolvedValue({
+      event: PaymentWebhookEvent.EXPIRED,
+      targetCount: 2,
+      successCount: 2,
+      failureCount: 0,
+      results: []
+    });
+
+    const response = await request(app.getHttpServer())
+      .post("/api/payments/admin/replay-mock-webhook/batch")
+      .set("x-test-user-id", "admin-1")
+      .set("x-test-user-role", "ADMIN")
+      .send(payload);
+
+    expect(response.status).toBe(201);
+    expect(response.body.success).toBe(true);
+    expect(paymentsService.batchReplayMockWebhook).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sub: "admin-1",
+        role: "ADMIN"
+      }),
+      payload
+    );
+  });
+
   it("lets admins fetch payment trace by reference code", async () => {
     paymentsService.getAdminTrace.mockResolvedValue({
       payment: {
@@ -208,7 +240,18 @@ describe("PaymentsController (http)", () => {
         pendingCount: 2,
         recentFailedOrExpiredCount: 3,
         oldestPendingAt: "2026-04-20T11:00:00.000Z",
-        nextPendingExpiryAt: "2026-04-20T11:15:00.000Z"
+        nextPendingExpiryAt: "2026-04-20T11:15:00.000Z",
+        pendingAgeBuckets: {
+          underFiveMinutes: 0,
+          fiveToFifteenMinutes: 1,
+          overFifteenMinutes: 1
+        },
+        recentFailureBreakdown: {
+          failed: 2,
+          expired: 1
+        },
+        affectedShops: [],
+        affectedCustomers: []
       },
       pendingPayments: [],
       recentFailures: [],
