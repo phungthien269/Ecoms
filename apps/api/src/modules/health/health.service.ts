@@ -151,6 +151,28 @@ export class HealthService {
     return sample;
   }
 
+  async getPaymentProviderDiagnostics(actor: AuthPayload) {
+    const diagnostics = this.paymentGatewayService.getProviderDiagnostics();
+
+    await this.auditLogsService.record({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: "health.diagnostics.payment_provider",
+      entityType: "HEALTH_DIAGNOSTIC",
+      entityId: diagnostics.provider,
+      summary: `Viewed payment provider diagnostics for ${diagnostics.provider}`,
+      metadata: {
+        provider: diagnostics.provider,
+        mode: diagnostics.mode,
+        configured: diagnostics.configured,
+        merchantCode: diagnostics.merchantCode,
+        baseUrl: diagnostics.baseUrl
+      }
+    });
+
+    return diagnostics;
+  }
+
   async getDiagnosticsActivity() {
     return this.auditLogsService.listDiagnosticsActivity();
   }

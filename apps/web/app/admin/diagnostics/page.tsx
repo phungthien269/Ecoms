@@ -12,6 +12,7 @@ import {
   getDiagnosticsActivity,
   getDiagnosticsMediaUploadSample,
   getDiagnosticsPaymentGatewaySample,
+  getPaymentProviderDiagnostics,
   getSystemDiagnostics
 } from "@/lib/commerceApi";
 import { normalizeAdminParams } from "@/lib/admin";
@@ -29,11 +30,12 @@ export default async function AdminDiagnosticsPage({
   const params = normalizeAdminParams(resolvedParams);
   const tracePaymentId = String(resolvedParams.tracePaymentId ?? "").trim();
   const traceReferenceCode = String(resolvedParams.traceReferenceCode ?? "").trim();
-  const [diagnostics, mediaUploadSample, paymentGatewaySample, bankTransferSample, diagnosticsActivity] = await Promise.all([
+  const [diagnostics, mediaUploadSample, paymentGatewaySample, bankTransferSample, paymentProvider, diagnosticsActivity] = await Promise.all([
     getSystemDiagnostics(),
     getDiagnosticsMediaUploadSample(),
     getDiagnosticsPaymentGatewaySample("ONLINE_GATEWAY"),
     getDiagnosticsPaymentGatewaySample("BANK_TRANSFER"),
+    getPaymentProviderDiagnostics(),
     getDiagnosticsActivity()
   ]);
   const paymentTrace =
@@ -317,6 +319,35 @@ export default async function AdminDiagnosticsPage({
             </p>
 
             <div className="mt-6 space-y-4">
+              {paymentProvider ? (
+                <div className="rounded-[1.25rem] border border-orange-200 bg-orange-50 p-4 text-sm text-slate-700">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="font-semibold text-slate-950">{paymentProvider.displayName}</div>
+                    <div className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-orange-600">
+                      {paymentProvider.mode}
+                    </div>
+                  </div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <div className="rounded-[1rem] bg-white px-3 py-3">
+                      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Webhook mode</div>
+                      <div className="mt-1 font-medium text-slate-950">{paymentProvider.webhookMode}</div>
+                    </div>
+                    <div className="rounded-[1rem] bg-white px-3 py-3">
+                      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Configured</div>
+                      <div className="mt-1 font-medium text-slate-950">{paymentProvider.configured ? "Yes" : "No"}</div>
+                    </div>
+                    <div className="rounded-[1rem] bg-white px-3 py-3">
+                      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Merchant code</div>
+                      <div className="mt-1 break-all font-medium text-slate-950">{paymentProvider.merchantCode ?? "None"}</div>
+                    </div>
+                    <div className="rounded-[1rem] bg-white px-3 py-3">
+                      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Base URL</div>
+                      <div className="mt-1 break-all font-medium text-slate-950">{paymentProvider.baseUrl ?? "None"}</div>
+                    </div>
+                  </div>
+                  <div className="mt-3 text-xs text-orange-700">{paymentProvider.actionHint}</div>
+                </div>
+              ) : null}
               {[paymentGatewaySample, bankTransferSample].map((sample) =>
                 sample ? (
                   <div key={sample.paymentMethod} className="rounded-[1.25rem] bg-slate-50 p-4 text-sm text-slate-700">

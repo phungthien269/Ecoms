@@ -73,4 +73,11 @@ export class HealthController {
           : undefined;
     return this.healthService.getPaymentGatewaySample(user, normalizedMethod);
   }
+
+  @Get("diagnostics/payment-provider")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  async getPaymentProviderDiagnostics(@CurrentUser() user: AuthPayload) {
+    return this.healthService.getPaymentProviderDiagnostics(user);
+  }
 }

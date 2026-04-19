@@ -28,7 +28,8 @@ describe("HealthService", () => {
     createDiagnosticUploadSample: jest.fn()
   };
   const paymentGatewayService = {
-    createDiagnosticGatewaySample: jest.fn()
+    createDiagnosticGatewaySample: jest.fn(),
+    getProviderDiagnostics: jest.fn()
   };
   const rateLimitService = {
     getDiagnostics: jest.fn()
@@ -165,6 +166,19 @@ describe("HealthService", () => {
         event: "PAID"
       },
       webhookSignature: "signed-webhook"
+    });
+    paymentGatewayService.getProviderDiagnostics.mockReturnValue({
+      provider: "mock_gateway",
+      displayName: "Mock Gateway",
+      mode: "mock_gateway",
+      configured: true,
+      webhookMode: "internal_mock",
+      supportsHostedCheckout: true,
+      supportsBankTransfer: true,
+      supportsWebhookReplay: true,
+      merchantCode: null,
+      baseUrl: null,
+      actionHint: "Switch to demo_gateway when you want provider-shaped checkout and callback behavior."
     });
   });
 
@@ -411,6 +425,28 @@ describe("HealthService", () => {
         provider: "mock_gateway",
         paymentMethod: "ONLINE_GATEWAY",
         webhookSignature: "signed-webhook"
+      })
+    );
+  });
+
+  it("returns payment provider diagnostics and records operator audit", async () => {
+    const result = await service.getPaymentProviderDiagnostics({
+      sub: "admin-1",
+      email: "admin@example.com",
+      role: "ADMIN"
+    });
+
+    expect(paymentGatewayService.getProviderDiagnostics).toHaveBeenCalledWith();
+    expect(auditLogsService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "health.diagnostics.payment_provider",
+        entityType: "HEALTH_DIAGNOSTIC"
+      })
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        provider: "mock_gateway",
+        mode: "mock_gateway"
       })
     );
   });

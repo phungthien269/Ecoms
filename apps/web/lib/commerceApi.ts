@@ -548,6 +548,21 @@ export interface PaymentGatewaySampleData {
   metadata: Record<string, unknown>;
   webhookPayload: Record<string, unknown>;
   webhookSignature: string;
+  providerDiagnostics?: Record<string, unknown>;
+}
+
+export interface PaymentProviderDiagnosticsData {
+  provider: string;
+  displayName: string;
+  mode: "mock_gateway" | "demo_gateway";
+  configured: boolean;
+  webhookMode: "internal_mock" | "provider_callback";
+  supportsHostedCheckout: boolean;
+  supportsBankTransfer: boolean;
+  supportsWebhookReplay: boolean;
+  merchantCode: string | null;
+  baseUrl: string | null;
+  actionHint: string;
 }
 
 export interface PaymentEventItem {
@@ -1052,6 +1067,10 @@ export async function getDiagnosticsPaymentGatewaySample(
   return requestAuthedJson<PaymentGatewaySampleData>(
     `/health/diagnostics/payment-gateway-sample?paymentMethod=${paymentMethod}`
   );
+}
+
+export async function getPaymentProviderDiagnostics() {
+  return requestAuthedJson<PaymentProviderDiagnosticsData>("/health/diagnostics/payment-provider");
 }
 
 export async function getDiagnosticsActivity() {

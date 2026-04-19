@@ -324,6 +324,20 @@ export interface AdminPaymentSummary {
   recentEvents: PaymentEventSummary[];
 }
 
+export interface PaymentProviderDiagnosticsSummary {
+  provider: string;
+  displayName: string;
+  mode: "mock_gateway" | "demo_gateway";
+  configured: boolean;
+  webhookMode: "internal_mock" | "provider_callback";
+  supportsHostedCheckout: boolean;
+  supportsBankTransfer: boolean;
+  supportsWebhookReplay: boolean;
+  merchantCode: string | null;
+  baseUrl: string | null;
+  actionHint: string;
+}
+
 export interface OrderShippingUpdateWindowSummary {
   canEdit: boolean;
   lockedReason: string | null;

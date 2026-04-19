@@ -14,7 +14,8 @@ describe("HealthController (http)", () => {
     getDiagnosticsActivity: jest.fn(),
     sendTestEmail: jest.fn(),
     getMediaUploadSample: jest.fn(),
-    getPaymentGatewaySample: jest.fn()
+    getPaymentGatewaySample: jest.fn(),
+    getPaymentProviderDiagnostics: jest.fn()
   } satisfies Partial<HealthService>;
 
   beforeAll(async () => {
@@ -197,6 +198,36 @@ describe("HealthController (http)", () => {
         role: UserRole.ADMIN
       }),
       "ONLINE_GATEWAY"
+    );
+  });
+
+  it("allows admin to request payment provider diagnostics", async () => {
+    healthService.getPaymentProviderDiagnostics.mockResolvedValue({
+      provider: "mock_gateway",
+      displayName: "Mock Gateway",
+      mode: "mock_gateway",
+      configured: true,
+      webhookMode: "internal_mock",
+      supportsHostedCheckout: true,
+      supportsBankTransfer: true,
+      supportsWebhookReplay: true,
+      merchantCode: null,
+      baseUrl: null,
+      actionHint: "Switch to demo_gateway when you want provider-shaped checkout and callback behavior."
+    });
+
+    const response = await request(app.getHttpServer())
+      .get("/api/health/diagnostics/payment-provider")
+      .set("x-test-user-id", "admin-1")
+      .set("x-test-user-role", UserRole.ADMIN);
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(healthService.getPaymentProviderDiagnostics).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sub: "admin-1",
+        role: UserRole.ADMIN
+      })
     );
   });
 });
