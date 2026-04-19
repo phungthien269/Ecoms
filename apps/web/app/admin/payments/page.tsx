@@ -1,5 +1,6 @@
 import type { Route } from "next";
 import Link from "next/link";
+import { updateSystemSettingAction } from "@/app/actions/admin";
 import { AdminFlashBanner } from "@/components/admin/adminFlashBanner";
 import { AdminPagination } from "@/components/admin/adminPagination";
 import { formatPrice } from "@/components/commerce/price";
@@ -42,6 +43,7 @@ export default async function AdminPaymentsPage({
   }
 
   const cleanParams = clearAdminFlash(params);
+  const incidentMessage = incidentCenter?.gateway.incidentMessage ?? "";
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -125,6 +127,25 @@ export default async function AdminPaymentsPage({
                 </div>
               </div>
               <div className="flex flex-wrap gap-3">
+                <form action={updateSystemSettingAction}>
+                  <input type="hidden" name="redirectTo" value="/admin/payments" />
+                  <input type="hidden" name="key" value="payment_online_gateway_enabled" />
+                  <input
+                    type="hidden"
+                    name="value"
+                    value={incidentCenter.gateway.enabled ? "false" : "true"}
+                  />
+                  <button
+                    type="submit"
+                    className={`rounded-full px-5 py-3 text-sm font-semibold text-white transition ${
+                      incidentCenter.gateway.enabled
+                        ? "bg-amber-600 hover:bg-amber-700"
+                        : "bg-emerald-600 hover:bg-emerald-700"
+                    }`}
+                  >
+                    {incidentCenter.gateway.enabled ? "Pause gateway" : "Resume gateway"}
+                  </button>
+                </form>
                 <Link
                   href={"/admin/settings" as Route}
                   className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
@@ -139,6 +160,29 @@ export default async function AdminPaymentsPage({
                 </Link>
               </div>
             </div>
+
+            <form action={updateSystemSettingAction} className="mt-6 rounded-[1.5rem] bg-slate-50 p-5">
+              <input type="hidden" name="redirectTo" value="/admin/payments" />
+              <input type="hidden" name="key" value="payment_incident_message" />
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+                <label className="grid flex-1 gap-2 text-sm font-medium text-slate-700">
+                  Public incident message
+                  <textarea
+                    name="value"
+                    defaultValue={incidentMessage}
+                    rows={3}
+                    placeholder="Optional storefront notice shown while the online gateway is paused."
+                    className="rounded-[1.5rem] border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                >
+                  Save message
+                </button>
+              </div>
+            </form>
 
             <div className="mt-6 grid gap-4 md:grid-cols-4">
               <MetricCard label="Pending gateway payments" value={String(incidentCenter.impact.pendingCount)} />
@@ -161,7 +205,7 @@ export default async function AdminPaymentsPage({
               />
             </div>
 
-            <div className="mt-6 grid gap-6 xl:grid-cols-2">
+            <div className="mt-6 grid gap-6 xl:grid-cols-3">
               <div className="rounded-[1.5rem] bg-slate-50 p-5">
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="text-lg font-bold text-slate-950">Pending gateway queue</h3>
@@ -209,6 +253,54 @@ export default async function AdminPaymentsPage({
                   ) : (
                     <div className="rounded-[1rem] bg-white px-4 py-4 text-sm text-slate-500">
                       No pending online-gateway payments right now.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-[1.5rem] bg-slate-50 p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-lg font-bold text-slate-950">Recent failures</h3>
+                  <Link
+                    href={buildAdminHref("/admin/payments", {
+                      ...cleanParams,
+                      page: "1",
+                      paymentMethod: "ONLINE_GATEWAY",
+                      status: "FAILED"
+                    }) as Route}
+                    className="text-sm font-semibold text-orange-600"
+                  >
+                    Failed queue
+                  </Link>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {incidentCenter.recentFailures.length > 0 ? (
+                    incidentCenter.recentFailures.map((payment) => (
+                      <div key={payment.id} className="rounded-[1rem] bg-white px-4 py-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="font-semibold text-slate-950">{payment.referenceCode}</div>
+                            <div className="mt-1 text-sm text-slate-500">
+                              {payment.user.fullName} • {payment.order.orderNumber}
+                            </div>
+                          </div>
+                          <Link
+                            href={`/admin/payments/${payment.id}` as Route}
+                            className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+                          >
+                            Open
+                          </Link>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-500">
+                          <span>{payment.status}</span>
+                          <span>{formatPrice(payment.amount)}</span>
+                          <span>{new Date(payment.updatedAt).toLocaleString("vi-VN")}</span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-[1rem] bg-white px-4 py-4 text-sm text-slate-500">
+                      No failed or expired gateway payments in the recent window.
                     </div>
                   )}
                 </div>

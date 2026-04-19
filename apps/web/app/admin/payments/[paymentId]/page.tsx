@@ -1,6 +1,9 @@
 import type { Route } from "next";
 import Link from "next/link";
-import { replayPaymentGatewayWebhookAction } from "@/app/actions/admin";
+import {
+  replayPaymentGatewayWebhookAction,
+  updateSystemSettingAction
+} from "@/app/actions/admin";
 import { AdminFlashBanner } from "@/components/admin/adminFlashBanner";
 import { formatPrice } from "@/components/commerce/price";
 import { EmptyState } from "@/components/storefront/emptyState";
@@ -105,47 +108,81 @@ export default async function AdminPaymentDetailPage({
               />
             </div>
 
-            <div className="rounded-[1.5rem] bg-slate-50 p-5">
-              <div className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">
-                Replay callback
-              </div>
-              <p className="mt-2 text-sm text-slate-500">
-                Trigger a real mock callback against this payment without re-entering the payment ID.
-              </p>
-              <form action={replayPaymentGatewayWebhookAction} className="mt-4 grid gap-3">
-                <input
-                  type="hidden"
-                  name="redirectTo"
-                  value={`/admin/payments/${paymentId}`}
-                />
-                <input type="hidden" name="paymentId" value={paymentId} />
-                <label className="grid gap-2 text-sm font-medium text-slate-700">
-                  Event
-                  <select
-                    name="event"
-                    defaultValue="PAID"
-                    className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700"
+            <div className="space-y-4">
+              <div className="rounded-[1.5rem] bg-slate-50 p-5">
+                <div className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">
+                  Gateway control
+                </div>
+                <p className="mt-2 text-sm text-slate-500">
+                  Pause or resume new online-gateway checkouts from this payment view when an incident is in progress.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <form action={updateSystemSettingAction}>
+                    <input type="hidden" name="redirectTo" value={`/admin/payments/${paymentId}`} />
+                    <input type="hidden" name="key" value="payment_online_gateway_enabled" />
+                    <input
+                      type="hidden"
+                      name="value"
+                      value={paymentTrace.payment.method === "ONLINE_GATEWAY" ? "false" : "true"}
+                    />
+                    <button
+                      type="submit"
+                      className="rounded-full bg-amber-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-amber-700"
+                    >
+                      Pause gateway
+                    </button>
+                  </form>
+                  <Link
+                    href={"/admin/settings" as Route}
+                    className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
                   >
-                    <option value="PAID">PAID</option>
-                    <option value="FAILED">FAILED</option>
-                    <option value="EXPIRED">EXPIRED</option>
-                  </select>
-                </label>
-                <label className="grid gap-2 text-sm font-medium text-slate-700">
-                  Provider reference
-                  <input
-                    name="providerReference"
-                    placeholder="gateway_ref_123"
-                    className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700"
-                  />
-                </label>
-                <button
-                  type="submit"
-                  className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-                >
+                    Open settings
+                  </Link>
+                </div>
+              </div>
+
+              <div className="rounded-[1.5rem] bg-slate-50 p-5">
+                <div className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">
                   Replay callback
-                </button>
-              </form>
+                </div>
+                <p className="mt-2 text-sm text-slate-500">
+                  Trigger a real mock callback against this payment without re-entering the payment ID.
+                </p>
+                <form action={replayPaymentGatewayWebhookAction} className="mt-4 grid gap-3">
+                  <input
+                    type="hidden"
+                    name="redirectTo"
+                    value={`/admin/payments/${paymentId}`}
+                  />
+                  <input type="hidden" name="paymentId" value={paymentId} />
+                  <label className="grid gap-2 text-sm font-medium text-slate-700">
+                    Event
+                    <select
+                      name="event"
+                      defaultValue="PAID"
+                      className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                    >
+                      <option value="PAID">PAID</option>
+                      <option value="FAILED">FAILED</option>
+                      <option value="EXPIRED">EXPIRED</option>
+                    </select>
+                  </label>
+                  <label className="grid gap-2 text-sm font-medium text-slate-700">
+                    Provider reference
+                    <input
+                      name="providerReference"
+                      placeholder="gateway_ref_123"
+                      className="rounded-full border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                  >
+                    Replay callback
+                  </button>
+                </form>
+              </div>
             </div>
           </div>
 
