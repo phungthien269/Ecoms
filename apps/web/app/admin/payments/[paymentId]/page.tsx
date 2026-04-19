@@ -109,6 +109,51 @@ export default async function AdminPaymentDetailPage({
             </div>
 
             <div className="space-y-4">
+              {paymentTrace.payment.checkoutArtifact ? (
+                <div className="rounded-[1.5rem] bg-slate-50 p-5">
+                  <div className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">
+                    Checkout artifact
+                  </div>
+                  <div className="mt-3 space-y-2 text-sm text-slate-600">
+                    <div>
+                      {paymentTrace.payment.checkoutArtifact.providerDisplayName ??
+                        paymentTrace.payment.checkoutArtifact.provider}
+                      {" • "}
+                      {paymentTrace.payment.checkoutArtifact.checkoutMode}
+                    </div>
+                    {paymentTrace.payment.checkoutArtifact.merchantCode ? (
+                      <div>
+                        Merchant {paymentTrace.payment.checkoutArtifact.merchantCode}
+                      </div>
+                    ) : null}
+                    {paymentTrace.payment.checkoutArtifact.bankName ? (
+                      <div>{paymentTrace.payment.checkoutArtifact.bankName}</div>
+                    ) : null}
+                    {paymentTrace.payment.checkoutArtifact.bankAccountName ? (
+                      <div>{paymentTrace.payment.checkoutArtifact.bankAccountName}</div>
+                    ) : null}
+                    {paymentTrace.payment.checkoutArtifact.bankAccountNumber ? (
+                      <div>{paymentTrace.payment.checkoutArtifact.bankAccountNumber}</div>
+                    ) : null}
+                    {paymentTrace.payment.checkoutArtifact.qrPayload ? (
+                      <div className="break-all text-xs text-slate-500">
+                        QR payload: {paymentTrace.payment.checkoutArtifact.qrPayload}
+                      </div>
+                    ) : null}
+                  </div>
+                  {paymentTrace.payment.checkoutArtifact.paymentUrl ? (
+                    <a
+                      href={paymentTrace.payment.checkoutArtifact.paymentUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-4 inline-flex rounded-full border border-orange-200 px-4 py-2 text-sm font-semibold text-orange-600 transition hover:bg-orange-50"
+                    >
+                      Open provider checkout
+                    </a>
+                  ) : null}
+                </div>
+              ) : null}
+
               <div className="rounded-[1.5rem] bg-slate-50 p-5">
                 <div className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">
                   Gateway control

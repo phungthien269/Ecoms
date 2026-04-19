@@ -684,6 +684,7 @@ export class PaymentsService {
         expiresAt: payment.expiresAt?.toISOString() ?? null,
         paidAt: payment.paidAt?.toISOString() ?? null,
         metadata: (payment.metadata as Record<string, unknown> | null) ?? null,
+        checkoutArtifact: this.paymentGatewayService.parseCheckoutArtifact(payment.metadata),
         createdAt: payment.createdAt.toISOString(),
         updatedAt: payment.updatedAt.toISOString()
       },

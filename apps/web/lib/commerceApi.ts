@@ -178,6 +178,7 @@ export interface OrderDetail extends OrderListItem {
     expiresAt: string | null;
     paidAt: string | null;
     metadata: Record<string, unknown> | null;
+    checkoutArtifact: PaymentCheckoutArtifactItem | null;
     events: PaymentEventItem[];
   }>;
   statusTimeline: Array<{
@@ -581,6 +582,20 @@ export interface PaymentEventItem {
   createdAt: string;
 }
 
+export interface PaymentCheckoutArtifactItem {
+  provider: string;
+  providerDisplayName: string | null;
+  checkoutMode: "hosted_checkout" | "bank_transfer";
+  paymentUrl: string | null;
+  callbackUrl: string | null;
+  sessionToken: string | null;
+  qrPayload: string | null;
+  merchantCode: string | null;
+  bankAccountName: string | null;
+  bankAccountNumber: string | null;
+  bankName: string | null;
+}
+
 export interface PaymentTraceData {
   payment: {
     id: string;
@@ -604,6 +619,7 @@ export interface PaymentTraceData {
     expiresAt: string | null;
     paidAt: string | null;
     metadata: Record<string, unknown> | null;
+    checkoutArtifact: PaymentCheckoutArtifactItem | null;
     createdAt: string;
     updatedAt: string;
   };

@@ -423,6 +423,39 @@ export default async function OrderDetailPage({
                         Confirmed {new Date(payment.paidAt).toLocaleString("vi-VN")}
                       </div>
                     ) : null}
+                    {payment.checkoutArtifact?.paymentUrl ? (
+                      <a
+                        href={payment.checkoutArtifact.paymentUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-3 inline-flex rounded-full border border-orange-200 px-3 py-2 text-xs font-semibold text-orange-600 transition hover:bg-orange-50"
+                      >
+                        Open {payment.checkoutArtifact.providerDisplayName ?? payment.checkoutArtifact.provider} checkout
+                      </a>
+                    ) : null}
+                    {payment.checkoutArtifact?.checkoutMode === "bank_transfer" ? (
+                      <div className="mt-3 rounded-[1rem] bg-slate-50 px-3 py-3 text-xs text-slate-600">
+                        {payment.checkoutArtifact.bankName ? (
+                          <div>{payment.checkoutArtifact.bankName}</div>
+                        ) : null}
+                        {payment.checkoutArtifact.bankAccountName ? (
+                          <div>{payment.checkoutArtifact.bankAccountName}</div>
+                        ) : null}
+                        {payment.checkoutArtifact.bankAccountNumber ? (
+                          <div>{payment.checkoutArtifact.bankAccountNumber}</div>
+                        ) : null}
+                        {payment.checkoutArtifact.qrPayload ? (
+                          <div className="mt-2 break-all text-slate-500">
+                            QR payload: {payment.checkoutArtifact.qrPayload}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {payment.checkoutArtifact?.merchantCode ? (
+                      <div className="mt-2 text-xs text-slate-500">
+                        Merchant: {payment.checkoutArtifact.merchantCode}
+                      </div>
+                    ) : null}
                     {payment.events.length > 0 ? (
                       <div className="mt-4 space-y-2 border-t border-slate-100 pt-3">
                         {payment.events.map((event) => (

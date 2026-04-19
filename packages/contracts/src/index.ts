@@ -277,6 +277,20 @@ export interface PaymentEventSummary {
   createdAt: string;
 }
 
+export interface PaymentCheckoutArtifactSummary {
+  provider: string;
+  providerDisplayName: string | null;
+  checkoutMode: "hosted_checkout" | "bank_transfer";
+  paymentUrl: string | null;
+  callbackUrl: string | null;
+  sessionToken: string | null;
+  qrPayload: string | null;
+  merchantCode: string | null;
+  bankAccountName: string | null;
+  bankAccountNumber: string | null;
+  bankName: string | null;
+}
+
 export interface PaymentTraceSummary {
   payment: {
     id: string;
@@ -290,6 +304,7 @@ export interface PaymentTraceSummary {
     expiresAt: string | null;
     paidAt: string | null;
     metadata: Record<string, unknown> | null;
+    checkoutArtifact: PaymentCheckoutArtifactSummary | null;
     createdAt: string;
     updatedAt: string;
   };

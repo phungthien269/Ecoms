@@ -52,6 +52,9 @@ describe("OrdersService", () => {
   const auditLogsService = {
     record: jest.fn()
   };
+  const paymentGatewayService = {
+    parseCheckoutArtifact: jest.fn().mockImplementation((metadata: unknown) => metadata ?? null)
+  };
   const paymentLifecycleService = {
     expireStalePendingPayments: jest.fn().mockResolvedValue({
       expiredCount: 0,
@@ -66,7 +69,8 @@ describe("OrdersService", () => {
     orderStatusHistoryService as never,
     paymentLifecycleService as never,
     systemSettingsService as never,
-    auditLogsService as never
+    auditLogsService as never,
+    paymentGatewayService as never
   );
 
   beforeEach(() => {
@@ -395,6 +399,77 @@ describe("OrdersService", () => {
     expect(systemSettingsService.getNumberValue).toHaveBeenCalledWith("return_request_window_days");
     expect(result.autoCompleteWindow.windowDays).toBe(3);
     expect(result.autoCompleteWindow.autoCompleteAt).not.toBeNull();
+  });
+
+  it("surfaces checkout artifact on buyer order detail payments", async () => {
+    prisma.order.findFirst.mockResolvedValue({
+      id: "order-1",
+      orderNumber: "ORD-1",
+      status: OrderStatus.PENDING,
+      paymentMethod: "ONLINE_GATEWAY",
+      shippingRecipientName: "Buyer Demo",
+      shippingPhoneNumber: "0900000000",
+      shippingAddressLine1: "123 Demo Street",
+      shippingAddressLine2: null,
+      shippingWard: null,
+      shippingDistrict: "District 1",
+      shippingProvince: "Ho Chi Minh City",
+      shippingRegionCode: "HCM",
+      itemsSubtotal: { toString: () => "100000" },
+      shippingFee: { toString: () => "20000" },
+      discountTotal: { toString: () => "0" },
+      grandTotal: { toString: () => "120000" },
+      note: null,
+      appliedVoucherCodes: [],
+      placedAt: new Date("2026-04-18T00:00:00.000Z"),
+      updatedAt: new Date("2026-04-18T00:00:00.000Z"),
+      shop: {
+        id: "shop-1",
+        name: "Demo Shop",
+        slug: "demo-shop"
+      },
+      items: [],
+      payments: [
+        {
+          id: "payment-1",
+          method: "ONLINE_GATEWAY",
+          status: "PENDING",
+          amount: { toString: () => "120000" },
+          referenceCode: "PAY-1",
+          expiresAt: new Date("2026-04-18T00:15:00.000Z"),
+          paidAt: null,
+          metadata: {
+            provider: "demo_gateway",
+            checkoutMode: "hosted_checkout"
+          },
+          events: []
+        }
+      ]
+    });
+    orderStatusHistoryService.listForOrder.mockResolvedValue([]);
+    paymentGatewayService.parseCheckoutArtifact.mockReturnValue({
+      provider: "demo_gateway",
+      providerDisplayName: "Demo Gateway",
+      checkoutMode: "hosted_checkout",
+      paymentUrl: "http://localhost:4010/checkout/PAY-1?merchant=merchant_001",
+      callbackUrl: "http://localhost:3000/orders/order-1",
+      sessionToken: "session-token",
+      qrPayload: null,
+      merchantCode: "merchant_001",
+      bankAccountName: null,
+      bankAccountNumber: null,
+      bankName: null
+    });
+
+    const result = await service.getOwnDetail("user-1", "order-1");
+
+    expect(result.payments[0]?.checkoutArtifact).toEqual(
+      expect.objectContaining({
+        provider: "demo_gateway",
+        checkoutMode: "hosted_checkout",
+        paymentUrl: "http://localhost:4010/checkout/PAY-1?merchant=merchant_001"
+      })
+    );
   });
 
   it("blocks return requests after the 7 day window", async () => {

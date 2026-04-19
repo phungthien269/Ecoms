@@ -163,6 +163,36 @@ export class PaymentGatewayService {
     };
   }
 
+  parseCheckoutArtifact(metadata: unknown) {
+    if (!metadata || typeof metadata !== "object") {
+      return null;
+    }
+
+    const value = metadata as Record<string, unknown>;
+    if (
+      (value.checkoutMode !== "hosted_checkout" && value.checkoutMode !== "bank_transfer") ||
+      typeof value.provider !== "string"
+    ) {
+      return null;
+    }
+
+    return {
+      provider: value.provider,
+      providerDisplayName:
+        typeof value.providerDisplayName === "string" ? value.providerDisplayName : null,
+      checkoutMode: value.checkoutMode,
+      paymentUrl: typeof value.paymentUrl === "string" ? value.paymentUrl : null,
+      callbackUrl: typeof value.callbackUrl === "string" ? value.callbackUrl : null,
+      sessionToken: typeof value.sessionToken === "string" ? value.sessionToken : null,
+      qrPayload: typeof value.qrPayload === "string" ? value.qrPayload : null,
+      merchantCode: typeof value.merchantCode === "string" ? value.merchantCode : null,
+      bankAccountName: typeof value.bankAccountName === "string" ? value.bankAccountName : null,
+      bankAccountNumber:
+        typeof value.bankAccountNumber === "string" ? value.bankAccountNumber : null,
+      bankName: typeof value.bankName === "string" ? value.bankName : null
+    } as const;
+  }
+
   private signGatewayToken(referenceCode: string, expiresAt: string) {
     return createHmac("sha256", this.getWebhookSecret())
       .update(`${referenceCode}|${expiresAt}`)

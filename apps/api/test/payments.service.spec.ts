@@ -62,6 +62,7 @@ describe("PaymentsService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     paymentGatewayService.signWebhookPayload.mockImplementation(signWebhookPayload);
+    paymentGatewayService.parseCheckoutArtifact = jest.fn().mockImplementation((metadata: unknown) => metadata ?? null);
     paymentGatewayService.getProviderDiagnostics = jest.fn().mockReturnValue({
       provider: "mock_gateway",
       displayName: "Mock Gateway",
@@ -615,6 +616,7 @@ describe("PaymentsService", () => {
         expiresAt: "2026-04-20T10:15:00.000Z",
         paidAt: "2026-04-20T10:05:00.000Z",
         metadata: { provider: "mock_gateway" },
+        checkoutArtifact: { provider: "mock_gateway" },
         createdAt: "2026-04-20T10:00:00.000Z",
         updatedAt: "2026-04-20T10:05:00.000Z"
       },

@@ -129,4 +129,29 @@ describe("PaymentGatewayService", () => {
       })
     );
   });
+
+  it("parses checkout artifact from payment metadata", () => {
+    const result = service.parseCheckoutArtifact({
+      provider: "demo_gateway",
+      providerDisplayName: "Demo Gateway",
+      checkoutMode: "hosted_checkout",
+      paymentUrl: "http://localhost:4010/checkout/PAY-DEMO?merchant=merchant_001",
+      callbackUrl: "http://localhost:3000/orders/order-demo",
+      sessionToken: "session-token"
+    });
+
+    expect(result).toEqual({
+      provider: "demo_gateway",
+      providerDisplayName: "Demo Gateway",
+      checkoutMode: "hosted_checkout",
+      paymentUrl: "http://localhost:4010/checkout/PAY-DEMO?merchant=merchant_001",
+      callbackUrl: "http://localhost:3000/orders/order-demo",
+      sessionToken: "session-token",
+      qrPayload: null,
+      merchantCode: null,
+      bankAccountName: null,
+      bankAccountNumber: null,
+      bankName: null
+    });
+  });
 });

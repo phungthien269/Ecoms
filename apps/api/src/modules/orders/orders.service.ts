@@ -15,6 +15,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { SystemSettingsService } from "../systemSettings/system-settings.service";
 import { AuditLogsService } from "../auditLogs/audit-logs.service";
 import type { AuthPayload } from "../auth/types/auth-payload";
+import { PaymentGatewayService } from "../payments/payment-gateway.service";
 import { ListAdminOrdersDto } from "./dto/list-admin-orders.dto";
 
 @Injectable()
@@ -26,7 +27,8 @@ export class OrdersService {
     private readonly orderStatusHistoryService: OrderStatusHistoryService,
     private readonly paymentLifecycleService: PaymentLifecycleService,
     private readonly systemSettingsService: SystemSettingsService,
-    private readonly auditLogsService: AuditLogsService
+    private readonly auditLogsService: AuditLogsService,
+    private readonly paymentGatewayService: PaymentGatewayService
   ) {}
 
   async listOwn(userId: string) {
@@ -1077,6 +1079,7 @@ export class OrdersService {
         expiresAt: payment.expiresAt?.toISOString() ?? null,
         paidAt: payment.paidAt?.toISOString() ?? null,
         metadata: (payment.metadata as Record<string, unknown> | null) ?? null,
+        checkoutArtifact: this.paymentGatewayService.parseCheckoutArtifact(payment.metadata),
         events:
           payment.events?.map((event) => ({
             id: event.id,
