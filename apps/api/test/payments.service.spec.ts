@@ -383,7 +383,14 @@ describe("PaymentsService", () => {
         paymentId: "payment-3",
         eventType: "PAYMENT_FAILED",
         previousStatus: PaymentStatus.PENDING,
-        nextStatus: PaymentStatus.FAILED
+        nextStatus: PaymentStatus.FAILED,
+        actorType: "PAYMENT_GATEWAY",
+        actorUserId: null,
+        payload: expect.objectContaining({
+          providerMode: "mock_gateway",
+          providerContract: "mock_gateway",
+          webhookEvent: PaymentWebhookEvent.FAILED
+        })
       }),
       prisma
     );
@@ -450,6 +457,21 @@ describe("PaymentsService", () => {
       orderStatus: OrderStatus.CONFIRMED,
       processed: true
     });
+    expect(paymentEventsService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentId: "payment-demo-1",
+        eventType: "PAYMENT_PAID",
+        actorType: "PAYMENT_GATEWAY",
+        actorUserId: null,
+        payload: expect.objectContaining({
+          providerMode: "demo_gateway",
+          providerContract: "demo_gateway",
+          gatewayStatus: DemoGatewayWebhookStatus.SUCCESS,
+          providerReference: "demo-ref-1"
+        })
+      }),
+      prisma
+    );
   });
 
   it("rejects invalid webhook signatures", async () => {

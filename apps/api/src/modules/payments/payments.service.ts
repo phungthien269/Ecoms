@@ -109,6 +109,8 @@ export class PaymentsService {
       occurredAt: payload.occurredAt ? new Date(payload.occurredAt) : new Date(),
       metadata: {
         flow: "mock_webhook",
+        providerMode: "mock_gateway",
+        providerContract: "mock_gateway",
         webhookEvent: payload.event,
         providerReference: payload.providerReference ?? null
       }
@@ -154,6 +156,8 @@ export class PaymentsService {
       occurredAt: new Date(payload.occurredAt),
       metadata: {
         flow: "demo_gateway_webhook",
+        providerMode: "demo_gateway",
+        providerContract: "demo_gateway",
         gatewayStatus: payload.status,
         providerReference: payload.providerReference,
         merchantCode: payload.merchantCode
@@ -885,6 +889,7 @@ export class PaymentsService {
 
     await this.prisma.$transaction(async (tx) => {
       const previousStatus = payment.status as PaymentStatus;
+      const isGatewayTransition = ["mock_webhook", "demo_gateway_webhook"].includes(input.source);
       await tx.payment.update({
         where: { id: payment.id },
         data: {
@@ -904,8 +909,8 @@ export class PaymentsService {
           orderId: payment.orderId,
           eventType: `PAYMENT_${nextStatus}`,
           source: input.source,
-          actorType: input.source === "mock_webhook" ? "PAYMENT_GATEWAY" : "CUSTOMER",
-          actorUserId: input.source === "mock_webhook" ? null : payment.userId,
+          actorType: isGatewayTransition ? "PAYMENT_GATEWAY" : "CUSTOMER",
+          actorUserId: isGatewayTransition ? null : payment.userId,
           previousStatus,
           nextStatus,
           payload: input.metadata
@@ -924,8 +929,8 @@ export class PaymentsService {
           {
             orderId: payment.orderId,
             status: orderStatus,
-            actorType: input.source === "mock_webhook" ? "PAYMENT_GATEWAY" : "BUYER",
-            actorUserId: input.source === "mock_webhook" ? null : payment.userId,
+            actorType: isGatewayTransition ? "PAYMENT_GATEWAY" : "BUYER",
+            actorUserId: isGatewayTransition ? null : payment.userId,
             note: this.buildOrderTransitionNote(nextStatus, orderStatus),
             metadata: {
               paymentId: payment.id,

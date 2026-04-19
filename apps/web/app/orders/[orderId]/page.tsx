@@ -19,6 +19,15 @@ export const dynamic = "force-dynamic";
 
 const timeline = ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPING", "DELIVERED", "COMPLETED"];
 
+function getPaymentProviderBadge(payload: Record<string, unknown> | null) {
+  const providerMode =
+    typeof payload?.providerMode === "string" ? payload.providerMode : null;
+  const providerContract =
+    typeof payload?.providerContract === "string" ? payload.providerContract : null;
+
+  return providerContract ?? providerMode;
+}
+
 export default async function OrderDetailPage({
   params,
   searchParams
@@ -466,6 +475,13 @@ export default async function OrderDetailPage({
                             <div className="mt-1 text-sm font-medium text-slate-950">
                               {event.previousStatus ? `${event.previousStatus} -> ` : ""}{event.nextStatus}
                             </div>
+                            {getPaymentProviderBadge(event.payload) ? (
+                              <div className="mt-2">
+                                <span className="rounded-full bg-orange-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-orange-700">
+                                  {getPaymentProviderBadge(event.payload)}
+                                </span>
+                              </div>
+                            ) : null}
                             <div className="mt-1 text-xs text-slate-500">
                               {event.actorUser
                                 ? `${event.actorUser.fullName} • ${event.actorType}`
