@@ -675,7 +675,7 @@ export async function replayPaymentGatewayWebhookAction(formData: FormData) {
   const event = String(formData.get("event") ?? "").trim();
   const providerReference = String(formData.get("providerReference") ?? "").trim();
 
-  const response = await fetch(`${API_URL}/payments/admin/replay-mock-webhook`, {
+  const response = await fetch(`${API_URL}/payments/admin/replay-provider-webhook`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -702,6 +702,8 @@ export async function replayPaymentGatewayWebhookAction(formData: FormData) {
 
   const payload = (await response.json()) as {
     data?: {
+      providerMode?: string;
+      providerContract?: string;
       paymentStatus?: string;
       orderStatus?: string;
       processed?: boolean;
@@ -712,7 +714,7 @@ export async function replayPaymentGatewayWebhookAction(formData: FormData) {
     appendAdminFlash(redirectTo, {
       scope: "payments",
       status: "success",
-      message: `Replayed ${event} callback. Payment ${payload.data?.paymentStatus ?? "updated"}, order ${payload.data?.orderStatus ?? "updated"}${payload.data?.processed === false ? " (idempotent)" : ""}.`
+      message: `Replayed ${event} callback via ${payload.data?.providerMode ?? "provider"}. Payment ${payload.data?.paymentStatus ?? "updated"}, order ${payload.data?.orderStatus ?? "updated"}${payload.data?.processed === false ? " (idempotent)" : ""}.`
     })
   );
 }

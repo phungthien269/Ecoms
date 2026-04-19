@@ -416,7 +416,7 @@ export default async function AdminDiagnosticsPage({
                   Replay real payment callback
                 </div>
                 <div className="mt-1 text-sm text-slate-500">
-                  Use a real pending payment ID or reference code. This replays the mock provider callback against stored payments, not the sample payload above.
+                  Use a real pending payment ID or reference code. This replays the active provider contract against stored payments, not just the sample payload above.
                 </div>
               </div>
               <label className="grid gap-2 text-sm font-medium text-slate-700">
@@ -463,7 +463,7 @@ export default async function AdminDiagnosticsPage({
                   type="submit"
                   className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
                 >
-                  Replay mock callback
+                  Replay provider callback
                 </button>
               </div>
             </form>

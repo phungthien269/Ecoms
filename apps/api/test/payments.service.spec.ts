@@ -621,6 +621,85 @@ describe("PaymentsService", () => {
     );
   });
 
+  it("replays active provider callback via demo gateway mode", async () => {
+    paymentGatewayService.getProviderDiagnostics.mockReturnValue({
+      provider: "demo_gateway",
+      displayName: "Demo Gateway",
+      mode: "demo_gateway",
+      configured: true,
+      webhookMode: "provider_callback",
+      supportsHostedCheckout: true,
+      supportsBankTransfer: true,
+      supportsWebhookReplay: false,
+      callbackPath: "/api/payments/webhooks/demo",
+      signatureHeaderName: "x-demo-gateway-signature",
+      merchantCode: "merchant_001",
+      baseUrl: "https://demo-gateway.local",
+      actionHint: "No action required"
+    });
+    prisma.payment.findUnique = jest.fn().mockResolvedValue({
+      referenceCode: "PAY-DEMO-RUN"
+    });
+    prisma.payment.findFirst.mockResolvedValue({
+      id: "payment-demo-run",
+      orderId: "order-demo-run",
+      userId: "user-1",
+      method: PaymentMethod.ONLINE_GATEWAY,
+      status: PaymentStatus.PENDING,
+      referenceCode: "PAY-DEMO-RUN",
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      metadata: {},
+      order: {
+        id: "order-demo-run",
+        status: OrderStatus.PENDING,
+        shopId: "shop-1",
+        orderNumber: "ORD-DEMO-RUN"
+      }
+    });
+    prisma.shop.findUnique.mockResolvedValue({
+      ownerId: "seller-1",
+      name: "Demo Seller Shop"
+    });
+
+    const result = await service.replayProviderWebhook(
+      {
+        sub: "admin-1",
+        email: "admin@ecoms.local",
+        role: UserRole.ADMIN
+      },
+      {
+        paymentId: "payment-demo-run",
+        event: PaymentWebhookEvent.PAID
+      }
+    );
+
+    expect(paymentGatewayService.signDemoGatewayPayload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantCode: "merchant_001",
+        referenceCode: "PAY-DEMO-RUN",
+        status: DemoGatewayWebhookStatus.SUCCESS
+      })
+    );
+    expect(auditLogsService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "health.diagnostics.payment_provider_replay",
+        metadata: expect.objectContaining({
+          providerMode: "demo_gateway",
+          referenceCode: "PAY-DEMO-RUN"
+        })
+      })
+    );
+    expect(result).toEqual({
+      providerMode: "demo_gateway",
+      providerContract: "demo_gateway",
+      paymentId: "payment-demo-run",
+      orderId: "order-demo-run",
+      paymentStatus: PaymentStatus.PAID,
+      orderStatus: OrderStatus.CONFIRMED,
+      processed: true
+    });
+  });
+
   it("returns admin payment trace with payment events", async () => {
     prisma.payment.findFirst.mockResolvedValue({
       id: "payment-trace-1",

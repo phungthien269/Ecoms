@@ -15,6 +15,7 @@ describe("PaymentsController (http)", () => {
     handleDemoGatewayWebhook: jest.fn(),
     expireStalePendingPayments: jest.fn(),
     replayMockWebhook: jest.fn(),
+    replayProviderWebhook: jest.fn(),
     batchReplayMockWebhook: jest.fn(),
     getAdminTrace: jest.fn(),
     listAdmin: jest.fn(),
@@ -158,6 +159,39 @@ describe("PaymentsController (http)", () => {
       processed: true
     });
     expect(paymentsService.replayMockWebhook).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sub: "admin-1",
+        role: "ADMIN"
+      }),
+      payload
+    );
+  });
+
+  it("lets admins replay the active provider callback", async () => {
+    const payload = {
+      referenceCode: "PAY-ORDER-8",
+      event: PaymentWebhookEvent.PAID,
+      providerReference: "provider-8"
+    };
+    paymentsService.replayProviderWebhook.mockResolvedValue({
+      providerMode: "demo_gateway",
+      providerContract: "demo_gateway",
+      paymentId: "payment-8",
+      orderId: "order-8",
+      paymentStatus: "PAID",
+      orderStatus: "CONFIRMED",
+      processed: true
+    });
+
+    const response = await request(app.getHttpServer())
+      .post("/api/payments/admin/replay-provider-webhook")
+      .set("x-test-user-id", "admin-1")
+      .set("x-test-user-role", "ADMIN")
+      .send(payload);
+
+    expect(response.status).toBe(201);
+    expect(response.body.success).toBe(true);
+    expect(paymentsService.replayProviderWebhook).toHaveBeenCalledWith(
       expect.objectContaining({
         sub: "admin-1",
         role: "ADMIN"

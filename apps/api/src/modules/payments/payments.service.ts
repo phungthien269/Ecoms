@@ -20,6 +20,7 @@ import { AuditLogsService } from "../auditLogs/audit-logs.service";
 import type { AuthPayload } from "../auth/types/auth-payload";
 import type { AdminBatchReplayMockWebhookDto } from "./dto/admin-batch-replay-mock-webhook.dto";
 import type { AdminReplayMockWebhookDto } from "./dto/admin-replay-mock-webhook.dto";
+import type { AdminReplayProviderWebhookDto } from "./dto/admin-replay-provider-webhook.dto";
 import type { ListAdminPaymentsDto } from "./dto/list-admin-payments.dto";
 import { PaymentEventsService } from "./payment-events.service";
 import { PaymentGatewayService } from "./payment-gateway.service";
@@ -187,6 +188,92 @@ export class PaymentsService {
     });
 
     return result;
+  }
+
+  async replayProviderWebhook(actor: AuthPayload, payload: AdminReplayProviderWebhookDto) {
+    const diagnostics = this.paymentGatewayService.getProviderDiagnostics();
+
+    if (diagnostics.mode === "demo_gateway") {
+      let referenceCode = payload.referenceCode ?? "";
+      if (!referenceCode && payload.paymentId) {
+        const payment = await this.prisma.payment.findUnique({
+          where: { id: payload.paymentId },
+          select: { referenceCode: true }
+        });
+
+        if (!payment) {
+          throw new NotFoundException("Payment not found");
+        }
+        referenceCode = payment.referenceCode;
+      }
+
+      const demoPayload: DemoGatewayWebhookDto = {
+        merchantCode: diagnostics.merchantCode ?? "demo_merchant",
+        referenceCode,
+        status:
+          payload.event === PaymentWebhookEvent.PAID
+            ? DemoGatewayWebhookStatus.SUCCESS
+            : payload.event === PaymentWebhookEvent.EXPIRED
+              ? DemoGatewayWebhookStatus.EXPIRED
+              : DemoGatewayWebhookStatus.FAILED,
+        providerReference:
+          payload.providerReference ??
+          `demo-provider-${payload.paymentId ?? payload.referenceCode ?? "payment"}`,
+        occurredAt: new Date().toISOString()
+      };
+
+      const signature = this.paymentGatewayService.signDemoGatewayPayload(demoPayload);
+      const result = await this.handleDemoGatewayWebhook(demoPayload, signature);
+
+      await this.auditLogsService.record({
+        actorUserId: actor.sub,
+        actorRole: actor.role,
+        action: "health.diagnostics.payment_provider_replay",
+        entityType: "HEALTH_DIAGNOSTIC",
+        entityId: payload.paymentId ?? referenceCode,
+        summary: `Replayed ${payload.event} provider callback via ${diagnostics.mode}`,
+        metadata: {
+          providerMode: diagnostics.mode,
+          paymentId: payload.paymentId ?? null,
+          referenceCode,
+          event: payload.event,
+          processed: result.processed,
+          paymentStatus: result.paymentStatus,
+          orderStatus: result.orderStatus
+        }
+      });
+
+      return {
+        providerMode: diagnostics.mode,
+        providerContract: "demo_gateway",
+        ...result
+      };
+    }
+
+    const result = await this.replayMockWebhook(actor, payload);
+    await this.auditLogsService.record({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: "health.diagnostics.payment_provider_replay",
+      entityType: "HEALTH_DIAGNOSTIC",
+      entityId: payload.paymentId ?? payload.referenceCode ?? undefined,
+      summary: `Replayed ${payload.event} provider callback via ${diagnostics.mode}`,
+      metadata: {
+        providerMode: diagnostics.mode,
+        paymentId: payload.paymentId ?? null,
+        referenceCode: payload.referenceCode ?? null,
+        event: payload.event,
+        processed: result.processed,
+        paymentStatus: result.paymentStatus,
+        orderStatus: result.orderStatus
+      }
+    });
+
+    return {
+      providerMode: diagnostics.mode,
+      providerContract: "mock_gateway",
+      ...result
+    };
   }
 
   async batchReplayMockWebhook(actor: AuthPayload, payload: AdminBatchReplayMockWebhookDto) {
