@@ -10,7 +10,9 @@ describe("HealthController (http)", () => {
   const healthService = {
     getHealth: jest.fn(),
     assertReady: jest.fn(),
-    getDiagnostics: jest.fn()
+    getDiagnostics: jest.fn(),
+    sendTestEmail: jest.fn(),
+    getMediaUploadSample: jest.fn()
   } satisfies Partial<HealthService>;
 
   beforeAll(async () => {
@@ -74,5 +76,54 @@ describe("HealthController (http)", () => {
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
     expect(healthService.getDiagnostics).toHaveBeenCalled();
+  });
+
+  it("allows admin to send a diagnostics test email", async () => {
+    healthService.sendTestEmail.mockResolvedValue({
+      accepted: true,
+      driver: "console",
+      recipientEmail: "ops@example.com",
+      subject: "Ops drill"
+    });
+
+    const response = await request(app.getHttpServer())
+      .post("/api/health/diagnostics/test-email")
+      .set("x-test-user-id", "admin-1")
+      .set("x-test-user-role", UserRole.ADMIN)
+      .send({
+        recipientEmail: "ops@example.com",
+        subject: "Ops drill"
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body.success).toBe(true);
+    expect(healthService.sendTestEmail).toHaveBeenCalledWith("ops@example.com", "Ops drill");
+  });
+
+  it("allows admin to request a media upload sample", async () => {
+    healthService.getMediaUploadSample.mockResolvedValue({
+      driver: "local",
+      objectKey: "healthchecks/sample.txt",
+      publicUrl: "http://localhost:4000/uploads/healthchecks/sample.txt",
+      upload: {
+        strategy: "single_put",
+        method: "PUT",
+        uploadUrl: "http://localhost:4000/uploads/healthchecks/sample.txt",
+        publicUrl: "http://localhost:4000/uploads/healthchecks/sample.txt",
+        headers: {
+          "content-type": "text/plain"
+        },
+        expiresAt: null
+      }
+    });
+
+    const response = await request(app.getHttpServer())
+      .get("/api/health/diagnostics/media-upload-sample")
+      .set("x-test-user-id", "admin-1")
+      .set("x-test-user-role", UserRole.ADMIN);
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(healthService.getMediaUploadSample).toHaveBeenCalled();
   });
 });

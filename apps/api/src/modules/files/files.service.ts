@@ -71,6 +71,29 @@ export class FilesService {
     };
   }
 
+  async createDiagnosticUploadSample(payload?: Partial<CreateUploadIntentDto>) {
+    const driver = this.configService.get<string>("MEDIA_DRIVER") ?? "s3";
+    const filename = payload?.filename ?? "healthcheck-sample.txt";
+    const mimeType = payload?.mimeType ?? "text/plain";
+    const folder = payload?.folder ?? "healthchecks";
+    const sizeBytes = payload?.sizeBytes ?? 32;
+    const objectKey = this.buildObjectKey(folder, filename);
+    const publicUrl = this.resolvePublicUrl(driver, objectKey);
+    const upload = await this.buildUploadInstruction(driver, objectKey, publicUrl, {
+      filename,
+      mimeType,
+      folder,
+      sizeBytes
+    });
+
+    return {
+      driver,
+      objectKey,
+      publicUrl,
+      upload
+    };
+  }
+
   async complete(
     userId: string,
     fileAssetId: string,

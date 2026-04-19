@@ -59,6 +59,29 @@ export class HealthService {
     return this.getReadiness();
   }
 
+  async sendTestEmail(recipientEmail: string, subject?: string) {
+    const marketplaceName = await this.getMarketplaceName();
+    const resolvedSubject = subject?.trim() || `${marketplaceName} diagnostics test email`;
+    const result = await this.mailerService.sendSafely({
+      to: recipientEmail,
+      subject: resolvedSubject,
+      html: `<p>This is a provider verification email from <strong>${marketplaceName}</strong>.</p>`,
+      text: `This is a provider verification email from ${marketplaceName}.`,
+      tags: ["diagnostics", "test-email"]
+    });
+
+    return {
+      accepted: result.accepted,
+      driver: result.driver,
+      recipientEmail,
+      subject: resolvedSubject
+    };
+  }
+
+  async getMediaUploadSample() {
+    return this.filesService.createDiagnosticUploadSample();
+  }
+
   private toDetails(value: object): Record<string, unknown> {
     return value as Record<string, unknown>;
   }
@@ -212,6 +235,14 @@ export class HealthService {
       return await this.systemSettingsService.getBooleanValue("provider_probes_enabled");
     } catch {
       return this.configService.get<boolean>("HEALTHCHECK_PROVIDER_PROBES_ENABLED", true);
+    }
+  }
+
+  private async getMarketplaceName() {
+    try {
+      return await this.systemSettingsService.getStringValue("marketplace_name");
+    } catch {
+      return "Ecoms";
     }
   }
 

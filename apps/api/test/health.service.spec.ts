@@ -19,11 +19,13 @@ describe("HealthService", () => {
   };
   const mailerService = {
     getDiagnostics: jest.fn(),
-    probeDiagnostics: jest.fn()
+    probeDiagnostics: jest.fn(),
+    sendSafely: jest.fn()
   };
   const filesService = {
     getDiagnostics: jest.fn(),
-    probeDiagnostics: jest.fn()
+    probeDiagnostics: jest.fn(),
+    createDiagnosticUploadSample: jest.fn()
   };
   const rateLimitService = {
     getDiagnostics: jest.fn()
@@ -117,6 +119,25 @@ describe("HealthService", () => {
         instanceId: "instance-1",
         lastOwner: "instance-1",
         message: "Memory coordination active"
+      }
+    });
+    mailerService.sendSafely.mockResolvedValue({
+      accepted: true,
+      driver: "console"
+    });
+    filesService.createDiagnosticUploadSample.mockResolvedValue({
+      driver: "local",
+      objectKey: "healthchecks/sample.txt",
+      publicUrl: "http://localhost:4000/uploads/healthchecks/sample.txt",
+      upload: {
+        strategy: "single_put",
+        method: "PUT",
+        uploadUrl: "http://localhost:4000/uploads/healthchecks/sample.txt",
+        publicUrl: "http://localhost:4000/uploads/healthchecks/sample.txt",
+        headers: {
+          "content-type": "text/plain"
+        },
+        expiresAt: null
       }
     });
   });
@@ -265,6 +286,36 @@ describe("HealthService", () => {
     ).toEqual(
       expect.objectContaining({
         actionHint: "Restore Redis coordination to prevent duplicate sweeps across instances."
+      })
+    );
+  });
+
+  it("sends a diagnostics test email through the configured mailer", async () => {
+    const result = await service.sendTestEmail("ops@example.com", "Ops drill");
+
+    expect(mailerService.sendSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "ops@example.com",
+        subject: "Ops drill",
+        tags: ["diagnostics", "test-email"]
+      })
+    );
+    expect(result).toEqual({
+      accepted: true,
+      driver: "console",
+      recipientEmail: "ops@example.com",
+      subject: "Ops drill"
+    });
+  });
+
+  it("returns a live media upload sample for diagnostics surfaces", async () => {
+    const result = await service.getMediaUploadSample();
+
+    expect(filesService.createDiagnosticUploadSample).toHaveBeenCalled();
+    expect(result).toEqual(
+      expect.objectContaining({
+        driver: "local",
+        objectKey: "healthchecks/sample.txt"
       })
     );
   });

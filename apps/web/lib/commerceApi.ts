@@ -524,6 +524,21 @@ export interface SystemDiagnosticsData {
   }>;
 }
 
+export interface MediaUploadSampleData {
+  driver: string;
+  objectKey: string;
+  publicUrl: string;
+  upload: {
+    strategy: "single_put" | "form_post";
+    method: "PUT" | "POST";
+    uploadUrl: string;
+    publicUrl: string;
+    headers?: Record<string, string>;
+    fields?: Record<string, string>;
+    expiresAt: string | null;
+  };
+}
+
 export interface AdminReviewItem {
   id: string;
   rating: number;
@@ -949,6 +964,10 @@ export async function getAdminUsers() {
 
 export async function getSystemDiagnostics() {
   return requestAuthedJson<SystemDiagnosticsData>("/health/diagnostics");
+}
+
+export async function getDiagnosticsMediaUploadSample() {
+  return requestAuthedJson<MediaUploadSampleData>("/health/diagnostics/media-upload-sample");
 }
 
 export async function getAdminReviews() {

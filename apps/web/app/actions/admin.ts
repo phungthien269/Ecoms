@@ -610,3 +610,55 @@ export async function expireStalePaymentsAction(formData: FormData) {
     })
   );
 }
+
+export async function sendDiagnosticsTestEmailAction(formData: FormData) {
+  const token = await getToken();
+  const redirectTo = getRedirectTarget(formData, "/admin/diagnostics");
+  if (!token) {
+    redirectToPath(redirectTo);
+  }
+
+  const recipientEmail = String(formData.get("recipientEmail") ?? "").trim();
+  const subject = String(formData.get("subject") ?? "").trim();
+
+  const response = await fetch(`${API_URL}/health/diagnostics/test-email`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      recipientEmail,
+      subject: subject || undefined
+    }),
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    redirectToPath(
+      appendAdminFlash(redirectTo, {
+        scope: "diagnostics",
+        status: "error",
+        message: await parseErrorMessage(response, "Test email failed.")
+      })
+    );
+  }
+
+  const payload = (await response.json()) as {
+    data?: {
+      accepted?: boolean;
+      driver?: string;
+      recipientEmail?: string;
+    };
+  };
+
+  redirectToPath(
+    appendAdminFlash(redirectTo, {
+      scope: "diagnostics",
+      status: payload.data?.accepted ? "success" : "error",
+      message: payload.data?.accepted
+        ? `Test email sent to ${payload.data?.recipientEmail ?? recipientEmail} via ${payload.data?.driver ?? "mailer"}.`
+        : "Test email was not accepted by the configured mail driver."
+    })
+  );
+}
