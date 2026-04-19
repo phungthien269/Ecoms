@@ -11,7 +11,8 @@ describe("PaymentsController (http)", () => {
   const paymentsService = {
     confirm: jest.fn(),
     handleMockWebhook: jest.fn(),
-    expireStalePendingPayments: jest.fn()
+    expireStalePendingPayments: jest.fn(),
+    replayMockWebhook: jest.fn()
   } satisfies Partial<PaymentsService>;
 
   beforeAll(async () => {
@@ -90,6 +91,44 @@ describe("PaymentsController (http)", () => {
       cancelledOrderCount: 2
     });
     expect(paymentsService.expireStalePendingPayments).toHaveBeenCalledWith();
+  });
+
+  it("lets admins replay a mock payment callback", async () => {
+    const payload = {
+      referenceCode: "PAY-ORDER-7",
+      event: PaymentWebhookEvent.FAILED,
+      providerReference: "provider-7"
+    };
+    paymentsService.replayMockWebhook.mockResolvedValue({
+      paymentId: "payment-7",
+      orderId: "order-7",
+      paymentStatus: "FAILED",
+      orderStatus: "CANCELLED",
+      processed: true
+    });
+
+    const response = await request(app.getHttpServer())
+      .post("/api/payments/admin/replay-mock-webhook")
+      .set("x-test-user-id", "admin-1")
+      .set("x-test-user-role", "ADMIN")
+      .send(payload);
+
+    expect(response.status).toBe(201);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data).toEqual({
+      paymentId: "payment-7",
+      orderId: "order-7",
+      paymentStatus: "FAILED",
+      orderStatus: "CANCELLED",
+      processed: true
+    });
+    expect(paymentsService.replayMockWebhook).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sub: "admin-1",
+        role: "ADMIN"
+      }),
+      payload
+    );
   });
 });
 

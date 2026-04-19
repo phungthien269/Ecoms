@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { AuditLogsModule } from "../auditLogs/audit-logs.module";
 import { AuthModule } from "../auth/auth.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { OrderStatusHistoryModule } from "../orderStatusHistory/order-status-history.module";
@@ -15,6 +16,7 @@ import { PaymentsService } from "./payments.service";
 @Module({
   imports: [
     ConfigModule,
+    AuditLogsModule,
     AuthModule,
     PrismaModule,
     NotificationsModule,

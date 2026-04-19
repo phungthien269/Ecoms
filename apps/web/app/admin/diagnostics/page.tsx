@@ -1,6 +1,10 @@
 import type { Route } from "next";
 import Link from "next/link";
-import { expireStalePaymentsAction, sendDiagnosticsTestEmailAction } from "@/app/actions/admin";
+import {
+  expireStalePaymentsAction,
+  replayPaymentGatewayWebhookAction,
+  sendDiagnosticsTestEmailAction
+} from "@/app/actions/admin";
 import { AdminFlashBanner } from "@/components/admin/adminFlashBanner";
 import { EmptyState } from "@/components/storefront/emptyState";
 import {
@@ -355,6 +359,65 @@ export default async function AdminDiagnosticsPage({
                 ) : null
               )}
             </div>
+
+            <form action={replayPaymentGatewayWebhookAction} className="mt-6 grid gap-4">
+              <input type="hidden" name="redirectTo" value="/admin/diagnostics" />
+              <div className="rounded-[1.25rem] bg-slate-50 p-4">
+                <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                  Replay real payment callback
+                </div>
+                <div className="mt-1 text-sm text-slate-500">
+                  Use a real pending payment ID or reference code. This replays the mock provider callback against stored payments, not the sample payload above.
+                </div>
+              </div>
+              <label className="grid gap-2 text-sm font-medium text-slate-700">
+                Payment ID
+                <input
+                  type="text"
+                  name="paymentId"
+                  placeholder="payment_xxx"
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-orange-300 focus:bg-white"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-medium text-slate-700">
+                Reference code
+                <input
+                  type="text"
+                  name="referenceCode"
+                  placeholder="PAY-ORDER-123"
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-orange-300 focus:bg-white"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-medium text-slate-700">
+                Event
+                <select
+                  name="event"
+                  defaultValue="PAID"
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-orange-300 focus:bg-white"
+                >
+                  <option value="PAID">PAID</option>
+                  <option value="FAILED">FAILED</option>
+                  <option value="EXPIRED">EXPIRED</option>
+                </select>
+              </label>
+              <label className="grid gap-2 text-sm font-medium text-slate-700">
+                Provider reference
+                <input
+                  type="text"
+                  name="providerReference"
+                  placeholder="gateway_ref_123"
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-orange-300 focus:bg-white"
+                />
+              </label>
+              <div>
+                <button
+                  type="submit"
+                  className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                >
+                  Replay mock callback
+                </button>
+              </div>
+            </form>
           </div>
         </section>
 

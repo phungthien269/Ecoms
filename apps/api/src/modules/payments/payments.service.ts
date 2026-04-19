@@ -16,6 +16,9 @@ import { timingSafeEqual } from "node:crypto";
 import { NotificationsService } from "../notifications/notifications.service";
 import { OrderStatusHistoryService } from "../orderStatusHistory/order-status-history.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { AuditLogsService } from "../auditLogs/audit-logs.service";
+import type { AuthPayload } from "../auth/types/auth-payload";
+import type { AdminReplayMockWebhookDto } from "./dto/admin-replay-mock-webhook.dto";
 import { PaymentGatewayService } from "./payment-gateway.service";
 import { PaymentLifecycleService } from "./payment-lifecycle.service";
 import type { MockPaymentWebhookDto } from "./dto/mock-payment-webhook.dto";
@@ -32,6 +35,7 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
     private readonly orderStatusHistoryService: OrderStatusHistoryService,
+    private readonly auditLogsService: AuditLogsService,
     private readonly paymentGatewayService: PaymentGatewayService,
     private readonly paymentLifecycleService: PaymentLifecycleService
   ) {}
@@ -102,6 +106,31 @@ export class PaymentsService {
 
   async expireStalePendingPayments() {
     return this.paymentLifecycleService.expireStalePendingPayments();
+  }
+
+  async replayMockWebhook(actor: AuthPayload, payload: AdminReplayMockWebhookDto) {
+    const signature = this.paymentGatewayService.signWebhookPayload(payload);
+    const result = await this.handleMockWebhook(payload, signature);
+
+    await this.auditLogsService.record({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: "health.diagnostics.payment_gateway_replay",
+      entityType: "HEALTH_DIAGNOSTIC",
+      entityId: payload.paymentId ?? payload.referenceCode ?? undefined,
+      summary: `Replayed ${payload.event} mock gateway callback for ${payload.paymentId ?? payload.referenceCode}`,
+      metadata: {
+        paymentId: payload.paymentId ?? null,
+        referenceCode: payload.referenceCode ?? null,
+        event: payload.event,
+        providerReference: payload.providerReference ?? null,
+        processed: result.processed,
+        paymentStatus: result.paymentStatus,
+        orderStatus: result.orderStatus
+      }
+    });
+
+    return result;
   }
 
   private async applyPaymentTransition(

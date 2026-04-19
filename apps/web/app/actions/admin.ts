@@ -659,6 +659,60 @@ export async function sendDiagnosticsTestEmailAction(formData: FormData) {
       message: payload.data?.accepted
         ? `Test email sent to ${payload.data?.recipientEmail ?? recipientEmail} via ${payload.data?.driver ?? "mailer"}.`
         : "Test email was not accepted by the configured mail driver."
+      })
+  );
+}
+
+export async function replayPaymentGatewayWebhookAction(formData: FormData) {
+  const token = await getToken();
+  const redirectTo = getRedirectTarget(formData, "/admin/diagnostics");
+  if (!token) {
+    redirectToPath(redirectTo);
+  }
+
+  const paymentId = String(formData.get("paymentId") ?? "").trim();
+  const referenceCode = String(formData.get("referenceCode") ?? "").trim();
+  const event = String(formData.get("event") ?? "").trim();
+  const providerReference = String(formData.get("providerReference") ?? "").trim();
+
+  const response = await fetch(`${API_URL}/payments/admin/replay-mock-webhook`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      paymentId: paymentId || undefined,
+      referenceCode: referenceCode || undefined,
+      event,
+      providerReference: providerReference || undefined
+    }),
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    redirectToPath(
+      appendAdminFlash(redirectTo, {
+        scope: "payments",
+        status: "error",
+        message: await parseErrorMessage(response, "Mock payment replay failed.")
+      })
+    );
+  }
+
+  const payload = (await response.json()) as {
+    data?: {
+      paymentStatus?: string;
+      orderStatus?: string;
+      processed?: boolean;
+    };
+  };
+
+  redirectToPath(
+    appendAdminFlash(redirectTo, {
+      scope: "payments",
+      status: "success",
+      message: `Replayed ${event} callback. Payment ${payload.data?.paymentStatus ?? "updated"}, order ${payload.data?.orderStatus ?? "updated"}${payload.data?.processed === false ? " (idempotent)" : ""}.`
     })
   );
 }

@@ -3,7 +3,8 @@ import {
   OrderStatus,
   PaymentMethod,
   PaymentStatus,
-  PaymentWebhookEvent
+  PaymentWebhookEvent,
+  UserRole
 } from "@ecoms/contracts";
 import { PaymentsService } from "../src/modules/payments/payments.service";
 
@@ -33,11 +34,15 @@ describe("PaymentsService", () => {
   const paymentLifecycleService = {
     expireStalePendingPayments: jest.fn()
   };
+  const auditLogsService = {
+    record: jest.fn()
+  };
 
   const service = new PaymentsService(
     prisma as never,
     notificationsService as never,
     orderStatusHistoryService as never,
+    auditLogsService as never,
     paymentGatewayService as never,
     paymentLifecycleService as never
   );
@@ -223,6 +228,70 @@ describe("PaymentsService", () => {
     expect(result).toEqual({
       expiredCount: 2,
       cancelledOrderCount: 2
+    });
+  });
+
+  it("replays mock webhook with adapter signature and audit trail", async () => {
+    const payload = {
+      referenceCode: "PAY-ORDER-9",
+      event: PaymentWebhookEvent.PAID,
+      providerReference: "provider-9"
+    };
+    const signature = signWebhookPayload(payload);
+    paymentGatewayService.signWebhookPayload.mockReturnValue(signature);
+    prisma.payment.findFirst.mockResolvedValue({
+      id: "payment-9",
+      orderId: "order-9",
+      userId: "user-1",
+      method: PaymentMethod.ONLINE_GATEWAY,
+      status: PaymentStatus.PENDING,
+      referenceCode: "PAY-ORDER-9",
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      metadata: {},
+      order: {
+        id: "order-9",
+        status: OrderStatus.PENDING,
+        shopId: "shop-1",
+        orderNumber: "ORD-9"
+      }
+    });
+    prisma.shop.findUnique.mockResolvedValue({
+      ownerId: "seller-1",
+      name: "Demo Seller Shop"
+    });
+
+    const result = await service.replayMockWebhook(
+      {
+        sub: "admin-1",
+        email: "admin@ecoms.local",
+        role: UserRole.ADMIN
+      },
+      payload
+    );
+
+    expect(paymentGatewayService.signWebhookPayload).toHaveBeenCalledWith(payload);
+    expect(auditLogsService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorUserId: "admin-1",
+        actorRole: UserRole.ADMIN,
+        action: "health.diagnostics.payment_gateway_replay",
+        entityType: "HEALTH_DIAGNOSTIC",
+        entityId: "PAY-ORDER-9",
+        metadata: expect.objectContaining({
+          referenceCode: "PAY-ORDER-9",
+          event: PaymentWebhookEvent.PAID,
+          processed: true,
+          paymentStatus: PaymentStatus.PAID,
+          orderStatus: OrderStatus.CONFIRMED
+        })
+      })
+    );
+    expect(result).toEqual({
+      paymentId: "payment-9",
+      orderId: "order-9",
+      paymentStatus: PaymentStatus.PAID,
+      orderStatus: OrderStatus.CONFIRMED,
+      processed: true
     });
   });
 });
