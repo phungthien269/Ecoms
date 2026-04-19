@@ -91,6 +91,9 @@ describe("CheckoutService", () => {
   const orderStatusHistoryService = {
     record: jest.fn()
   };
+  const paymentEventsService = {
+    record: jest.fn()
+  };
   const paymentGatewayService = {
     createPendingPaymentMetadata: jest.fn()
   };
@@ -110,6 +113,7 @@ describe("CheckoutService", () => {
     notificationsService as never,
     mailerService as never,
     orderStatusHistoryService as never,
+    paymentEventsService as never,
     paymentGatewayService as never,
     systemSettingsService as never
   );
@@ -252,6 +256,14 @@ describe("CheckoutService", () => {
       expect.objectContaining({
         orderId: "order-1",
         status: "CONFIRMED"
+      }),
+      prisma
+    );
+    expect(paymentEventsService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentId: "payment-1",
+        eventType: "PAYMENT_CREATED",
+        nextStatus: PaymentStatus.PAID
       }),
       prisma
     );
@@ -449,6 +461,14 @@ describe("CheckoutService", () => {
       })
     });
     expect(paymentGatewayService.createPendingPaymentMetadata).toHaveBeenCalled();
+    expect(paymentEventsService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentId: "payment-2",
+        eventType: "PAYMENT_CREATED",
+        nextStatus: PaymentStatus.PENDING
+      }),
+      prisma
+    );
   });
 
   it("uses configurable shipping fee settings in preview", async () => {

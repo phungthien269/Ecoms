@@ -1,4 +1,4 @@
-import { Body, Controller, Headers, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Headers, Param, Post, Query, UseGuards } from "@nestjs/common";
 import { UserRole } from "@ecoms/contracts";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
@@ -7,6 +7,7 @@ import { Roles } from "../rbac/decorators/roles.decorator";
 import { RolesGuard } from "../rbac/guards/roles.guard";
 import { AdminReplayMockWebhookDto } from "./dto/admin-replay-mock-webhook.dto";
 import { MockPaymentWebhookDto } from "./dto/mock-payment-webhook.dto";
+import { PaymentTraceQueryDto } from "./dto/payment-trace-query.dto";
 import { PaymentsService } from "./payments.service";
 
 @Controller("payments")
@@ -42,5 +43,12 @@ export class PaymentsController {
     @Body() payload: AdminReplayMockWebhookDto
   ) {
     return this.paymentsService.replayMockWebhook(actor, payload);
+  }
+
+  @Get("admin/trace")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  getAdminTrace(@Query() query: PaymentTraceQueryDto) {
+    return this.paymentsService.getAdminTrace(query);
   }
 }

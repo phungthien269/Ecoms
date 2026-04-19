@@ -12,7 +12,8 @@ describe("PaymentsController (http)", () => {
     confirm: jest.fn(),
     handleMockWebhook: jest.fn(),
     expireStalePendingPayments: jest.fn(),
-    replayMockWebhook: jest.fn()
+    replayMockWebhook: jest.fn(),
+    getAdminTrace: jest.fn()
   } satisfies Partial<PaymentsService>;
 
   beforeAll(async () => {
@@ -129,6 +130,38 @@ describe("PaymentsController (http)", () => {
       }),
       payload
     );
+  });
+
+  it("lets admins fetch payment trace by reference code", async () => {
+    paymentsService.getAdminTrace.mockResolvedValue({
+      payment: {
+        id: "payment-9",
+        orderId: "order-9",
+        orderNumber: "ORD-9",
+        orderStatus: "CONFIRMED",
+        method: "ONLINE_GATEWAY",
+        status: "PAID",
+        amount: "722000",
+        referenceCode: "PAY-9",
+        expiresAt: null,
+        paidAt: "2026-04-20T10:05:00.000Z",
+        metadata: null,
+        createdAt: "2026-04-20T10:00:00.000Z",
+        updatedAt: "2026-04-20T10:05:00.000Z"
+      },
+      events: []
+    });
+
+    const response = await request(app.getHttpServer())
+      .get("/api/payments/admin/trace?referenceCode=PAY-9")
+      .set("x-test-user-id", "admin-1")
+      .set("x-test-user-role", "ADMIN");
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(paymentsService.getAdminTrace).toHaveBeenCalledWith({
+      referenceCode: "PAY-9"
+    });
   });
 });
 

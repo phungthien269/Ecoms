@@ -7,6 +7,7 @@ import { OrderStatusHistoryModule } from "../orderStatusHistory/order-status-his
 import { PrismaModule } from "../prisma/prisma.module";
 import { SystemSettingsModule } from "../systemSettings/system-settings.module";
 import { PaymentExpiryCoordinationService } from "./payment-expiry-coordination.service";
+import { PaymentEventsService } from "./payment-events.service";
 import { PaymentExpirySchedulerService } from "./payment-expiry-scheduler.service";
 import { PaymentGatewayService } from "./payment-gateway.service";
 import { PaymentsController } from "./payments.controller";
@@ -26,6 +27,7 @@ import { PaymentsService } from "./payments.service";
   controllers: [PaymentsController],
   providers: [
     PaymentsService,
+    PaymentEventsService,
     PaymentGatewayService,
     PaymentLifecycleService,
     PaymentExpiryCoordinationService,
@@ -33,6 +35,7 @@ import { PaymentsService } from "./payments.service";
   ],
   exports: [
     PaymentLifecycleService,
+    PaymentEventsService,
     PaymentGatewayService,
     PaymentExpiryCoordinationService,
     PaymentExpirySchedulerService

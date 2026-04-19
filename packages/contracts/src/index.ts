@@ -261,6 +261,41 @@ export interface OrderAutoCompleteSummary {
   windowDays: number;
 }
 
+export interface PaymentEventSummary {
+  id: string;
+  eventType: string;
+  source: string;
+  actorType: string;
+  actorUser: {
+    id: string;
+    fullName: string;
+    role: UserRole;
+  } | null;
+  previousStatus: PaymentStatus | null;
+  nextStatus: PaymentStatus;
+  payload: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface PaymentTraceSummary {
+  payment: {
+    id: string;
+    orderId: string;
+    orderNumber: string;
+    orderStatus: OrderStatus;
+    method: PaymentMethod;
+    status: PaymentStatus;
+    amount: string;
+    referenceCode: string;
+    expiresAt: string | null;
+    paidAt: string | null;
+    metadata: Record<string, unknown> | null;
+    createdAt: string;
+    updatedAt: string;
+  };
+  events: PaymentEventSummary[];
+}
+
 export interface OrderShippingUpdateWindowSummary {
   canEdit: boolean;
   lockedReason: string | null;

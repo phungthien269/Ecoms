@@ -8,6 +8,7 @@ import {
 import { AdminFlashBanner } from "@/components/admin/adminFlashBanner";
 import { EmptyState } from "@/components/storefront/emptyState";
 import {
+  getAdminPaymentTrace,
   getDiagnosticsActivity,
   getDiagnosticsMediaUploadSample,
   getDiagnosticsPaymentGatewaySample,
@@ -26,6 +27,8 @@ export default async function AdminDiagnosticsPage({
   const session = await getDemoSession();
   const resolvedParams = searchParams ? await searchParams : {};
   const params = normalizeAdminParams(resolvedParams);
+  const tracePaymentId = String(resolvedParams.tracePaymentId ?? "").trim();
+  const traceReferenceCode = String(resolvedParams.traceReferenceCode ?? "").trim();
   const [diagnostics, mediaUploadSample, paymentGatewaySample, bankTransferSample, diagnosticsActivity] = await Promise.all([
     getSystemDiagnostics(),
     getDiagnosticsMediaUploadSample(),
@@ -33,6 +36,13 @@ export default async function AdminDiagnosticsPage({
     getDiagnosticsPaymentGatewaySample("BANK_TRANSFER"),
     getDiagnosticsActivity()
   ]);
+  const paymentTrace =
+    tracePaymentId || traceReferenceCode
+      ? await getAdminPaymentTrace({
+          paymentId: tracePaymentId || undefined,
+          referenceCode: traceReferenceCode || undefined
+        })
+      : null;
 
   if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.role)) {
     return (
@@ -418,6 +428,105 @@ export default async function AdminDiagnosticsPage({
                 </button>
               </div>
             </form>
+
+            <form method="GET" className="mt-6 grid gap-4 border-t border-slate-200 pt-6">
+              <div className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">
+                Payment trace lookup
+              </div>
+              <label className="grid gap-2 text-sm font-medium text-slate-700">
+                Payment ID
+                <input
+                  type="text"
+                  name="tracePaymentId"
+                  defaultValue={tracePaymentId}
+                  placeholder="payment_xxx"
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-orange-300 focus:bg-white"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-medium text-slate-700">
+                Reference code
+                <input
+                  type="text"
+                  name="traceReferenceCode"
+                  defaultValue={traceReferenceCode}
+                  placeholder="PAY-ORDER-123"
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-orange-300 focus:bg-white"
+                />
+              </label>
+              <div className="flex gap-3">
+                <button
+                  type="submit"
+                  className="rounded-full bg-orange-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-orange-600"
+                >
+                  Load payment trace
+                </button>
+                {(tracePaymentId || traceReferenceCode) ? (
+                  <Link
+                    href={"/admin/diagnostics" as Route}
+                    className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+                  >
+                    Clear
+                  </Link>
+                ) : null}
+              </div>
+            </form>
+
+            {paymentTrace ? (
+              <div className="mt-6 rounded-[1.5rem] border border-slate-200 bg-white p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-400">
+                      Trace result
+                    </div>
+                    <div className="mt-1 text-lg font-bold text-slate-950">
+                      {paymentTrace.payment.referenceCode}
+                    </div>
+                    <div className="mt-1 text-sm text-slate-500">
+                      {paymentTrace.payment.method} • {paymentTrace.payment.status} • {paymentTrace.payment.orderNumber}
+                    </div>
+                  </div>
+                  <Link
+                    href={`/orders/${paymentTrace.payment.orderId}` as Route}
+                    className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+                  >
+                    Open order
+                  </Link>
+                </div>
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  <div className="rounded-[1rem] bg-slate-50 px-3 py-3 text-xs text-slate-600">
+                    <div className="font-semibold uppercase tracking-[0.14em] text-slate-400">Amount</div>
+                    <div className="mt-1 text-sm font-medium text-slate-950">{paymentTrace.payment.amount}</div>
+                  </div>
+                  <div className="rounded-[1rem] bg-slate-50 px-3 py-3 text-xs text-slate-600">
+                    <div className="font-semibold uppercase tracking-[0.14em] text-slate-400">Expires at</div>
+                    <div className="mt-1 text-sm font-medium text-slate-950">
+                      {paymentTrace.payment.expiresAt
+                        ? new Date(paymentTrace.payment.expiresAt).toLocaleString("vi-VN")
+                        : "No expiry"}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {paymentTrace.events.map((event) => (
+                    <div key={event.id} className="rounded-[1rem] bg-slate-50 px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-semibold text-slate-950">
+                            {event.eventType} • {event.nextStatus}
+                          </div>
+                          <div className="mt-1 text-xs uppercase tracking-[0.14em] text-slate-400">
+                            {event.source} • {event.actorUser ? `${event.actorUser.fullName} (${event.actorType})` : event.actorType}
+                          </div>
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          {new Date(event.createdAt).toLocaleString("vi-VN")}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         </section>
 

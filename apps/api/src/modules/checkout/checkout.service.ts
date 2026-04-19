@@ -20,6 +20,7 @@ import { Prisma } from "@prisma/client";
 import { MailerService } from "../mailer/mailer.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { OrderStatusHistoryService } from "../orderStatusHistory/order-status-history.service";
+import { PaymentEventsService } from "../payments/payment-events.service";
 import { PaymentGatewayService } from "../payments/payment-gateway.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { SystemSettingsService } from "../systemSettings/system-settings.service";
@@ -68,6 +69,7 @@ export class CheckoutService {
     private readonly notificationsService: NotificationsService,
     private readonly mailerService: MailerService,
     private readonly orderStatusHistoryService: OrderStatusHistoryService,
+    private readonly paymentEventsService: PaymentEventsService,
     private readonly paymentGatewayService: PaymentGatewayService,
     private readonly systemSettingsService: SystemSettingsService
   ) {}
@@ -193,7 +195,7 @@ export class CheckoutService {
                 expiresAt: expiresAt ?? placedAt
               });
 
-        await tx.payment.create({
+        const payment = await tx.payment.create({
           data: {
             orderId: order.id,
             userId,
@@ -206,6 +208,25 @@ export class CheckoutService {
             metadata
           }
         });
+
+        await this.paymentEventsService.record(
+          {
+            paymentId: payment.id,
+            orderId: order.id,
+            eventType: "PAYMENT_CREATED",
+            source: "checkout",
+            actorType: "CHECKOUT",
+            actorUserId: userId,
+            nextStatus: paymentStatus,
+            payload: {
+              paymentMethod: payload.paymentMethod,
+              referenceCode,
+              amount: shopGroup.grandTotal,
+              expiresAt: expiresAt?.toISOString() ?? null
+            }
+          },
+          tx
+        );
 
         for (const item of groupItems) {
           if (item.productVariantId) {

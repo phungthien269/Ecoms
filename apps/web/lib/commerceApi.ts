@@ -178,6 +178,7 @@ export interface OrderDetail extends OrderListItem {
     expiresAt: string | null;
     paidAt: string | null;
     metadata: Record<string, unknown> | null;
+    events: PaymentEventItem[];
   }>;
   statusTimeline: Array<{
     id: string;
@@ -547,6 +548,41 @@ export interface PaymentGatewaySampleData {
   metadata: Record<string, unknown>;
   webhookPayload: Record<string, unknown>;
   webhookSignature: string;
+}
+
+export interface PaymentEventItem {
+  id: string;
+  eventType: string;
+  source: string;
+  actorType: string;
+  actorUser: {
+    id: string;
+    fullName: string;
+    role: string;
+  } | null;
+  previousStatus: string | null;
+  nextStatus: string;
+  payload: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface PaymentTraceData {
+  payment: {
+    id: string;
+    orderId: string;
+    orderNumber: string;
+    orderStatus: string;
+    method: string;
+    status: string;
+    amount: string;
+    referenceCode: string;
+    expiresAt: string | null;
+    paidAt: string | null;
+    metadata: Record<string, unknown> | null;
+    createdAt: string;
+    updatedAt: string;
+  };
+  events: PaymentEventItem[];
 }
 
 export interface AdminReviewItem {
@@ -992,6 +1028,18 @@ export async function getDiagnosticsPaymentGatewaySample(
 
 export async function getDiagnosticsActivity() {
   return (await requestAuthedJson<DiagnosticsActivityItem[]>("/health/diagnostics/history")) ?? [];
+}
+
+export async function getAdminPaymentTrace(query?: {
+  paymentId?: string;
+  referenceCode?: string;
+}) {
+  const queryString = buildQueryString(query);
+  if (!queryString) {
+    return null;
+  }
+
+  return requestAuthedJson<PaymentTraceData>(`/payments/admin/trace${queryString}`);
 }
 
 export async function getAdminReviews() {

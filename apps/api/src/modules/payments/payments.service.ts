@@ -19,6 +19,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { AuditLogsService } from "../auditLogs/audit-logs.service";
 import type { AuthPayload } from "../auth/types/auth-payload";
 import type { AdminReplayMockWebhookDto } from "./dto/admin-replay-mock-webhook.dto";
+import { PaymentEventsService } from "./payment-events.service";
 import { PaymentGatewayService } from "./payment-gateway.service";
 import { PaymentLifecycleService } from "./payment-lifecycle.service";
 import type { MockPaymentWebhookDto } from "./dto/mock-payment-webhook.dto";
@@ -36,6 +37,7 @@ export class PaymentsService {
     private readonly notificationsService: NotificationsService,
     private readonly orderStatusHistoryService: OrderStatusHistoryService,
     private readonly auditLogsService: AuditLogsService,
+    private readonly paymentEventsService: PaymentEventsService,
     private readonly paymentGatewayService: PaymentGatewayService,
     private readonly paymentLifecycleService: PaymentLifecycleService
   ) {}
@@ -133,6 +135,52 @@ export class PaymentsService {
     return result;
   }
 
+  async getAdminTrace(query: { paymentId?: string; referenceCode?: string }) {
+    const payment = await this.prisma.payment.findFirst({
+      where: query.paymentId
+        ? {
+            id: query.paymentId
+          }
+        : {
+            referenceCode: query.referenceCode
+          },
+      include: {
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true
+          }
+        }
+      }
+    });
+
+    if (!payment) {
+      throw new NotFoundException("Payment not found");
+    }
+
+    const events = await this.paymentEventsService.listForPayment(payment.id);
+
+    return {
+      payment: {
+        id: payment.id,
+        orderId: payment.orderId,
+        orderNumber: payment.order.orderNumber,
+        orderStatus: payment.order.status,
+        method: payment.method,
+        status: payment.status,
+        amount: payment.amount.toString(),
+        referenceCode: payment.referenceCode,
+        expiresAt: payment.expiresAt?.toISOString() ?? null,
+        paidAt: payment.paidAt?.toISOString() ?? null,
+        metadata: (payment.metadata as Record<string, unknown> | null) ?? null,
+        createdAt: payment.createdAt.toISOString(),
+        updatedAt: payment.updatedAt.toISOString()
+      },
+      events
+    };
+  }
+
   private async applyPaymentTransition(
     payment: PaymentWithOrder,
     nextStatus: PaymentStatus,
@@ -188,6 +236,7 @@ export class PaymentsService {
           : currentOrderStatus;
 
     await this.prisma.$transaction(async (tx) => {
+      const previousStatus = payment.status as PaymentStatus;
       await tx.payment.update({
         where: { id: payment.id },
         data: {
@@ -201,6 +250,20 @@ export class PaymentsService {
           }
         }
       });
+      await this.paymentEventsService.record(
+        {
+          paymentId: payment.id,
+          orderId: payment.orderId,
+          eventType: `PAYMENT_${nextStatus}`,
+          source: input.source,
+          actorType: input.source === "mock_webhook" ? "PAYMENT_GATEWAY" : "CUSTOMER",
+          actorUserId: input.source === "mock_webhook" ? null : payment.userId,
+          previousStatus,
+          nextStatus,
+          payload: input.metadata
+        },
+        tx
+      );
       await tx.order.update({
         where: { id: payment.orderId },
         data: {

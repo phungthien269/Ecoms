@@ -22,11 +22,15 @@ describe("PaymentLifecycleService", () => {
   const orderStatusHistoryService = {
     record: jest.fn()
   };
+  const paymentEventsService = {
+    record: jest.fn()
+  };
 
   const service = new PaymentLifecycleService(
     prisma as never,
     notificationsService as never,
-    orderStatusHistoryService as never
+    orderStatusHistoryService as never,
+    paymentEventsService as never
   );
 
   beforeEach(() => {
@@ -101,6 +105,14 @@ describe("PaymentLifecycleService", () => {
       expect.objectContaining({
         orderId: "order-1",
         status: OrderStatus.CANCELLED
+      }),
+      prisma
+    );
+    expect(paymentEventsService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentId: "payment-1",
+        eventType: "PAYMENT_EXPIRED",
+        nextStatus: PaymentStatus.EXPIRED
       }),
       prisma
     );

@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { NotificationsService } from "../notifications/notifications.service";
 import { OrderStatusHistoryService } from "../orderStatusHistory/order-status-history.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { PaymentEventsService } from "./payment-events.service";
 
 type StalePaymentWithOrder = Prisma.PaymentGetPayload<{
   include: {
@@ -16,7 +17,8 @@ export class PaymentLifecycleService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
-    private readonly orderStatusHistoryService: OrderStatusHistoryService
+    private readonly orderStatusHistoryService: OrderStatusHistoryService,
+    private readonly paymentEventsService: PaymentEventsService
   ) {}
 
   async expireStalePendingPayments(input?: {
@@ -111,6 +113,23 @@ export class PaymentLifecycleService {
           }
         }
       });
+
+      await this.paymentEventsService.record(
+        {
+          paymentId: currentPayment.id,
+          orderId: currentPayment.orderId,
+          eventType: "PAYMENT_EXPIRED",
+          source: "expiry_sweep",
+          actorType: "SYSTEM",
+          previousStatus: currentPayment.status as PaymentStatus,
+          nextStatus: PaymentStatus.EXPIRED,
+          payload: {
+            occurredAt: now.toISOString(),
+            flow: "auto_payment_timeout"
+          }
+        },
+        tx
+      );
 
       let nextOrderStatus = currentPayment.order.status as OrderStatus;
       let orderCancelled = false;

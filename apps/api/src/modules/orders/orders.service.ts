@@ -227,7 +227,21 @@ export class OrdersService {
           }
         },
         payments: {
-          orderBy: [{ createdAt: "desc" }]
+          orderBy: [{ createdAt: "desc" }],
+          include: {
+            events: {
+              include: {
+                actorUser: {
+                  select: {
+                    id: true,
+                    fullName: true,
+                    role: true
+                  }
+                }
+              },
+              orderBy: [{ createdAt: "asc" }]
+            }
+          }
         }
       }
     });
@@ -742,7 +756,21 @@ export class OrdersService {
           orderBy: [{ createdAt: "asc" }]
         },
         payments: {
-          orderBy: [{ createdAt: "desc" }]
+          orderBy: [{ createdAt: "desc" }],
+          include: {
+            events: {
+              include: {
+                actorUser: {
+                  select: {
+                    id: true,
+                    fullName: true,
+                    role: true
+                  }
+                }
+              },
+              orderBy: [{ createdAt: "asc" }]
+            }
+          }
         }
       }
     });
@@ -983,6 +1011,21 @@ export class OrdersService {
       expiresAt: Date | null;
       paidAt: Date | null;
       metadata: unknown;
+      events?: Array<{
+        id: string;
+        eventType: string;
+        source: string;
+        actorType: string;
+        actorUser: {
+          id: string;
+          fullName: string;
+          role: string;
+        } | null;
+        previousStatus: string | null;
+        nextStatus: string;
+        payload: unknown;
+        createdAt: Date;
+      }>;
     }>;
   }) {
     return {
@@ -1033,7 +1076,25 @@ export class OrdersService {
         referenceCode: payment.referenceCode,
         expiresAt: payment.expiresAt?.toISOString() ?? null,
         paidAt: payment.paidAt?.toISOString() ?? null,
-        metadata: (payment.metadata as Record<string, unknown> | null) ?? null
+        metadata: (payment.metadata as Record<string, unknown> | null) ?? null,
+        events:
+          payment.events?.map((event) => ({
+            id: event.id,
+            eventType: event.eventType,
+            source: event.source,
+            actorType: event.actorType,
+            actorUser: event.actorUser
+              ? {
+                  id: event.actorUser.id,
+                  fullName: event.actorUser.fullName,
+                  role: event.actorUser.role
+                }
+              : null,
+            previousStatus: event.previousStatus,
+            nextStatus: event.nextStatus,
+            payload: (event.payload as Record<string, unknown> | null) ?? null,
+            createdAt: event.createdAt.toISOString()
+          })) ?? []
       }))
     };
   }

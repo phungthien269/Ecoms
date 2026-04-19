@@ -37,12 +37,17 @@ describe("PaymentsService", () => {
   const auditLogsService = {
     record: jest.fn()
   };
+  const paymentEventsService = {
+    record: jest.fn(),
+    listForPayment: jest.fn()
+  };
 
   const service = new PaymentsService(
     prisma as never,
     notificationsService as never,
     orderStatusHistoryService as never,
     auditLogsService as never,
+    paymentEventsService as never,
     paymentGatewayService as never,
     paymentLifecycleService as never
   );
@@ -87,6 +92,15 @@ describe("PaymentsService", () => {
       prisma
     );
     expect(notificationsService.create).toHaveBeenCalledTimes(2);
+    expect(paymentEventsService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentId: "payment-1",
+        eventType: "PAYMENT_PAID",
+        previousStatus: PaymentStatus.PENDING,
+        nextStatus: PaymentStatus.PAID
+      }),
+      prisma
+    );
     expect(result).toEqual({
       paymentId: "payment-1",
       orderId: "order-1",
@@ -200,6 +214,15 @@ describe("PaymentsService", () => {
       processed: true
     });
     expect(notificationsService.create).toHaveBeenCalledTimes(1);
+    expect(paymentEventsService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentId: "payment-3",
+        eventType: "PAYMENT_FAILED",
+        previousStatus: PaymentStatus.PENDING,
+        nextStatus: PaymentStatus.FAILED
+      }),
+      prisma
+    );
   });
 
   it("rejects invalid webhook signatures", async () => {
@@ -292,6 +315,77 @@ describe("PaymentsService", () => {
       paymentStatus: PaymentStatus.PAID,
       orderStatus: OrderStatus.CONFIRMED,
       processed: true
+    });
+  });
+
+  it("returns admin payment trace with payment events", async () => {
+    prisma.payment.findFirst.mockResolvedValue({
+      id: "payment-trace-1",
+      orderId: "order-trace-1",
+      userId: "user-1",
+      method: PaymentMethod.ONLINE_GATEWAY,
+      status: PaymentStatus.PAID,
+      amount: new (require("@prisma/client").Prisma.Decimal)(722000),
+      referenceCode: "PAY-TRACE-1",
+      expiresAt: new Date("2026-04-20T10:15:00.000Z"),
+      paidAt: new Date("2026-04-20T10:05:00.000Z"),
+      metadata: { provider: "mock_gateway" },
+      createdAt: new Date("2026-04-20T10:00:00.000Z"),
+      updatedAt: new Date("2026-04-20T10:05:00.000Z"),
+      order: {
+        id: "order-trace-1",
+        orderNumber: "ORD-TRACE-1",
+        status: OrderStatus.CONFIRMED
+      }
+    });
+    paymentEventsService.listForPayment.mockResolvedValue([
+      {
+        id: "event-1",
+        eventType: "PAYMENT_CREATED",
+        source: "checkout",
+        actorType: "CHECKOUT",
+        actorUser: null,
+        previousStatus: null,
+        nextStatus: PaymentStatus.PENDING,
+        payload: null,
+        createdAt: "2026-04-20T10:00:00.000Z"
+      }
+    ]);
+
+    const result = await service.getAdminTrace({
+      referenceCode: "PAY-TRACE-1"
+    });
+
+    expect(paymentEventsService.listForPayment).toHaveBeenCalledWith("payment-trace-1");
+    expect(result).toEqual({
+      payment: {
+        id: "payment-trace-1",
+        orderId: "order-trace-1",
+        orderNumber: "ORD-TRACE-1",
+        orderStatus: OrderStatus.CONFIRMED,
+        method: PaymentMethod.ONLINE_GATEWAY,
+        status: PaymentStatus.PAID,
+        amount: "722000",
+        referenceCode: "PAY-TRACE-1",
+        expiresAt: "2026-04-20T10:15:00.000Z",
+        paidAt: "2026-04-20T10:05:00.000Z",
+        metadata: { provider: "mock_gateway" },
+        createdAt: "2026-04-20T10:00:00.000Z",
+        updatedAt: "2026-04-20T10:05:00.000Z"
+      },
+      events: [
+        {
+          id: "event-1",
+          eventType: "PAYMENT_CREATED",
+          source: "checkout",
+          actorType: "CHECKOUT",
+          actorUser: null,
+          previousStatus: null,
+          nextStatus: PaymentStatus.PENDING,
+          payload: null,
+          createdAt: "2026-04-20T10:00:00.000Z"
+        }
+      ]
     });
   });
 });

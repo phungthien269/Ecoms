@@ -136,6 +136,7 @@ model User {
   banners            Banner[]
   auditLogs          AuditLog[]         @relation("AuditLogActor")
   updatedSettings    SystemSetting[]    @relation("SystemSettingUpdater")
+  paymentEvents      PaymentEvent[]     @relation("PaymentEventActor")
 }
 
 model UserAddress {
@@ -317,6 +318,7 @@ model Order {
   shop                  Shop          @relation(fields: [shopId], references: [id])
   items                 OrderItem[]
   payments              Payment[]
+  paymentEvents         PaymentEvent[]
   statusHistory         OrderStatusHistory[]
 
   @@index([userId, createdAt])
@@ -571,10 +573,33 @@ model Payment {
   updatedAt        DateTime      @updatedAt
   order            Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
   user             User          @relation(fields: [userId], references: [id])
+  events           PaymentEvent[]
 
   @@index([userId, createdAt])
   @@index([orderId])
   @@index([status, createdAt])
+}
+
+model PaymentEvent {
+  id             String        @id @default(cuid())
+  paymentId      String
+  orderId        String
+  eventType      String
+  source         String
+  actorType      String
+  actorUserId    String?
+  previousStatus PaymentStatus?
+  nextStatus     PaymentStatus
+  payload        Json?
+  createdAt      DateTime      @default(now())
+  payment        Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  order          Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  actorUser      User?         @relation("PaymentEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([paymentId, createdAt])
+  @@index([orderId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([eventType, createdAt])
 }
 
 model FileAsset {
