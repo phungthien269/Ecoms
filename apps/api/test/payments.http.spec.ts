@@ -3,6 +3,7 @@ import { PaymentWebhookEvent } from "@ecoms/contracts";
 import { createHmac } from "node:crypto";
 import request from "supertest";
 import { PaymentsController } from "../src/modules/payments/payments.controller";
+import { DemoGatewayWebhookStatus } from "../src/modules/payments/dto/demo-gateway-webhook.dto";
 import { PaymentsService } from "../src/modules/payments/payments.service";
 import { createHttpTestApp } from "./support/create-http-test-app";
 
@@ -11,6 +12,7 @@ describe("PaymentsController (http)", () => {
   const paymentsService = {
     confirm: jest.fn(),
     handleMockWebhook: jest.fn(),
+    handleDemoGatewayWebhook: jest.fn(),
     expireStalePendingPayments: jest.fn(),
     replayMockWebhook: jest.fn(),
     batchReplayMockWebhook: jest.fn(),
@@ -68,6 +70,35 @@ describe("PaymentsController (http)", () => {
     expect(response.body.success).toBe(true);
     expect(response.body.meta.requestId).toBe("req-payment-webhook");
     expect(paymentsService.handleMockWebhook).toHaveBeenCalledWith(payload, signature);
+  });
+
+  it("accepts public demo gateway webhook with valid signature", async () => {
+    const payload = {
+      merchantCode: "merchant_001",
+      referenceCode: "PAY-DEMO-1",
+      status: DemoGatewayWebhookStatus.SUCCESS,
+      providerReference: "demo-ref-1",
+      occurredAt: "2026-04-20T10:00:00.000Z"
+    };
+    const signature = signDemoGatewayPayload(payload, "test-payment-secret");
+    paymentsService.handleDemoGatewayWebhook.mockResolvedValue({
+      paymentId: "payment-demo-1",
+      orderId: "order-demo-1",
+      paymentStatus: "PAID",
+      orderStatus: "CONFIRMED",
+      processed: true
+    });
+
+    const response = await request(app.getHttpServer())
+      .post("/api/payments/webhooks/demo")
+      .set("x-request-id", "req-demo-webhook")
+      .set("x-demo-gateway-signature", signature)
+      .send(payload);
+
+    expect(response.status).toBe(201);
+    expect(response.body.success).toBe(true);
+    expect(response.body.meta.requestId).toBe("req-demo-webhook");
+    expect(paymentsService.handleDemoGatewayWebhook).toHaveBeenCalledWith(payload, signature);
   });
 
   it("keeps manual confirm behind auth guard", async () => {
@@ -285,6 +316,27 @@ function signWebhookPayload(
     payload.event,
     payload.providerReference ?? "",
     payload.occurredAt ?? ""
+  ].join("|");
+
+  return createHmac("sha256", secret).update(normalized).digest("hex");
+}
+
+function signDemoGatewayPayload(
+  payload: {
+    merchantCode: string;
+    referenceCode: string;
+    status: DemoGatewayWebhookStatus;
+    providerReference: string;
+    occurredAt: string;
+  },
+  secret: string
+) {
+  const normalized = [
+    payload.merchantCode,
+    payload.referenceCode,
+    payload.status,
+    payload.providerReference,
+    payload.occurredAt
   ].join("|");
 
   return createHmac("sha256", secret).update(normalized).digest("hex");

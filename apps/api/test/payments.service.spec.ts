@@ -6,6 +6,7 @@ import {
   PaymentWebhookEvent,
   UserRole
 } from "@ecoms/contracts";
+import { DemoGatewayWebhookStatus } from "../src/modules/payments/dto/demo-gateway-webhook.dto";
 import { PaymentsService } from "../src/modules/payments/payments.service";
 
 describe("PaymentsService", () => {
@@ -62,6 +63,19 @@ describe("PaymentsService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     paymentGatewayService.signWebhookPayload.mockImplementation(signWebhookPayload);
+    paymentGatewayService.signDemoGatewayPayload = jest.fn().mockImplementation(signDemoGatewayPayload);
+    paymentGatewayService.mapDemoGatewayStatus = jest
+      .fn()
+      .mockImplementation((status: DemoGatewayWebhookStatus) => {
+        switch (status) {
+          case DemoGatewayWebhookStatus.SUCCESS:
+            return PaymentWebhookEvent.PAID;
+          case DemoGatewayWebhookStatus.EXPIRED:
+            return PaymentWebhookEvent.EXPIRED;
+          default:
+            return PaymentWebhookEvent.FAILED;
+        }
+      });
     paymentGatewayService.parseCheckoutArtifact = jest.fn().mockImplementation((metadata: unknown) => metadata ?? null);
     paymentGatewayService.getProviderDiagnostics = jest.fn().mockReturnValue({
       provider: "mock_gateway",
@@ -373,6 +387,69 @@ describe("PaymentsService", () => {
       }),
       prisma
     );
+  });
+
+  it("processes demo gateway callback with provider signature", async () => {
+    paymentGatewayService.getProviderDiagnostics.mockReturnValue({
+      provider: "demo_gateway",
+      displayName: "Demo Gateway",
+      mode: "demo_gateway",
+      configured: true,
+      webhookMode: "provider_callback",
+      supportsHostedCheckout: true,
+      supportsBankTransfer: true,
+      supportsWebhookReplay: false,
+      callbackPath: "/api/payments/webhooks/demo",
+      signatureHeaderName: "x-demo-gateway-signature",
+      merchantCode: "merchant_001",
+      baseUrl: "https://demo-gateway.local",
+      actionHint: "No action required"
+    });
+    prisma.payment.findFirst.mockResolvedValue({
+      id: "payment-demo-1",
+      orderId: "order-demo-1",
+      userId: "user-1",
+      method: PaymentMethod.ONLINE_GATEWAY,
+      status: PaymentStatus.PENDING,
+      referenceCode: "PAY-DEMO-1",
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      metadata: {},
+      order: {
+        id: "order-demo-1",
+        status: OrderStatus.PENDING,
+        shopId: "shop-1",
+        orderNumber: "ORD-DEMO-1"
+      }
+    });
+    prisma.shop.findUnique.mockResolvedValue({
+      ownerId: "seller-1",
+      name: "Demo Seller Shop"
+    });
+
+    const payload = {
+      merchantCode: "merchant_001",
+      referenceCode: "PAY-DEMO-1",
+      status: DemoGatewayWebhookStatus.SUCCESS,
+      providerReference: "demo-ref-1",
+      occurredAt: new Date(Date.now() + 2 * 60 * 1000).toISOString()
+    };
+
+    const result = await service.handleDemoGatewayWebhook(
+      payload,
+      signDemoGatewayPayload(payload)
+    );
+
+    expect(paymentGatewayService.signDemoGatewayPayload).toHaveBeenCalledWith(payload);
+    expect(paymentGatewayService.mapDemoGatewayStatus).toHaveBeenCalledWith(
+      DemoGatewayWebhookStatus.SUCCESS
+    );
+    expect(result).toEqual({
+      paymentId: "payment-demo-1",
+      orderId: "order-demo-1",
+      paymentStatus: PaymentStatus.PAID,
+      orderStatus: OrderStatus.CONFIRMED,
+      processed: true
+    });
   });
 
   it("rejects invalid webhook signatures", async () => {
@@ -742,6 +819,27 @@ function signWebhookPayload(payload: {
     payload.event,
     payload.providerReference ?? "",
     payload.occurredAt ?? ""
+  ].join("|");
+
+  return require("node:crypto")
+    .createHmac("sha256", "test-payment-secret")
+    .update(normalized)
+    .digest("hex");
+}
+
+function signDemoGatewayPayload(payload: {
+  merchantCode: string;
+  referenceCode: string;
+  status: DemoGatewayWebhookStatus;
+  providerReference: string;
+  occurredAt: string;
+}) {
+  const normalized = [
+    payload.merchantCode,
+    payload.referenceCode,
+    payload.status,
+    payload.providerReference,
+    payload.occurredAt
   ].join("|");
 
   return require("node:crypto")

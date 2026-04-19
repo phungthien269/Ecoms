@@ -7,6 +7,7 @@ import { Roles } from "../rbac/decorators/roles.decorator";
 import { RolesGuard } from "../rbac/guards/roles.guard";
 import { AdminBatchReplayMockWebhookDto } from "./dto/admin-batch-replay-mock-webhook.dto";
 import { AdminReplayMockWebhookDto } from "./dto/admin-replay-mock-webhook.dto";
+import { DemoGatewayWebhookDto } from "./dto/demo-gateway-webhook.dto";
 import { ListAdminPaymentsDto } from "./dto/list-admin-payments.dto";
 import { MockPaymentWebhookDto } from "./dto/mock-payment-webhook.dto";
 import { PaymentTraceQueryDto } from "./dto/payment-trace-query.dto";
@@ -28,6 +29,14 @@ export class PaymentsController {
     @Headers("x-ecoms-webhook-signature") signature: string | undefined
   ) {
     return this.paymentsService.handleMockWebhook(payload, signature);
+  }
+
+  @Post("webhooks/demo")
+  handleDemoGatewayWebhook(
+    @Body() payload: DemoGatewayWebhookDto,
+    @Headers("x-demo-gateway-signature") signature: string | undefined
+  ) {
+    return this.paymentsService.handleDemoGatewayWebhook(payload, signature);
   }
 
   @Post("admin/expire-stale")

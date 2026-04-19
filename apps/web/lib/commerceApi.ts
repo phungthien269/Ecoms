@@ -561,6 +561,8 @@ export interface PaymentProviderDiagnosticsData {
   supportsHostedCheckout: boolean;
   supportsBankTransfer: boolean;
   supportsWebhookReplay: boolean;
+  callbackPath: string;
+  signatureHeaderName: string;
   merchantCode: string | null;
   baseUrl: string | null;
   actionHint: string;

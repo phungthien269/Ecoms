@@ -344,6 +344,14 @@ export default async function AdminDiagnosticsPage({
                       <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Base URL</div>
                       <div className="mt-1 break-all font-medium text-slate-950">{paymentProvider.baseUrl ?? "None"}</div>
                     </div>
+                    <div className="rounded-[1rem] bg-white px-3 py-3">
+                      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Callback path</div>
+                      <div className="mt-1 break-all font-medium text-slate-950">{paymentProvider.callbackPath}</div>
+                    </div>
+                    <div className="rounded-[1rem] bg-white px-3 py-3">
+                      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Signature header</div>
+                      <div className="mt-1 break-all font-medium text-slate-950">{paymentProvider.signatureHeaderName}</div>
+                    </div>
                   </div>
                   <div className="mt-3 text-xs text-orange-700">{paymentProvider.actionHint}</div>
                 </div>

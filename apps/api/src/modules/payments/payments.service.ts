@@ -24,6 +24,10 @@ import type { ListAdminPaymentsDto } from "./dto/list-admin-payments.dto";
 import { PaymentEventsService } from "./payment-events.service";
 import { PaymentGatewayService } from "./payment-gateway.service";
 import { PaymentLifecycleService } from "./payment-lifecycle.service";
+import {
+  DemoGatewayWebhookDto,
+  DemoGatewayWebhookStatus
+} from "./dto/demo-gateway-webhook.dto";
 import type { MockPaymentWebhookDto } from "./dto/mock-payment-webhook.dto";
 import { SystemSettingsService } from "../systemSettings/system-settings.service";
 
@@ -106,6 +110,52 @@ export class PaymentsService {
         flow: "mock_webhook",
         webhookEvent: payload.event,
         providerReference: payload.providerReference ?? null
+      }
+    });
+  }
+
+  async handleDemoGatewayWebhook(
+    payload: DemoGatewayWebhookDto,
+    signature: string | undefined
+  ) {
+    const providerDiagnostics = this.paymentGatewayService.getProviderDiagnostics();
+    if (providerDiagnostics.mode !== "demo_gateway") {
+      throw new ConflictException("Demo gateway callback is disabled in the current payment mode");
+    }
+
+    this.assertDemoGatewaySignature(payload, signature);
+    if (providerDiagnostics.merchantCode && payload.merchantCode !== providerDiagnostics.merchantCode) {
+      throw new UnauthorizedException("Invalid merchant code");
+    }
+
+    const payment = await this.prisma.payment.findFirst({
+      where: {
+        referenceCode: payload.referenceCode
+      },
+      include: {
+        order: true
+      }
+    });
+
+    if (!payment) {
+      throw new NotFoundException("Payment not found");
+    }
+
+    if (payment.method === PaymentMethod.COD) {
+      throw new ConflictException("COD payments do not accept webhook callbacks");
+    }
+
+    const nextStatus = this.mapWebhookEventToStatus(
+      this.paymentGatewayService.mapDemoGatewayStatus(payload.status)
+    );
+    return this.applyPaymentTransition(payment, nextStatus, {
+      source: "demo_gateway_webhook",
+      occurredAt: new Date(payload.occurredAt),
+      metadata: {
+        flow: "demo_gateway_webhook",
+        gatewayStatus: payload.status,
+        providerReference: payload.providerReference,
+        merchantCode: payload.merchantCode
       }
     });
   }
@@ -907,6 +957,25 @@ export class PaymentsService {
 
     const expectedSignature = this.paymentGatewayService.signWebhookPayload(payload);
 
+    const providedBuffer = Buffer.from(signature);
+    const expectedBuffer = Buffer.from(expectedSignature);
+    if (
+      providedBuffer.length !== expectedBuffer.length ||
+      !timingSafeEqual(providedBuffer, expectedBuffer)
+    ) {
+      throw new UnauthorizedException("Invalid webhook signature");
+    }
+  }
+
+  private assertDemoGatewaySignature(
+    payload: DemoGatewayWebhookDto,
+    signature: string | undefined
+  ) {
+    if (!signature) {
+      throw new UnauthorizedException("Missing webhook signature");
+    }
+
+    const expectedSignature = this.paymentGatewayService.signDemoGatewayPayload(payload);
     const providedBuffer = Buffer.from(signature);
     const expectedBuffer = Buffer.from(expectedSignature);
     if (

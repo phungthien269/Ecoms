@@ -2,6 +2,10 @@ import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PaymentMethod, PaymentWebhookEvent } from "@ecoms/contracts";
 import { createHmac } from "node:crypto";
+import {
+  DemoGatewayWebhookDto,
+  DemoGatewayWebhookStatus
+} from "./dto/demo-gateway-webhook.dto";
 
 @Injectable()
 export class PaymentGatewayService {
@@ -26,6 +30,11 @@ export class PaymentGatewayService {
       supportsHostedCheckout: true,
       supportsBankTransfer: true,
       supportsWebhookReplay: provider === "mock_gateway",
+      callbackPath: provider === "demo_gateway" ? "/api/payments/webhooks/demo" : "/api/payments/webhooks/mock",
+      signatureHeaderName:
+        provider === "demo_gateway"
+          ? "x-demo-gateway-signature"
+          : "x-ecoms-webhook-signature",
       merchantCode,
       baseUrl,
       actionHint: configured
@@ -122,6 +131,31 @@ export class PaymentGatewayService {
     return createHmac("sha256", this.getWebhookSecret()).update(normalized).digest("hex");
   }
 
+  signDemoGatewayPayload(payload: DemoGatewayWebhookDto) {
+    const normalized = [
+      payload.merchantCode,
+      payload.referenceCode,
+      payload.status,
+      payload.providerReference,
+      payload.occurredAt
+    ].join("|");
+
+    return createHmac("sha256", this.getWebhookSecret()).update(normalized).digest("hex");
+  }
+
+  mapDemoGatewayStatus(status: DemoGatewayWebhookStatus) {
+    switch (status) {
+      case DemoGatewayWebhookStatus.SUCCESS:
+        return PaymentWebhookEvent.PAID;
+      case DemoGatewayWebhookStatus.FAILED:
+        return PaymentWebhookEvent.FAILED;
+      case DemoGatewayWebhookStatus.EXPIRED:
+        return PaymentWebhookEvent.EXPIRED;
+      default:
+        return PaymentWebhookEvent.FAILED;
+    }
+  }
+
   createDiagnosticGatewaySample(input?: {
     paymentMethod?: PaymentMethod;
     orderId?: string;
@@ -143,6 +177,7 @@ export class PaymentGatewayService {
       amount,
       expiresAt
     });
+    const providerDiagnostics = this.getProviderDiagnostics();
     const webhookPayload = {
       paymentId: `payment-${paymentMethod.toLowerCase()}`,
       referenceCode,
@@ -150,16 +185,29 @@ export class PaymentGatewayService {
       providerReference: `gateway-${referenceCode.toLowerCase()}`,
       occurredAt
     };
+    const providerWebhookPayload: DemoGatewayWebhookDto | typeof webhookPayload =
+      providerDiagnostics.mode === "demo_gateway"
+        ? {
+            merchantCode: providerDiagnostics.merchantCode ?? "demo_merchant",
+            referenceCode,
+            status: DemoGatewayWebhookStatus.SUCCESS,
+            providerReference: `gateway-${referenceCode.toLowerCase()}`,
+            occurredAt
+          }
+        : webhookPayload;
 
     return {
       provider: this.getProviderMode(),
-      providerDiagnostics: this.getProviderDiagnostics(),
+      providerDiagnostics,
       paymentMethod,
       referenceCode,
       expiresAt: expiresAt.toISOString(),
       metadata,
-      webhookPayload,
-      webhookSignature: this.signWebhookPayload(webhookPayload)
+      webhookPayload: providerWebhookPayload,
+      webhookSignature:
+        providerDiagnostics.mode === "demo_gateway"
+          ? this.signDemoGatewayPayload(providerWebhookPayload as DemoGatewayWebhookDto)
+          : this.signWebhookPayload(webhookPayload)
     };
   }
 

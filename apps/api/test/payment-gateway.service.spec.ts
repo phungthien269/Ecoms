@@ -1,6 +1,7 @@
 import { ConfigService } from "@nestjs/config";
 import { PaymentMethod, PaymentWebhookEvent } from "@ecoms/contracts";
 import { PaymentGatewayService } from "../src/modules/payments/payment-gateway.service";
+import { DemoGatewayWebhookStatus } from "../src/modules/payments/dto/demo-gateway-webhook.dto";
 
 describe("PaymentGatewayService", () => {
   const configService = {
@@ -89,7 +90,9 @@ describe("PaymentGatewayService", () => {
         provider: "mock_gateway",
         mode: "mock_gateway",
         configured: true,
-        supportsWebhookReplay: true
+        supportsWebhookReplay: true,
+        callbackPath: "/api/payments/webhooks/mock",
+        signatureHeaderName: "x-ecoms-webhook-signature"
       })
     );
   });
@@ -153,5 +156,33 @@ describe("PaymentGatewayService", () => {
       bankAccountNumber: null,
       bankName: null
     });
+  });
+
+  it("signs demo gateway payloads deterministically", () => {
+    configService.get.mockImplementation((key: string, fallback?: unknown) => {
+      const mapping: Record<string, unknown> = {
+        PAYMENT_PROVIDER: "demo_gateway",
+        PAYMENT_WEBHOOK_SECRET: "test-payment-secret"
+      };
+
+      return mapping[key] ?? fallback;
+    });
+
+    const first = service.signDemoGatewayPayload({
+      merchantCode: "merchant_001",
+      referenceCode: "PAY-DEMO",
+      status: DemoGatewayWebhookStatus.SUCCESS,
+      providerReference: "demo-ref-1",
+      occurredAt: "2026-04-20T10:00:00.000Z"
+    });
+    const second = service.signDemoGatewayPayload({
+      merchantCode: "merchant_001",
+      referenceCode: "PAY-DEMO",
+      status: DemoGatewayWebhookStatus.SUCCESS,
+      providerReference: "demo-ref-1",
+      occurredAt: "2026-04-20T10:00:00.000Z"
+    });
+
+    expect(first).toBe(second);
   });
 });
