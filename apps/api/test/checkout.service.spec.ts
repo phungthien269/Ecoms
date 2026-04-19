@@ -91,6 +91,9 @@ describe("CheckoutService", () => {
   const orderStatusHistoryService = {
     record: jest.fn()
   };
+  const paymentGatewayService = {
+    createPendingPaymentMetadata: jest.fn()
+  };
   const systemSettingsService = {
     getNumberValue: jest.fn().mockResolvedValue(15),
     getPublicSummary: jest.fn().mockResolvedValue({
@@ -107,6 +110,7 @@ describe("CheckoutService", () => {
     notificationsService as never,
     mailerService as never,
     orderStatusHistoryService as never,
+    paymentGatewayService as never,
     systemSettingsService as never
   );
 
@@ -125,6 +129,33 @@ describe("CheckoutService", () => {
 
       return mapping[key] ?? 15;
     });
+    paymentGatewayService.createPendingPaymentMetadata.mockImplementation(
+      ({
+        paymentMethod,
+        referenceCode,
+        orderId,
+        orderNumber,
+        amount,
+        expiresAt
+      }: {
+        paymentMethod: PaymentMethod;
+        referenceCode: string;
+        orderId: string;
+        orderNumber: string;
+        amount: string;
+        expiresAt: Date;
+      }) => ({
+        flow: "mock_pending_payment",
+        provider: "mock_gateway",
+        checkoutMode:
+          paymentMethod === PaymentMethod.BANK_TRANSFER ? "bank_transfer" : "hosted_checkout",
+        paymentUrl: `http://localhost:3000/orders/${orderId}?pay=${referenceCode}`,
+        callbackUrl: `http://localhost:3000/orders/${orderId}`,
+        sessionToken: `token-${orderNumber}`,
+        qrPayload: `BANK|${referenceCode}|${amount}|${orderNumber}`,
+        expiresAt: expiresAt.toISOString()
+      })
+    );
   });
 
   it("builds a checkout preview split by shop with shipping totals", async () => {
@@ -410,9 +441,14 @@ describe("CheckoutService", () => {
       data: expect.objectContaining({
         status: PaymentStatus.PENDING,
         method: PaymentMethod.ONLINE_GATEWAY,
-        expiresAt: expect.any(Date)
+        expiresAt: expect.any(Date),
+        metadata: expect.objectContaining({
+          provider: "mock_gateway",
+          checkoutMode: "hosted_checkout"
+        })
       })
     });
+    expect(paymentGatewayService.createPendingPaymentMetadata).toHaveBeenCalled();
   });
 
   it("uses configurable shipping fee settings in preview", async () => {

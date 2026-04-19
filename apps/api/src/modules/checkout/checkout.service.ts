@@ -20,6 +20,7 @@ import { Prisma } from "@prisma/client";
 import { MailerService } from "../mailer/mailer.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { OrderStatusHistoryService } from "../orderStatusHistory/order-status-history.service";
+import { PaymentGatewayService } from "../payments/payment-gateway.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { SystemSettingsService } from "../systemSettings/system-settings.service";
 import { VouchersService } from "../vouchers/vouchers.service";
@@ -67,6 +68,7 @@ export class CheckoutService {
     private readonly notificationsService: NotificationsService,
     private readonly mailerService: MailerService,
     private readonly orderStatusHistoryService: OrderStatusHistoryService,
+    private readonly paymentGatewayService: PaymentGatewayService,
     private readonly systemSettingsService: SystemSettingsService
   ) {}
 
@@ -174,6 +176,22 @@ export class CheckoutService {
           payload.paymentMethod === PaymentMethod.COD
             ? PaymentStatus.PAID
             : PaymentStatus.PENDING;
+        const referenceCode = this.generatePaymentReference(order.id);
+        const expiresAt =
+          payload.paymentMethod === PaymentMethod.COD
+            ? null
+            : new Date(placedAt.getTime() + paymentTimeoutMinutes * 60 * 1000);
+        const metadata =
+          payload.paymentMethod === PaymentMethod.COD
+            ? { flow: "cash_on_delivery" }
+            : this.paymentGatewayService.createPendingPaymentMetadata({
+                paymentMethod: payload.paymentMethod,
+                referenceCode,
+                orderId: order.id,
+                orderNumber: order.orderNumber,
+                amount: shopGroup.grandTotal,
+                expiresAt: expiresAt ?? placedAt
+              });
 
         await tx.payment.create({
           data: {
@@ -182,16 +200,10 @@ export class CheckoutService {
             method: payload.paymentMethod,
             status: paymentStatus,
             amount: new Prisma.Decimal(shopGroup.grandTotal),
-            referenceCode: this.generatePaymentReference(order.id),
-            expiresAt:
-              payload.paymentMethod === PaymentMethod.COD
-                ? null
-                : new Date(placedAt.getTime() + paymentTimeoutMinutes * 60 * 1000),
+            referenceCode,
+            expiresAt,
             paidAt: payload.paymentMethod === PaymentMethod.COD ? placedAt : null,
-            metadata:
-              payload.paymentMethod === PaymentMethod.COD
-                ? { flow: "cash_on_delivery" }
-                : { flow: "mock_pending_payment" }
+            metadata
           }
         });
 

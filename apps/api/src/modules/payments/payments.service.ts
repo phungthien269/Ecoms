@@ -4,7 +4,6 @@ import {
   NotFoundException,
   UnauthorizedException
 } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import {
   NotificationCategory,
   OrderStatus,
@@ -13,10 +12,11 @@ import {
   PaymentWebhookEvent
 } from "@ecoms/contracts";
 import { Prisma } from "@prisma/client";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { timingSafeEqual } from "node:crypto";
 import { NotificationsService } from "../notifications/notifications.service";
 import { OrderStatusHistoryService } from "../orderStatusHistory/order-status-history.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { PaymentGatewayService } from "./payment-gateway.service";
 import { PaymentLifecycleService } from "./payment-lifecycle.service";
 import type { MockPaymentWebhookDto } from "./dto/mock-payment-webhook.dto";
 
@@ -31,8 +31,8 @@ export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
-    private readonly configService: ConfigService,
     private readonly orderStatusHistoryService: OrderStatusHistoryService,
+    private readonly paymentGatewayService: PaymentGatewayService,
     private readonly paymentLifecycleService: PaymentLifecycleService
   ) {}
 
@@ -302,8 +302,7 @@ export class PaymentsService {
       throw new UnauthorizedException("Missing webhook signature");
     }
 
-    const secret = this.configService.get<string>("PAYMENT_WEBHOOK_SECRET");
-    const expectedSignature = this.signWebhookPayload(payload, secret);
+    const expectedSignature = this.paymentGatewayService.signWebhookPayload(payload);
 
     const providedBuffer = Buffer.from(signature);
     const expectedBuffer = Buffer.from(expectedSignature);
@@ -313,20 +312,6 @@ export class PaymentsService {
     ) {
       throw new UnauthorizedException("Invalid webhook signature");
     }
-  }
-
-  private signWebhookPayload(payload: MockPaymentWebhookDto, secret: string | undefined) {
-    const normalized = [
-      payload.paymentId ?? "",
-      payload.referenceCode ?? "",
-      payload.event,
-      payload.providerReference ?? "",
-      payload.occurredAt ?? ""
-    ].join("|");
-
-    return createHmac("sha256", secret ?? "change_me_payment_webhook")
-      .update(normalized)
-      .digest("hex");
   }
 
   private buildOrderTransitionNote(paymentStatus: PaymentStatus, orderStatus: OrderStatus) {

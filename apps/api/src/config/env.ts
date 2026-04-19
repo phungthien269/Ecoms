@@ -24,6 +24,7 @@ const envSchema = z.object({
   GOOGLE_OAUTH_CLIENT_ID: z.string().optional(),
   GOOGLE_OAUTH_CLIENT_SECRET: z.string().optional(),
   GOOGLE_OAUTH_REDIRECT_URI: z.string().url().optional(),
+  PAYMENT_PROVIDER: z.enum(["mock_gateway"]).default("mock_gateway"),
   PAYMENT_WEBHOOK_SECRET: z.string().min(1).default("change_me_payment_webhook"),
   PAYMENT_EXPIRY_SWEEP_ENABLED: booleanFromEnv.default(true),
   PAYMENT_EXPIRY_SWEEP_INTERVAL_SECONDS: z.coerce.number().default(60),

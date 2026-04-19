@@ -27,14 +27,8 @@ describe("PaymentsService", () => {
   const orderStatusHistoryService = {
     record: jest.fn()
   };
-  const configService = {
-    get: jest.fn().mockImplementation((key: string, fallback?: unknown) => {
-      if (key === "PAYMENT_WEBHOOK_SECRET") {
-        return "test-payment-secret";
-      }
-
-      return fallback;
-    })
+  const paymentGatewayService = {
+    signWebhookPayload: jest.fn()
   };
   const paymentLifecycleService = {
     expireStalePendingPayments: jest.fn()
@@ -43,13 +37,14 @@ describe("PaymentsService", () => {
   const service = new PaymentsService(
     prisma as never,
     notificationsService as never,
-    configService as never,
     orderStatusHistoryService as never,
+    paymentGatewayService as never,
     paymentLifecycleService as never
   );
 
   beforeEach(() => {
     jest.clearAllMocks();
+    paymentGatewayService.signWebhookPayload.mockImplementation(signWebhookPayload);
     prisma.$transaction.mockImplementation(async (callback: (tx: typeof prisma) => unknown) =>
       callback(prisma)
     );
@@ -203,6 +198,8 @@ describe("PaymentsService", () => {
   });
 
   it("rejects invalid webhook signatures", async () => {
+    paymentGatewayService.signWebhookPayload.mockReturnValue("expected-signature");
+
     await expect(
       service.handleMockWebhook(
         {

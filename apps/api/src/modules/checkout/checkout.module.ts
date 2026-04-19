@@ -3,6 +3,7 @@ import { AuthModule } from "../auth/auth.module";
 import { MailerModule } from "../mailer/mailer.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { OrderStatusHistoryModule } from "../orderStatusHistory/order-status-history.module";
+import { PaymentsModule } from "../payments/payments.module";
 import { PrismaModule } from "../prisma/prisma.module";
 import { SystemSettingsModule } from "../systemSettings/system-settings.module";
 import { VouchersModule } from "../vouchers/vouchers.module";
@@ -17,6 +18,7 @@ import { CheckoutService } from "./checkout.service";
     NotificationsModule,
     MailerModule,
     OrderStatusHistoryModule,
+    PaymentsModule,
     SystemSettingsModule
   ],
   controllers: [CheckoutController],
