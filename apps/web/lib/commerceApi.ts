@@ -821,6 +821,15 @@ export interface AdminPaymentIncidentCenter {
     recentFailedOrExpiredCount: number;
     oldestPendingAt: string | null;
     nextPendingExpiryAt: string | null;
+    pendingAgeBuckets: {
+      underFiveMinutes: number;
+      fiveToFifteenMinutes: number;
+      overFifteenMinutes: number;
+    };
+    recentFailureBreakdown: {
+      failed: number;
+      expired: number;
+    };
   };
   pendingPayments: Array<{
     id: string;

@@ -93,6 +93,8 @@ describe("PaymentsService", () => {
   });
 
   it("returns payment incident center with pending queue and activity", async () => {
+    const pendingCreatedAt = new Date(Date.now() - 20 * 60 * 1000);
+    const pendingExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
     auditLogsService.listPaymentIncidentActivity.mockResolvedValue([
       {
         id: "audit-1",
@@ -117,8 +119,8 @@ describe("PaymentsService", () => {
           referenceCode: "PAY-PENDING-1",
           amount: new (require("@prisma/client").Prisma.Decimal)(722000),
           status: PaymentStatus.PENDING,
-          createdAt: new Date("2026-04-20T11:00:00.000Z"),
-          expiresAt: new Date("2026-04-20T11:15:00.000Z"),
+          createdAt: pendingCreatedAt,
+          expiresAt: pendingExpiresAt,
           user: {
             id: "user-1",
             fullName: "Demo Buyer",
@@ -166,6 +168,15 @@ describe("PaymentsService", () => {
     expect(result.gateway.enabled).toBe(false);
     expect(result.impact.pendingCount).toBe(1);
     expect(result.impact.recentFailedOrExpiredCount).toBe(1);
+    expect(result.impact.pendingAgeBuckets).toEqual({
+      underFiveMinutes: 0,
+      fiveToFifteenMinutes: 0,
+      overFifteenMinutes: 1
+    });
+    expect(result.impact.recentFailureBreakdown).toEqual({
+      failed: 1,
+      expired: 0
+    });
     expect(result.pendingPayments[0]?.referenceCode).toBe("PAY-PENDING-1");
     expect(result.activity).toHaveLength(1);
   });

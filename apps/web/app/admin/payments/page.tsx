@@ -205,6 +205,29 @@ export default async function AdminPaymentsPage({
               />
             </div>
 
+            <div className="mt-6 grid gap-6 xl:grid-cols-2">
+              <div className="rounded-[1.5rem] bg-slate-50 p-5">
+                <div className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">
+                  Pending age buckets
+                </div>
+                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  <MetricCard compact label="< 5 min" value={String(incidentCenter.impact.pendingAgeBuckets.underFiveMinutes)} />
+                  <MetricCard compact label="5-15 min" value={String(incidentCenter.impact.pendingAgeBuckets.fiveToFifteenMinutes)} />
+                  <MetricCard compact label="> 15 min" value={String(incidentCenter.impact.pendingAgeBuckets.overFifteenMinutes)} />
+                </div>
+              </div>
+
+              <div className="rounded-[1.5rem] bg-slate-50 p-5">
+                <div className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">
+                  Failure breakdown
+                </div>
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <MetricCard compact label="FAILED" value={String(incidentCenter.impact.recentFailureBreakdown.failed)} />
+                  <MetricCard compact label="EXPIRED" value={String(incidentCenter.impact.recentFailureBreakdown.expired)} />
+                </div>
+              </div>
+            </div>
+
             <div className="mt-6 grid gap-6 xl:grid-cols-3">
               <div className="rounded-[1.5rem] bg-slate-50 p-5">
                 <div className="flex items-center justify-between gap-3">
@@ -425,13 +448,23 @@ export default async function AdminPaymentsPage({
   );
 }
 
-function MetricCard({ label, value }: { label: string; value: string }) {
+function MetricCard({
+  label,
+  value,
+  compact = false
+}: {
+  label: string;
+  value: string;
+  compact?: boolean;
+}) {
   return (
     <div className="rounded-[1.5rem] bg-slate-50 p-5">
       <div className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">
         {label}
       </div>
-      <div className="mt-3 text-2xl font-black text-slate-950">{value}</div>
+      <div className={`mt-3 font-black text-slate-950 ${compact ? "text-xl" : "text-2xl"}`}>
+        {value}
+      </div>
     </div>
   );
 }

@@ -366,6 +366,38 @@ export class PaymentsService {
         })
       ]);
 
+    const pendingAgeBuckets = {
+      underFiveMinutes: 0,
+      fiveToFifteenMinutes: 0,
+      overFifteenMinutes: 0
+    };
+    for (const payment of pendingOnlinePayments) {
+      const ageMinutes = Math.max(0, Math.floor((Date.now() - payment.createdAt.getTime()) / 60000));
+      if (ageMinutes < 5) {
+        pendingAgeBuckets.underFiveMinutes += 1;
+      } else if (ageMinutes <= 15) {
+        pendingAgeBuckets.fiveToFifteenMinutes += 1;
+      } else {
+        pendingAgeBuckets.overFifteenMinutes += 1;
+      }
+    }
+
+    const recentFailureBreakdown = recentNonSuccessPayments.reduce(
+      (summary, payment) => {
+        if (payment.status === PaymentStatus.FAILED) {
+          summary.failed += 1;
+        }
+        if (payment.status === PaymentStatus.EXPIRED) {
+          summary.expired += 1;
+        }
+        return summary;
+      },
+      {
+        failed: 0,
+        expired: 0
+      }
+    );
+
     return {
       gateway: {
         enabled: publicSettings.paymentOnlineGatewayEnabled,
@@ -385,7 +417,9 @@ export class PaymentsService {
             .map((payment) => payment.expiresAt)
             .filter((value): value is Date => Boolean(value))
             .sort((left, right) => left.getTime() - right.getTime())[0]
-            ?.toISOString() ?? null
+            ?.toISOString() ?? null,
+        pendingAgeBuckets,
+        recentFailureBreakdown
       },
       pendingPayments: pendingOnlinePayments.map((payment) => ({
         id: payment.id,
