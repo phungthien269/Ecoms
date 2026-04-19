@@ -830,6 +830,22 @@ export interface AdminPaymentIncidentCenter {
       failed: number;
       expired: number;
     };
+    affectedShops: Array<{
+      id: string;
+      name: string;
+      slug: string;
+      pendingCount: number;
+      failedOrExpiredCount: number;
+      totalImpactedPayments: number;
+    }>;
+    affectedCustomers: Array<{
+      id: string;
+      fullName: string;
+      email: string;
+      pendingCount: number;
+      failedOrExpiredCount: number;
+      totalImpactedPayments: number;
+    }>;
   };
   pendingPayments: Array<{
     id: string;

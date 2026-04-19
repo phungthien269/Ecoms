@@ -398,6 +398,96 @@ export class PaymentsService {
       }
     );
 
+    const affectedShops = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        slug: string;
+        pendingCount: number;
+        failedOrExpiredCount: number;
+        totalImpactedPayments: number;
+      }
+    >();
+    const affectedCustomers = new Map<
+      string,
+      {
+        id: string;
+        fullName: string;
+        email: string;
+        pendingCount: number;
+        failedOrExpiredCount: number;
+        totalImpactedPayments: number;
+      }
+    >();
+
+    const registerImpact = (
+      payment: (typeof pendingOnlinePayments)[number] | (typeof recentNonSuccessPayments)[number],
+      kind: "pending" | "failed"
+    ) => {
+      const shop = payment.order.shop;
+      const currentShop = affectedShops.get(shop.id) ?? {
+        id: shop.id,
+        name: shop.name,
+        slug: shop.slug,
+        pendingCount: 0,
+        failedOrExpiredCount: 0,
+        totalImpactedPayments: 0
+      };
+      if (kind === "pending") {
+        currentShop.pendingCount += 1;
+      } else {
+        currentShop.failedOrExpiredCount += 1;
+      }
+      currentShop.totalImpactedPayments += 1;
+      affectedShops.set(shop.id, currentShop);
+
+      const customer = payment.user;
+      const currentCustomer = affectedCustomers.get(customer.id) ?? {
+        id: customer.id,
+        fullName: customer.fullName,
+        email: customer.email,
+        pendingCount: 0,
+        failedOrExpiredCount: 0,
+        totalImpactedPayments: 0
+      };
+      if (kind === "pending") {
+        currentCustomer.pendingCount += 1;
+      } else {
+        currentCustomer.failedOrExpiredCount += 1;
+      }
+      currentCustomer.totalImpactedPayments += 1;
+      affectedCustomers.set(customer.id, currentCustomer);
+    };
+
+    for (const payment of pendingOnlinePayments) {
+      registerImpact(payment, "pending");
+    }
+    for (const payment of recentNonSuccessPayments) {
+      registerImpact(payment, "failed");
+    }
+
+    const sortImpact = <
+      T extends {
+        totalImpactedPayments: number;
+        pendingCount: number;
+        failedOrExpiredCount: number;
+      }
+    >(
+      items: T[]
+    ) =>
+      items
+        .sort((left, right) => {
+          if (right.totalImpactedPayments !== left.totalImpactedPayments) {
+            return right.totalImpactedPayments - left.totalImpactedPayments;
+          }
+          if (right.pendingCount !== left.pendingCount) {
+            return right.pendingCount - left.pendingCount;
+          }
+          return right.failedOrExpiredCount - left.failedOrExpiredCount;
+        })
+        .slice(0, 5);
+
     return {
       gateway: {
         enabled: publicSettings.paymentOnlineGatewayEnabled,
@@ -419,7 +509,9 @@ export class PaymentsService {
             .sort((left, right) => left.getTime() - right.getTime())[0]
             ?.toISOString() ?? null,
         pendingAgeBuckets,
-        recentFailureBreakdown
+        recentFailureBreakdown,
+        affectedShops: sortImpact(Array.from(affectedShops.values())),
+        affectedCustomers: sortImpact(Array.from(affectedCustomers.values()))
       },
       pendingPayments: pendingOnlinePayments.map((payment) => ({
         id: payment.id,

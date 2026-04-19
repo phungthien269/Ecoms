@@ -177,6 +177,34 @@ describe("PaymentsService", () => {
       failed: 1,
       expired: 0
     });
+    expect(result.impact.affectedShops).toEqual([
+      {
+        id: "shop-1",
+        name: "Demo Shop",
+        slug: "demo-shop",
+        pendingCount: 1,
+        failedOrExpiredCount: 1,
+        totalImpactedPayments: 2
+      }
+    ]);
+    expect(result.impact.affectedCustomers).toEqual([
+      {
+        id: "user-1",
+        fullName: "Demo Buyer",
+        email: "buyer@ecoms.local",
+        pendingCount: 1,
+        failedOrExpiredCount: 0,
+        totalImpactedPayments: 1
+      },
+      {
+        id: "user-2",
+        fullName: "Buyer 2",
+        email: "buyer2@ecoms.local",
+        pendingCount: 0,
+        failedOrExpiredCount: 1,
+        totalImpactedPayments: 1
+      }
+    ]);
     expect(result.pendingPayments[0]?.referenceCode).toBe("PAY-PENDING-1");
     expect(result.activity).toHaveLength(1);
   });

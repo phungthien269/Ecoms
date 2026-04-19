@@ -228,6 +228,98 @@ export default async function AdminPaymentsPage({
               </div>
             </div>
 
+            <div className="mt-6 grid gap-6 xl:grid-cols-2">
+              <div className="rounded-[1.5rem] bg-slate-50 p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-lg font-bold text-slate-950">Most impacted shops</h3>
+                  <div className="text-sm text-slate-500">
+                    {incidentCenter.impact.affectedShops.length} ranked
+                  </div>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {incidentCenter.impact.affectedShops.length > 0 ? (
+                    incidentCenter.impact.affectedShops.map((shop) => (
+                      <div key={shop.id} className="rounded-[1rem] bg-white px-4 py-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="font-semibold text-slate-950">{shop.name}</div>
+                            <div className="mt-1 text-xs text-slate-500">
+                              {shop.totalImpactedPayments} impacted payment(s)
+                            </div>
+                          </div>
+                          <Link
+                            href={`/shops/${shop.slug}` as Route}
+                            className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+                          >
+                            Shop
+                          </Link>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+                          <span className="rounded-full bg-slate-100 px-3 py-1">
+                            Pending {shop.pendingCount}
+                          </span>
+                          <span className="rounded-full bg-slate-100 px-3 py-1">
+                            Failed/Expired {shop.failedOrExpiredCount}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-[1rem] bg-white px-4 py-4 text-sm text-slate-500">
+                      No shop-level payment impact right now.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-[1.5rem] bg-slate-50 p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-lg font-bold text-slate-950">Most impacted buyers</h3>
+                  <div className="text-sm text-slate-500">
+                    {incidentCenter.impact.affectedCustomers.length} ranked
+                  </div>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {incidentCenter.impact.affectedCustomers.length > 0 ? (
+                    incidentCenter.impact.affectedCustomers.map((customer) => (
+                      <div key={customer.id} className="rounded-[1rem] bg-white px-4 py-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="font-semibold text-slate-950">{customer.fullName}</div>
+                            <div className="mt-1 text-xs text-slate-500">{customer.email}</div>
+                          </div>
+                          <Link
+                            href={buildAdminHref("/admin/users", {
+                              search: customer.email,
+                              page: "1"
+                            }) as Route}
+                            className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+                          >
+                            User
+                          </Link>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+                          <span className="rounded-full bg-slate-100 px-3 py-1">
+                            Pending {customer.pendingCount}
+                          </span>
+                          <span className="rounded-full bg-slate-100 px-3 py-1">
+                            Failed/Expired {customer.failedOrExpiredCount}
+                          </span>
+                          <span className="rounded-full bg-slate-100 px-3 py-1">
+                            Total {customer.totalImpactedPayments}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-[1rem] bg-white px-4 py-4 text-sm text-slate-500">
+                      No buyer-level payment impact right now.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div className="mt-6 grid gap-6 xl:grid-cols-3">
               <div className="rounded-[1.5rem] bg-slate-50 p-5">
                 <div className="flex items-center justify-between gap-3">
