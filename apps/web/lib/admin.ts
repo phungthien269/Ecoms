@@ -12,6 +12,8 @@ export interface AdminListSearchParams {
   isActive?: string;
   paymentMethod?: string;
   eventType?: string;
+  providerMode?: string;
+  callbackOutcome?: string;
   referenceCode?: string;
   tracePaymentId?: string;
   traceReferenceCode?: string;
@@ -41,6 +43,8 @@ export function normalizeAdminParams(
     isActive: getSingleValue(searchParams?.isActive),
     paymentMethod: getSingleValue(searchParams?.paymentMethod),
     eventType: getSingleValue(searchParams?.eventType),
+    providerMode: getSingleValue(searchParams?.providerMode),
+    callbackOutcome: getSingleValue(searchParams?.callbackOutcome),
     referenceCode: getSingleValue(searchParams?.referenceCode),
     tracePaymentId: getSingleValue(searchParams?.tracePaymentId),
     traceReferenceCode: getSingleValue(searchParams?.traceReferenceCode),

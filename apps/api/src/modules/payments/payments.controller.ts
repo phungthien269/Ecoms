@@ -9,6 +9,7 @@ import { AdminBatchReplayMockWebhookDto } from "./dto/admin-batch-replay-mock-we
 import { AdminReplayMockWebhookDto } from "./dto/admin-replay-mock-webhook.dto";
 import { AdminReplayProviderWebhookDto } from "./dto/admin-replay-provider-webhook.dto";
 import { DemoGatewayWebhookDto } from "./dto/demo-gateway-webhook.dto";
+import { ListAdminProviderEventsDto } from "./dto/list-admin-provider-events.dto";
 import { ListAdminPaymentsDto } from "./dto/list-admin-payments.dto";
 import { MockPaymentWebhookDto } from "./dto/mock-payment-webhook.dto";
 import { PaymentTraceQueryDto } from "./dto/payment-trace-query.dto";
@@ -89,6 +90,13 @@ export class PaymentsController {
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   listAdmin(@Query() query: ListAdminPaymentsDto) {
     return this.paymentsService.listAdmin(query);
+  }
+
+  @Get("admin/provider-events")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  listAdminProviderEvents(@Query() query: ListAdminProviderEventsDto) {
+    return this.paymentsService.listAdminProviderEvents(query);
   }
 
   @Get("admin/incidents")

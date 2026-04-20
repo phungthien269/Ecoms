@@ -824,6 +824,41 @@ export interface AdminPaymentItem {
   recentEvents: PaymentEventItem[];
 }
 
+export interface AdminProviderPaymentEventItem extends PaymentEventItem {
+  payment: {
+    id: string;
+    referenceCode: string;
+    status: string;
+    method: string;
+  };
+  user: {
+    id: string;
+    fullName: string;
+    email: string;
+  };
+  order: {
+    id: string;
+    orderNumber: string;
+    status: string;
+    shop: {
+      id: string;
+      name: string;
+      slug: string;
+    };
+  };
+}
+
+export interface AdminProviderPaymentEventsPage {
+  items: AdminProviderPaymentEventItem[];
+  pagination: PaginatedResponse<AdminProviderPaymentEventItem>["pagination"];
+  summary: {
+    processedCount: number;
+    ignoredCount: number;
+    mockGatewayCount: number;
+    demoGatewayCount: number;
+  };
+}
+
 export interface AdminPaymentIncidentCenter {
   gateway: {
     enabled: boolean;
@@ -1353,6 +1388,35 @@ export async function getAdminPaymentsPage(query?: {
 
 export async function getAdminPaymentIncidentCenter() {
   return requestAuthedJson<AdminPaymentIncidentCenter>("/payments/admin/incidents");
+}
+
+export async function getAdminPaymentProviderEventsPage(query?: {
+  search?: string;
+  eventType?: string;
+  providerMode?: string;
+  callbackOutcome?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  return (
+    (await requestAuthedJson<AdminProviderPaymentEventsPage>(
+      `/payments/admin/provider-events${buildQueryString(query)}`
+    )) ?? {
+      items: [],
+      pagination: {
+        page: 1,
+        pageSize: query?.pageSize ?? 12,
+        total: 0,
+        totalPages: 1
+      },
+      summary: {
+        processedCount: 0,
+        ignoredCount: 0,
+        mockGatewayCount: 0,
+        demoGatewayCount: 0
+      }
+    }
+  );
 }
 
 export async function getAdminReportsPage(query?: {

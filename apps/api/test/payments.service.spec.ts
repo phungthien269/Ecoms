@@ -43,7 +43,8 @@ describe("PaymentsService", () => {
   };
   const paymentEventsService = {
     record: jest.fn(),
-    listForPayment: jest.fn()
+    listForPayment: jest.fn(),
+    listProviderEvents: jest.fn()
   };
   const systemSettingsService = {
     getPublicSummary: jest.fn()
@@ -330,6 +331,18 @@ describe("PaymentsService", () => {
       orderStatus: OrderStatus.CONFIRMED,
       processed: false
     });
+    expect(paymentEventsService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentId: "payment-2",
+        eventType: "PAYMENT_CALLBACK_IGNORED",
+        actorType: "PAYMENT_GATEWAY",
+        payload: expect.objectContaining({
+          providerMode: "mock_gateway",
+          providerContract: "mock_gateway",
+          callbackOutcome: "ignored"
+        })
+      })
+    );
   });
 
   it("marks failed webhook as cancelled order", async () => {
@@ -393,6 +406,19 @@ describe("PaymentsService", () => {
         })
       }),
       prisma
+    );
+    expect(paymentEventsService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentId: "payment-3",
+        eventType: "PAYMENT_CALLBACK_PROCESSED",
+        actorType: "PAYMENT_GATEWAY",
+        actorUserId: null,
+        payload: expect.objectContaining({
+          providerMode: "mock_gateway",
+          providerContract: "mock_gateway",
+          callbackOutcome: "processed"
+        })
+      })
     );
   });
 
@@ -471,6 +497,20 @@ describe("PaymentsService", () => {
         })
       }),
       prisma
+    );
+    expect(paymentEventsService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentId: "payment-demo-1",
+        eventType: "PAYMENT_CALLBACK_PROCESSED",
+        actorType: "PAYMENT_GATEWAY",
+        actorUserId: null,
+        payload: expect.objectContaining({
+          providerMode: "demo_gateway",
+          providerContract: "demo_gateway",
+          callbackOutcome: "processed",
+          gatewayStatus: DemoGatewayWebhookStatus.SUCCESS
+        })
+      })
     );
   });
 
@@ -904,6 +944,39 @@ describe("PaymentsService", () => {
         }
       ]
     });
+  });
+
+  it("delegates provider event backlog listing", async () => {
+    paymentEventsService.listProviderEvents.mockResolvedValue({
+      items: [],
+      pagination: {
+        page: 1,
+        pageSize: 12,
+        total: 0,
+        totalPages: 1
+      },
+      summary: {
+        processedCount: 0,
+        ignoredCount: 0,
+        mockGatewayCount: 0,
+        demoGatewayCount: 0
+      }
+    });
+
+    const result = await service.listAdminProviderEvents({
+      providerMode: "demo_gateway",
+      callbackOutcome: "processed",
+      page: 1,
+      pageSize: 12
+    });
+
+    expect(paymentEventsService.listProviderEvents).toHaveBeenCalledWith({
+      providerMode: "demo_gateway",
+      callbackOutcome: "processed",
+      page: 1,
+      pageSize: 12
+    });
+    expect(result.summary.processedCount).toBe(0);
   });
 });
 

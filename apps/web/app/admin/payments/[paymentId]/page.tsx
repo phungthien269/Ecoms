@@ -80,6 +80,12 @@ export default async function AdminPaymentDetailPage({
               Back to payments
             </Link>
             <Link
+              href={"/admin/payments/provider-events" as Route}
+              className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+            >
+              Provider callbacks
+            </Link>
+            <Link
               href={`/orders/${paymentTrace.payment.orderId}` as Route}
               className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
             >

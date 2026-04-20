@@ -19,6 +19,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { AuditLogsService } from "../auditLogs/audit-logs.service";
 import type { AuthPayload } from "../auth/types/auth-payload";
 import type { AdminBatchReplayMockWebhookDto } from "./dto/admin-batch-replay-mock-webhook.dto";
+import type { ListAdminProviderEventsDto } from "./dto/list-admin-provider-events.dto";
 import type { AdminReplayMockWebhookDto } from "./dto/admin-replay-mock-webhook.dto";
 import type { AdminReplayProviderWebhookDto } from "./dto/admin-replay-provider-webhook.dto";
 import type { ListAdminPaymentsDto } from "./dto/list-admin-payments.dto";
@@ -79,7 +80,13 @@ export class PaymentsService {
     });
   }
 
-  async handleMockWebhook(payload: MockPaymentWebhookDto, signature: string | undefined) {
+  async handleMockWebhook(
+    payload: MockPaymentWebhookDto,
+    signature: string | undefined,
+    context?: {
+      replayedBy?: AuthPayload | null;
+    }
+  ) {
     this.assertWebhookSignature(payload, signature);
 
     const payment = await this.prisma.payment.findFirst({
@@ -104,22 +111,29 @@ export class PaymentsService {
     }
 
     const nextStatus = this.mapWebhookEventToStatus(payload.event);
-    return this.applyPaymentTransition(payment, nextStatus, {
+    const metadata = {
+      flow: "mock_webhook",
+      providerMode: "mock_gateway",
+      providerContract: "mock_gateway",
+      webhookEvent: payload.event,
+      providerReference: payload.providerReference ?? null,
+      ...this.buildReplayMetadata(context?.replayedBy)
+    };
+    const result = await this.applyPaymentTransition(payment, nextStatus, {
       source: "mock_webhook",
       occurredAt: payload.occurredAt ? new Date(payload.occurredAt) : new Date(),
-      metadata: {
-        flow: "mock_webhook",
-        providerMode: "mock_gateway",
-        providerContract: "mock_gateway",
-        webhookEvent: payload.event,
-        providerReference: payload.providerReference ?? null
-      }
+      metadata
     });
+    await this.recordProviderCallbackOutcome(payment, result, "mock_webhook", metadata);
+    return result;
   }
 
   async handleDemoGatewayWebhook(
     payload: DemoGatewayWebhookDto,
-    signature: string | undefined
+    signature: string | undefined,
+    context?: {
+      replayedBy?: AuthPayload | null;
+    }
   ) {
     const providerDiagnostics = this.paymentGatewayService.getProviderDiagnostics();
     if (providerDiagnostics.mode !== "demo_gateway") {
@@ -151,18 +165,22 @@ export class PaymentsService {
     const nextStatus = this.mapWebhookEventToStatus(
       this.paymentGatewayService.mapDemoGatewayStatus(payload.status)
     );
-    return this.applyPaymentTransition(payment, nextStatus, {
+    const metadata = {
+      flow: "demo_gateway_webhook",
+      providerMode: "demo_gateway",
+      providerContract: "demo_gateway",
+      gatewayStatus: payload.status,
+      providerReference: payload.providerReference,
+      merchantCode: payload.merchantCode,
+      ...this.buildReplayMetadata(context?.replayedBy)
+    };
+    const result = await this.applyPaymentTransition(payment, nextStatus, {
       source: "demo_gateway_webhook",
       occurredAt: new Date(payload.occurredAt),
-      metadata: {
-        flow: "demo_gateway_webhook",
-        providerMode: "demo_gateway",
-        providerContract: "demo_gateway",
-        gatewayStatus: payload.status,
-        providerReference: payload.providerReference,
-        merchantCode: payload.merchantCode
-      }
+      metadata
     });
+    await this.recordProviderCallbackOutcome(payment, result, "demo_gateway_webhook", metadata);
+    return result;
   }
 
   async expireStalePendingPayments() {
@@ -171,7 +189,9 @@ export class PaymentsService {
 
   async replayMockWebhook(actor: AuthPayload, payload: AdminReplayMockWebhookDto) {
     const signature = this.paymentGatewayService.signWebhookPayload(payload);
-    const result = await this.handleMockWebhook(payload, signature);
+    const result = await this.handleMockWebhook(payload, signature, {
+      replayedBy: actor
+    });
 
     await this.auditLogsService.record({
       actorUserId: actor.sub,
@@ -227,7 +247,9 @@ export class PaymentsService {
       };
 
       const signature = this.paymentGatewayService.signDemoGatewayPayload(demoPayload);
-      const result = await this.handleDemoGatewayWebhook(demoPayload, signature);
+      const result = await this.handleDemoGatewayWebhook(demoPayload, signature, {
+        replayedBy: actor
+      });
 
       await this.auditLogsService.record({
         actorUserId: actor.sub,
@@ -513,6 +535,10 @@ export class PaymentsService {
         totalPages: Math.max(1, Math.ceil(total / pageSize))
       }
     };
+  }
+
+  async listAdminProviderEvents(query: ListAdminProviderEventsDto) {
+    return this.paymentEventsService.listProviderEvents(query);
   }
 
   async getAdminIncidentCenter() {
@@ -1027,6 +1053,46 @@ export class PaymentsService {
       },
       client
     );
+  }
+
+  private buildReplayMetadata(actor?: AuthPayload | null) {
+    if (!actor) {
+      return {};
+    }
+
+    return {
+      replayedByAdmin: true,
+      replayedByAdminId: actor.sub,
+      replayedByAdminRole: actor.role
+    };
+  }
+
+  private async recordProviderCallbackOutcome(
+    payment: PaymentWithOrder,
+    result: {
+      paymentId: string;
+      orderId: string;
+      paymentStatus: string;
+      orderStatus: string;
+      processed: boolean;
+    },
+    source: "mock_webhook" | "demo_gateway_webhook",
+    metadata: Record<string, unknown>
+  ) {
+    await this.paymentEventsService.record({
+      paymentId: payment.id,
+      orderId: payment.orderId,
+      eventType: result.processed ? "PAYMENT_CALLBACK_PROCESSED" : "PAYMENT_CALLBACK_IGNORED",
+      source,
+      actorType: "PAYMENT_GATEWAY",
+      actorUserId: null,
+      previousStatus: payment.status as PaymentStatus,
+      nextStatus: result.paymentStatus as PaymentStatus,
+      payload: {
+        ...metadata,
+        callbackOutcome: result.processed ? "processed" : "ignored"
+      }
+    });
   }
 
   private mapWebhookEventToStatus(event: PaymentWebhookEvent) {

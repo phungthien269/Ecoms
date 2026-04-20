@@ -75,6 +75,12 @@ export default async function AdminPaymentsPage({
           >
             Back to dashboard
           </Link>
+          <Link
+            href={"/admin/payments/provider-events" as Route}
+            className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+          >
+            Provider callbacks
+          </Link>
         </div>
 
         <form action="/admin/payments" className="mt-8 grid gap-3 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm md:grid-cols-4">

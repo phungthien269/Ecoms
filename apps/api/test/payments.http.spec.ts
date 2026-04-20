@@ -19,6 +19,7 @@ describe("PaymentsController (http)", () => {
     batchReplayMockWebhook: jest.fn(),
     getAdminTrace: jest.fn(),
     listAdmin: jest.fn(),
+    listAdminProviderEvents: jest.fn(),
     getAdminIncidentCenter: jest.fn()
   } satisfies Partial<PaymentsService>;
 
@@ -285,6 +286,38 @@ describe("PaymentsController (http)", () => {
       status: "PENDING",
       paymentMethod: "ONLINE_GATEWAY",
       eventType: "PAYMENT_CREATED",
+      page: 1,
+      pageSize: 12
+    });
+  });
+
+  it("lets admins list provider callback history", async () => {
+    paymentsService.listAdminProviderEvents.mockResolvedValue({
+      items: [],
+      pagination: {
+        page: 1,
+        pageSize: 12,
+        total: 0,
+        totalPages: 1
+      },
+      summary: {
+        processedCount: 0,
+        ignoredCount: 0,
+        mockGatewayCount: 0,
+        demoGatewayCount: 0
+      }
+    });
+
+    const response = await request(app.getHttpServer())
+      .get("/api/payments/admin/provider-events?providerMode=demo_gateway&callbackOutcome=processed")
+      .set("x-test-user-id", "admin-1")
+      .set("x-test-user-role", "ADMIN");
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(paymentsService.listAdminProviderEvents).toHaveBeenCalledWith({
+      providerMode: "demo_gateway",
+      callbackOutcome: "processed",
       page: 1,
       pageSize: 12
     });
