@@ -778,3 +778,63 @@ export async function batchReplayPaymentGatewayWebhookAction(formData: FormData)
     })
   );
 }
+
+export async function batchReplayProviderWebhookAction(formData: FormData) {
+  const token = await getToken();
+  const redirectTo = getRedirectTarget(formData, "/admin/payments/provider-events");
+  if (!token) {
+    redirectToPath(redirectTo);
+  }
+
+  const event = String(formData.get("event") ?? "").trim();
+  const paymentIds = String(formData.get("paymentIds") ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const referenceCodes = String(formData.get("referenceCodes") ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const providerReferencePrefix = String(formData.get("providerReferencePrefix") ?? "").trim();
+
+  const response = await fetch(`${API_URL}/payments/admin/replay-provider-webhook/batch`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      paymentIds: paymentIds.length > 0 ? paymentIds : undefined,
+      referenceCodes: referenceCodes.length > 0 ? referenceCodes : undefined,
+      event,
+      providerReferencePrefix: providerReferencePrefix || undefined
+    }),
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    redirectToPath(
+      appendAdminFlash(redirectTo, {
+        scope: "provider-events",
+        status: "error",
+        message: await parseErrorMessage(response, "Batch provider replay failed.")
+      })
+    );
+  }
+
+  const payload = (await response.json()) as {
+    data?: {
+      successCount?: number;
+      failureCount?: number;
+      event?: string;
+    };
+  };
+
+  redirectToPath(
+    appendAdminFlash(redirectTo, {
+      scope: "provider-events",
+      status: payload.data?.failureCount ? "error" : "success",
+      message: `Provider batch replayed ${payload.data?.event ?? event} for ${payload.data?.successCount ?? 0} payment(s)${payload.data?.failureCount ? `, ${payload.data.failureCount} failed` : ""}.`
+    })
+  );
+}

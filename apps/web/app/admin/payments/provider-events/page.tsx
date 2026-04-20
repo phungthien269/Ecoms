@@ -1,5 +1,6 @@
 import type { Route } from "next";
 import Link from "next/link";
+import { batchReplayProviderWebhookAction } from "@/app/actions/admin";
 import { AdminFlashBanner } from "@/components/admin/adminFlashBanner";
 import { AdminPagination } from "@/components/admin/adminPagination";
 import { EmptyState } from "@/components/storefront/emptyState";
@@ -54,6 +55,10 @@ export default async function AdminProviderEventsPage({
   }
 
   const cleanParams = clearAdminFlash(params);
+  const visiblePaymentIds = providerEventsPage.items.map((event) => event.payment.id).join(",");
+  const visibleReferenceCodes = providerEventsPage.items
+    .map((event) => event.payment.referenceCode)
+    .join(",");
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -134,6 +139,51 @@ export default async function AdminProviderEventsPage({
           <MetricCard label="mock_gateway events" value={String(providerEventsPage.summary.mockGatewayCount)} />
           <MetricCard label="demo_gateway events" value={String(providerEventsPage.summary.demoGatewayCount)} />
         </section>
+
+        {providerEventsPage.items.length > 0 ? (
+          <section className="mt-6 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-slate-950">Recovery actions</h2>
+                <p className="mt-1 max-w-2xl text-sm text-slate-500">
+                  Replay the currently visible callback set through the active provider contract. This uses the same provider-aware replay path as payment diagnostics, not the mock-only batch route.
+                </p>
+              </div>
+              <div className="rounded-[1.25rem] bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                Visible targets: {providerEventsPage.items.length}
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-3 lg:grid-cols-3">
+              {["PAID", "FAILED", "EXPIRED"].map((event) => (
+                <form key={event} action={batchReplayProviderWebhookAction} className="rounded-[1.5rem] bg-slate-50 p-4">
+                  <input type="hidden" name="redirectTo" value={buildAdminHref("/admin/payments/provider-events", cleanParams)} />
+                  <input type="hidden" name="paymentIds" value={visiblePaymentIds} />
+                  <input type="hidden" name="referenceCodes" value={visibleReferenceCodes} />
+                  <input type="hidden" name="event" value={event} />
+                  <input
+                    type="hidden"
+                    name="providerReferencePrefix"
+                    value={`provider-events-${event.toLowerCase()}`}
+                  />
+                  <div className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">
+                    Batch replay
+                  </div>
+                  <div className="mt-2 text-lg font-bold text-slate-950">{event}</div>
+                  <p className="mt-2 text-sm text-slate-500">
+                    Applies {event} to the visible callback set through the active provider mode.
+                  </p>
+                  <button
+                    type="submit"
+                    className="mt-4 rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                  >
+                    Replay visible set
+                  </button>
+                </form>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <section className="mt-6 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">

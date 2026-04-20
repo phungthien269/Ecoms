@@ -17,6 +17,7 @@ describe("PaymentsController (http)", () => {
     replayMockWebhook: jest.fn(),
     replayProviderWebhook: jest.fn(),
     batchReplayMockWebhook: jest.fn(),
+    batchReplayProviderWebhook: jest.fn(),
     getAdminTrace: jest.fn(),
     listAdmin: jest.fn(),
     listAdminProviderEvents: jest.fn(),
@@ -224,6 +225,37 @@ describe("PaymentsController (http)", () => {
     expect(response.status).toBe(201);
     expect(response.body.success).toBe(true);
     expect(paymentsService.batchReplayMockWebhook).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sub: "admin-1",
+        role: "ADMIN"
+      }),
+      payload
+    );
+  });
+
+  it("lets admins batch replay provider callbacks", async () => {
+    const payload = {
+      paymentIds: ["payment-1", "payment-2"],
+      event: PaymentWebhookEvent.PAID,
+      providerReferencePrefix: "provider-recover"
+    };
+    paymentsService.batchReplayProviderWebhook.mockResolvedValue({
+      event: PaymentWebhookEvent.PAID,
+      targetCount: 2,
+      successCount: 2,
+      failureCount: 0,
+      results: []
+    });
+
+    const response = await request(app.getHttpServer())
+      .post("/api/payments/admin/replay-provider-webhook/batch")
+      .set("x-test-user-id", "admin-1")
+      .set("x-test-user-role", "ADMIN")
+      .send(payload);
+
+    expect(response.status).toBe(201);
+    expect(response.body.success).toBe(true);
+    expect(paymentsService.batchReplayProviderWebhook).toHaveBeenCalledWith(
       expect.objectContaining({
         sub: "admin-1",
         role: "ADMIN"

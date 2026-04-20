@@ -6,6 +6,7 @@ import type { AuthPayload } from "../auth/types/auth-payload";
 import { Roles } from "../rbac/decorators/roles.decorator";
 import { RolesGuard } from "../rbac/guards/roles.guard";
 import { AdminBatchReplayMockWebhookDto } from "./dto/admin-batch-replay-mock-webhook.dto";
+import { AdminBatchReplayProviderWebhookDto } from "./dto/admin-batch-replay-provider-webhook.dto";
 import { AdminReplayMockWebhookDto } from "./dto/admin-replay-mock-webhook.dto";
 import { AdminReplayProviderWebhookDto } from "./dto/admin-replay-provider-webhook.dto";
 import { DemoGatewayWebhookDto } from "./dto/demo-gateway-webhook.dto";
@@ -76,6 +77,16 @@ export class PaymentsController {
     @Body() payload: AdminBatchReplayMockWebhookDto
   ) {
     return this.paymentsService.batchReplayMockWebhook(actor, payload);
+  }
+
+  @Post("admin/replay-provider-webhook/batch")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  replayProviderWebhookBatch(
+    @CurrentUser() actor: AuthPayload,
+    @Body() payload: AdminBatchReplayProviderWebhookDto
+  ) {
+    return this.paymentsService.batchReplayProviderWebhook(actor, payload);
   }
 
   @Get("admin/trace")

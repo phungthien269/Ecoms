@@ -762,6 +762,103 @@ describe("PaymentsService", () => {
     });
   });
 
+  it("batch replays active provider callbacks and summarizes failures", async () => {
+    paymentGatewayService.getProviderDiagnostics.mockReturnValue({
+      provider: "demo_gateway",
+      displayName: "Demo Gateway",
+      mode: "demo_gateway",
+      configured: true,
+      webhookMode: "provider_callback",
+      supportsHostedCheckout: true,
+      supportsBankTransfer: true,
+      supportsWebhookReplay: false,
+      callbackPath: "/api/payments/webhooks/demo",
+      signatureHeaderName: "x-demo-gateway-signature",
+      merchantCode: "merchant_001",
+      baseUrl: "https://demo-gateway.local",
+      actionHint: "No action required"
+    });
+    prisma.payment.findUnique = jest
+      .fn()
+      .mockResolvedValueOnce({ referenceCode: "PAY-PROVIDER-BATCH-1" })
+      .mockResolvedValueOnce(null);
+    prisma.payment.findFirst
+      .mockResolvedValueOnce({
+        id: "payment-provider-batch-1",
+        orderId: "order-provider-batch-1",
+        userId: "user-1",
+        method: PaymentMethod.ONLINE_GATEWAY,
+        status: PaymentStatus.PENDING,
+        referenceCode: "PAY-PROVIDER-BATCH-1",
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        metadata: {},
+        order: {
+          id: "order-provider-batch-1",
+          status: OrderStatus.PENDING,
+          shopId: "shop-1",
+          orderNumber: "ORD-PROVIDER-BATCH-1"
+        }
+      })
+      .mockResolvedValueOnce(null);
+    prisma.shop.findUnique.mockResolvedValue({
+      ownerId: "seller-1",
+      name: "Demo Seller Shop"
+    });
+
+    const result = await service.batchReplayProviderWebhook(
+      {
+        sub: "admin-1",
+        email: "admin@ecoms.local",
+        role: UserRole.ADMIN
+      },
+      {
+        paymentIds: ["payment-provider-batch-1"],
+        referenceCodes: ["missing-provider-reference"],
+        event: PaymentWebhookEvent.PAID,
+        providerReferencePrefix: "provider-bulk"
+      }
+    );
+
+    expect(result).toEqual({
+      event: PaymentWebhookEvent.PAID,
+      targetCount: 2,
+      successCount: 1,
+      failureCount: 1,
+      results: [
+        {
+          target: "payment-provider-batch-1",
+          ok: true,
+          providerMode: "demo_gateway",
+          providerContract: "demo_gateway",
+          paymentStatus: PaymentStatus.PAID,
+          orderStatus: OrderStatus.CONFIRMED,
+          processed: true
+        },
+        {
+          target: "missing-provider-reference",
+          ok: false,
+          error: "Payment not found"
+        }
+      ]
+    });
+    expect(paymentGatewayService.signDemoGatewayPayload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        referenceCode: "PAY-PROVIDER-BATCH-1",
+        providerReference: "provider-bulk-1"
+      })
+    );
+    expect(auditLogsService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "health.diagnostics.payment_provider_batch_replay",
+        metadata: expect.objectContaining({
+          targetCount: 2,
+          successCount: 1,
+          failureCount: 1
+        })
+      })
+    );
+  });
+
   it("returns admin payment trace with payment events", async () => {
     prisma.payment.findFirst.mockResolvedValue({
       id: "payment-trace-1",
